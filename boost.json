@@ -12,7 +12,8 @@
     "packages": [
         "livewire/blaze",
         "spatie/laravel-activitylog",
-        "spatie/laravel-medialibrary"
+        "spatie/laravel-medialibrary",
+        "spatie/laravel-permission"
     ],
     "sail": false,
     "skills": [
@@ -25,6 +26,7 @@
         "pest-testing",
         "tailwindcss-development",
         "blaze-optimize",
-        "medialibrary-development"
+        "medialibrary-development",
+        "laravel-permission-development"
     ]
 }
