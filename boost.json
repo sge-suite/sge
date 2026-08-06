@@ -11,7 +11,8 @@
     "nightwatch": false,
     "packages": [
         "livewire/blaze",
-        "spatie/laravel-activitylog"
+        "spatie/laravel-activitylog",
+        "spatie/laravel-medialibrary"
     ],
     "sail": false,
     "skills": [
@@ -23,6 +24,7 @@
         "livewire-development",
         "pest-testing",
         "tailwindcss-development",
-        "blaze-optimize"
+        "blaze-optimize",
+        "medialibrary-development"
     ]
 }
