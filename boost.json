@@ -13,7 +13,8 @@
         "livewire/blaze",
         "spatie/laravel-activitylog",
         "spatie/laravel-medialibrary",
-        "spatie/laravel-permission"
+        "spatie/laravel-permission",
+        "spatie/laravel-backup"
     ],
     "sail": false,
     "skills": [
@@ -26,6 +27,7 @@
         "pest-testing",
         "tailwindcss-development",
         "blaze-optimize",
+        "laravel-backup",
         "medialibrary-development",
         "laravel-permission-development"
     ]
