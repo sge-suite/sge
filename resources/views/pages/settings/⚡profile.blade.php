@@ -29,14 +29,14 @@ new #[Title('Profile settings')] class extends Component {
 <section class="w-full">
     @include('partials.settings-heading')
 
-    <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>
+    <flux:heading class="sr-only">Configurações do Perfil</flux:heading>
 
-    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Your profile information')">
+    <x-pages::settings.layout heading="Perfil" subheading="Informações do seu perfil">
         <div class="my-6 w-full space-y-6">
-            <flux:input wire:model="name" :label="__('Name')" type="text" readonly disabled />
+            <flux:input wire:model="name" label="Nome" type="text" readonly disabled />
 
             <div>
-                <flux:input wire:model="email" :label="__('Email')" type="email" readonly disabled />
+                <flux:input wire:model="email" label="E-mail" type="email" readonly disabled />
             </div>
         </div>
     </x-pages::settings.layout>
