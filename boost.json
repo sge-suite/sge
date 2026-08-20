@@ -1,9 +1,7 @@
 {
     "agents": [
-        "claude_code",
         "codex",
-        "opencode",
-        "pi"
+        "antigravity"
     ],
     "cloud": false,
     "guidelines": true,
@@ -16,7 +14,7 @@
         "spatie/laravel-permission",
         "spatie/laravel-backup"
     ],
-    "sail": false,
+    "sail": true,
     "skills": [
         "infer-conventions",
         "fortify-development",
