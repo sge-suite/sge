@@ -1,112 +1,71 @@
 <?php
 
-namespace App\Helpers {
+declare(strict_types=1);
 
-    use Carbon\Carbon;
-    use Illuminate\Support\Str;
+namespace App\Helpers;
 
-    class DateHelper
+use Carbon\Carbon;
+use DateTimeInterface;
+use Illuminate\Support\Str;
+
+final class DateHelper
+{
+    public static function format(string|DateTimeInterface|null $date): string
     {
-        public static function format(string|Carbon|null $date): string
-        {
-            if (is_null($date)) {
-                return '-';
-            }
-
-            return Carbon::parse($date)->timezone(config('app.timezone'))->isoFormat('D [de] MMMM [de] YYYY');
+        if (is_null($date)) {
+            return '-';
         }
 
-        public static function formatShort(string|Carbon|null $date): string
-        {
-            if (is_null($date)) {
-                return '-';
-            }
-
-            return Carbon::parse($date)->timezone(config('app.timezone'))->isoFormat('DD/MM/YYYY');
-        }
-
-        public static function formatRelative(string|Carbon|null $date): string
-        {
-            if (is_null($date)) {
-                return '-';
-            }
-
-            return Carbon::parse($date)->timezone(config('app.timezone'))->diffForHumans();
-        }
-
-        public static function formatDateTime(string|Carbon|null $date): string
-        {
-            if (is_null($date)) {
-                return '-';
-            }
-
-            return Carbon::parse($date)->timezone(config('app.timezone'))->format('d/m/Y \à\s H:i');
-        }
-
-        public static function formatMonthYear(string|Carbon|null $date): string
-        {
-            if (is_null($date)) {
-                return '-';
-            }
-
-            return Carbon::parse($date)->timezone(config('app.timezone'))->isoFormat('MM/YYYY');
-        }
-
-        public static function formatMonthYearFull(string|Carbon|null $date): string
-        {
-            if (is_null($date)) {
-                return '-';
-            }
-
-            return Str::title(Carbon::parse($date)->timezone(config('app.timezone'))->isoFormat('MMMM YYYY'));
-        }
-    }
-}
-
-namespace {
-
-    use App\Helpers\DateHelper;
-    use Carbon\Carbon;
-
-    if (! function_exists('formatDate')) {
-        function formatDate(string|Carbon|null $date): string
-        {
-            return DateHelper::format($date);
-        }
+        return self::parse($date)->isoFormat('D [de] MMMM [de] YYYY');
     }
 
-    if (! function_exists('formatShort')) {
-        function formatShort(string|Carbon|null $date): string
-        {
-            return DateHelper::formatShort($date);
+    public static function formatShort(string|DateTimeInterface|null $date): string
+    {
+        if (is_null($date)) {
+            return '-';
         }
+
+        return self::parse($date)->isoFormat('DD/MM/YYYY');
     }
 
-    if (! function_exists('formatDateTime')) {
-        function formatDateTime(string|Carbon|null $date): string
-        {
-            return DateHelper::formatDateTime($date);
+    public static function formatRelative(string|DateTimeInterface|null $date): string
+    {
+        if (is_null($date)) {
+            return '-';
         }
+
+        return self::parse($date)->diffForHumans();
     }
 
-    if (! function_exists('formatRelative')) {
-        function formatRelative(string|Carbon|null $date): string
-        {
-            return DateHelper::formatRelative($date);
+    public static function formatDateTime(string|DateTimeInterface|null $date): string
+    {
+        if (is_null($date)) {
+            return '-';
         }
+
+        return self::parse($date)->format('d/m/Y \à\s H:i');
     }
 
-    if (! function_exists('formatMonthYear')) {
-        function formatMonthYear(string|Carbon|null $date): string
-        {
-            return DateHelper::formatMonthYear($date);
+    public static function formatMonthYear(string|DateTimeInterface|null $date): string
+    {
+        if (is_null($date)) {
+            return '-';
         }
+
+        return self::parse($date)->isoFormat('MM/YYYY');
     }
 
-    if (! function_exists('formatMonthYearFull')) {
-        function formatMonthYearFull(string|Carbon|null $date): string
-        {
-            return DateHelper::formatMonthYearFull($date);
+    public static function formatMonthYearFull(string|DateTimeInterface|null $date): string
+    {
+        if (is_null($date)) {
+            return '-';
         }
+
+        return Str::title(self::parse($date)->isoFormat('MMMM YYYY'));
+    }
+
+    private static function parse(string|DateTimeInterface $date): Carbon
+    {
+        return Carbon::parse($date)->timezone(config('app.timezone'));
     }
 }
