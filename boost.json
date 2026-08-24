@@ -5,8 +5,6 @@
     ],
     "cloud": false,
     "guidelines": true,
-    "mcp": true,
-    "nightwatch": false,
     "packages": [
         "livewire/blaze",
         "spatie/laravel-activitylog",
@@ -14,7 +12,6 @@
         "spatie/laravel-permission",
         "spatie/laravel-backup"
     ],
-    "sail": true,
     "skills": [
         "infer-conventions",
         "fortify-development",
