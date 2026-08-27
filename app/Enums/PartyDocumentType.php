@@ -4,8 +4,8 @@ namespace App\Enums;
 
 enum PartyDocumentType: string
 {
-    case Cpf = 'cpf';
-    case Cnpj = 'cnpj';
+    case CPF = 'cpf';
+    case CNPJ = 'cnpj';
 
     /**
      * Obter o rótulo do tipo de documento da parte em português.
@@ -13,8 +13,8 @@ enum PartyDocumentType: string
     public function label(): string
     {
         return match ($this) {
-            self::Cpf => 'CPF',
-            self::Cnpj => 'CNPJ',
+            self::CPF => 'CPF',
+            self::CNPJ => 'CNPJ',
         };
     }
 

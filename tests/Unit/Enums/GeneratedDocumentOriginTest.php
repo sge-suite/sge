@@ -14,6 +14,6 @@ test('provides generated document origin values and labels', function () {
             'sge' => 'SGE',
             'granting_party' => 'Parte concedente',
         ])
-        ->and(GeneratedDocumentOrigin::Sge->label())->toBe('SGE')
+        ->and(GeneratedDocumentOrigin::SGE->label())->toBe('SGE')
         ->and(GeneratedDocumentOrigin::GrantingParty->label())->toBe('Parte concedente');
 });

@@ -14,6 +14,6 @@ test('provides party document type values and labels', function () {
             'cpf' => 'CPF',
             'cnpj' => 'CNPJ',
         ])
-        ->and(PartyDocumentType::Cpf->label())->toBe('CPF')
-        ->and(PartyDocumentType::Cnpj->label())->toBe('CNPJ');
+        ->and(PartyDocumentType::CPF->label())->toBe('CPF')
+        ->and(PartyDocumentType::CNPJ->label())->toBe('CNPJ');
 });

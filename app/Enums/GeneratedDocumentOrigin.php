@@ -4,7 +4,7 @@ namespace App\Enums;
 
 enum GeneratedDocumentOrigin: string
 {
-    case Sge = 'sge';
+    case SGE = 'sge';
     case GrantingParty = 'granting_party';
 
     /**
@@ -13,7 +13,7 @@ enum GeneratedDocumentOrigin: string
     public function label(): string
     {
         return match ($this) {
-            self::Sge => 'SGE',
+            self::SGE => 'SGE',
             self::GrantingParty => 'Parte concedente',
         };
     }
