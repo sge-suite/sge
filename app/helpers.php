@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Helpers\BrazilianAddressHelper;
+use App\Helpers\BrazilianContactHelper;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\DateHelper;
-use App\Helpers\DocumentHelper;
+use App\Helpers\DigitsHelper;
 
 if (! function_exists('formatDate')) {
     function formatDate(string|DateTimeInterface|null $date): string
@@ -58,41 +61,41 @@ if (! function_exists('formatCurrency')) {
 if (! function_exists('unmask')) {
     function unmask(?string $value): string
     {
-        return DocumentHelper::unmask($value);
+        return DigitsHelper::only($value);
     }
 }
 
 if (! function_exists('formatCpf')) {
     function formatCpf(?string $value): string
     {
-        return DocumentHelper::formatCpf($value);
+        return BrazilianDocumentHelper::formatCpf($value);
     }
 }
 
 if (! function_exists('formatCnpj')) {
     function formatCnpj(?string $value): string
     {
-        return DocumentHelper::formatCnpj($value);
+        return BrazilianDocumentHelper::formatCnpj($value);
     }
 }
 
 if (! function_exists('formatCpfCnpj')) {
     function formatCpfCnpj(?string $value): string
     {
-        return DocumentHelper::formatCpfCnpj($value);
+        return BrazilianDocumentHelper::formatCpfCnpj($value);
     }
 }
 
 if (! function_exists('formatPhone')) {
     function formatPhone(?string $value): string
     {
-        return DocumentHelper::formatPhone($value);
+        return BrazilianContactHelper::formatPhone($value);
     }
 }
 
 if (! function_exists('formatCep')) {
     function formatCep(?string $value): string
     {
-        return DocumentHelper::formatCep($value);
+        return BrazilianAddressHelper::formatCep($value);
     }
 }

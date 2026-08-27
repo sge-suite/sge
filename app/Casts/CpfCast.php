@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Casts;
 
+use App\Helpers\DigitsHelper;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
@@ -35,7 +36,7 @@ class CpfCast implements CastsAttributes
             return null;
         }
 
-        $digits = unmask((string) $value);
+        $digits = DigitsHelper::only((string) $value);
 
         if (! (new Cpf)->passes($key, $digits)) {
             throw new InvalidArgumentException("O CPF '{$value}' informado é inválido.");

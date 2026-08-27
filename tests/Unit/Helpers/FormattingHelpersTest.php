@@ -1,6 +1,10 @@
 <?php
 
+use App\Helpers\BrazilianAddressHelper;
+use App\Helpers\BrazilianContactHelper;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Helpers\DateHelper;
+use App\Helpers\DigitsHelper;
 use Carbon\CarbonImmutable;
 use Tests\TestCase;
 
@@ -15,11 +19,18 @@ test('date helpers support immutable dates and the configured timezone', functio
         ->and(DateHelper::formatShort($date))->toBe('10/01/2024');
 });
 
-test('document helpers show a placeholder for blank values', function () {
+test('formatting helpers show a placeholder for blank values', function () {
     expect(formatCpf('   '))->toBe('-')
         ->and(formatCnpj('   '))->toBe('-')
         ->and(formatPhone('   '))->toBe('-')
         ->and(formatCep('   '))->toBe('-');
+});
+
+test('formatting helpers are separated by domain', function () {
+    expect(BrazilianDocumentHelper::formatCpf('52998224725'))->toBe('529.982.247-25')
+        ->and(BrazilianContactHelper::formatPhone('11998765432'))->toBe('(11) 99876-5432')
+        ->and(BrazilianAddressHelper::formatCep('01001000'))->toBe('01001-000')
+        ->and(DigitsHelper::only('(11) 99876-5432'))->toBe('11998765432');
 });
 
 test('formats Brazilian phone numbers with country code', function () {
