@@ -9,7 +9,6 @@
         "livewire/blaze",
         "spatie/laravel-activitylog",
         "spatie/laravel-medialibrary",
-        "spatie/laravel-permission",
         "spatie/laravel-backup"
     ],
     "skills": [
@@ -23,7 +22,6 @@
         "tailwindcss-development",
         "blaze-optimize",
         "laravel-backup",
-        "medialibrary-development",
-        "laravel-permission-development"
+        "medialibrary-development"
     ]
 }
