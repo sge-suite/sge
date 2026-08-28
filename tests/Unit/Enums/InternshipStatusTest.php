@@ -5,17 +5,27 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
-test('provides internship status values and labels', function () {
-    expect(InternshipStatus::values())->toBe([
-        'pending_formalization',
-        'awaiting_signatures',
-        'pending_correction',
-        'released',
-        'in_progress',
-        'paused',
-        'completed',
-        'cancelled',
+test('defines internship status cases, values, labels and options', function () {
+    expect(InternshipStatus::cases())->toBe([
+        InternshipStatus::PendingFormalization,
+        InternshipStatus::AwaitingSignatures,
+        InternshipStatus::PendingCorrection,
+        InternshipStatus::Released,
+        InternshipStatus::InProgress,
+        InternshipStatus::Paused,
+        InternshipStatus::Completed,
+        InternshipStatus::Cancelled,
     ])
+        ->and(InternshipStatus::values())->toBe([
+            'pending_formalization',
+            'awaiting_signatures',
+            'pending_correction',
+            'released',
+            'in_progress',
+            'paused',
+            'completed',
+            'cancelled',
+        ])
         ->and(InternshipStatus::options())->toBe([
             'pending_formalization' => 'Em formalização',
             'awaiting_signatures' => 'Aguardando assinaturas',

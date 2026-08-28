@@ -5,13 +5,19 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
-test('provides internship request correction status values and labels', function () {
-    expect(InternshipRequestCorrectionStatus::values())->toBe([
-        'open',
-        'responded',
-        'resolved',
-        'cancelled',
+test('defines internship request correction status cases, values, labels and options', function () {
+    expect(InternshipRequestCorrectionStatus::cases())->toBe([
+        InternshipRequestCorrectionStatus::Open,
+        InternshipRequestCorrectionStatus::Responded,
+        InternshipRequestCorrectionStatus::Resolved,
+        InternshipRequestCorrectionStatus::Cancelled,
     ])
+        ->and(InternshipRequestCorrectionStatus::values())->toBe([
+            'open',
+            'responded',
+            'resolved',
+            'cancelled',
+        ])
         ->and(InternshipRequestCorrectionStatus::options())->toBe([
             'open' => 'Aberta',
             'responded' => 'Respondida',

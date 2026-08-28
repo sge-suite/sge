@@ -5,16 +5,25 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
-test('provides internship request status values and labels', function () {
-    expect(InternshipRequestStatus::values())->toBe([
-        'draft',
-        'submitted',
-        'under_review',
-        'pending_correction',
-        'accepted',
-        'rejected',
-        'withdrawn',
+test('defines internship request status cases, values, labels and options', function () {
+    expect(InternshipRequestStatus::cases())->toBe([
+        InternshipRequestStatus::Draft,
+        InternshipRequestStatus::Submitted,
+        InternshipRequestStatus::UnderReview,
+        InternshipRequestStatus::PendingCorrection,
+        InternshipRequestStatus::Accepted,
+        InternshipRequestStatus::Rejected,
+        InternshipRequestStatus::Withdrawn,
     ])
+        ->and(InternshipRequestStatus::values())->toBe([
+            'draft',
+            'submitted',
+            'under_review',
+            'pending_correction',
+            'accepted',
+            'rejected',
+            'withdrawn',
+        ])
         ->and(InternshipRequestStatus::options())->toBe([
             'draft' => 'Rascunho',
             'submitted' => 'Enviada',
