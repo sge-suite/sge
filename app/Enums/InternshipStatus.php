@@ -4,12 +4,9 @@ namespace App\Enums;
 
 enum InternshipStatus: string
 {
-    case Draft = 'draft';
-    case Submitted = 'submitted';
-    case UnderReview = 'under_review';
+    case PendingFormalization = 'pending_formalization';
+    case AwaitingSignatures = 'awaiting_signatures';
     case PendingCorrection = 'pending_correction';
-    case Rejected = 'rejected';
-    case Accepted = 'accepted';
     case Released = 'released';
     case InProgress = 'in_progress';
     case Paused = 'paused';
@@ -22,12 +19,9 @@ enum InternshipStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Draft => 'Rascunho',
-            self::Submitted => 'Enviado',
-            self::UnderReview => 'Em análise',
-            self::PendingCorrection => 'Com pendência',
-            self::Rejected => 'Recusado',
-            self::Accepted => 'Aceito',
+            self::PendingFormalization => 'Em formalização',
+            self::AwaitingSignatures => 'Aguardando assinaturas',
+            self::PendingCorrection => 'Com pendência documental',
             self::Released => 'Liberado',
             self::InProgress => 'Em andamento',
             self::Paused => 'Pausado',

@@ -7,12 +7,9 @@ uses(TestCase::class);
 
 test('provides internship status values and labels', function () {
     expect(InternshipStatus::values())->toBe([
-        'draft',
-        'submitted',
-        'under_review',
+        'pending_formalization',
+        'awaiting_signatures',
         'pending_correction',
-        'rejected',
-        'accepted',
         'released',
         'in_progress',
         'paused',
@@ -20,17 +17,21 @@ test('provides internship status values and labels', function () {
         'cancelled',
     ])
         ->and(InternshipStatus::options())->toBe([
-            'draft' => 'Rascunho',
-            'submitted' => 'Enviado',
-            'under_review' => 'Em análise',
-            'pending_correction' => 'Com pendência',
-            'rejected' => 'Recusado',
-            'accepted' => 'Aceito',
+            'pending_formalization' => 'Em formalização',
+            'awaiting_signatures' => 'Aguardando assinaturas',
+            'pending_correction' => 'Com pendência documental',
             'released' => 'Liberado',
             'in_progress' => 'Em andamento',
             'paused' => 'Pausado',
             'completed' => 'Concluído',
             'cancelled' => 'Cancelado',
         ])
-        ->and(InternshipStatus::UnderReview->label())->toBe('Em análise');
+        ->and(InternshipStatus::PendingFormalization->label())->toBe('Em formalização')
+        ->and(InternshipStatus::AwaitingSignatures->label())->toBe('Aguardando assinaturas')
+        ->and(InternshipStatus::PendingCorrection->label())->toBe('Com pendência documental')
+        ->and(InternshipStatus::Released->label())->toBe('Liberado')
+        ->and(InternshipStatus::InProgress->label())->toBe('Em andamento')
+        ->and(InternshipStatus::Paused->label())->toBe('Pausado')
+        ->and(InternshipStatus::Completed->label())->toBe('Concluído')
+        ->and(InternshipStatus::Cancelled->label())->toBe('Cancelado');
 });
