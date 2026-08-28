@@ -8,6 +8,8 @@ use App\Helpers\BrazilianDocumentHelper;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\DateHelper;
 use App\Helpers\DigitsHelper;
+use App\Helpers\NumberToWordsHelper;
+use Brick\Math\BigDecimal;
 
 if (! function_exists('formatDate')) {
     function formatDate(string|DateTimeInterface|null $date): string
@@ -55,6 +57,20 @@ if (! function_exists('formatCurrency')) {
     function formatCurrency(int|float|null $value, string $currency = 'BRL', ?string $locale = 'pt_BR'): string
     {
         return CurrencyHelper::format($value, $currency, $locale);
+    }
+}
+
+if (! function_exists('numberToWords')) {
+    function numberToWords(int $value): string
+    {
+        return NumberToWordsHelper::cardinal($value);
+    }
+}
+
+if (! function_exists('brlToWords')) {
+    function brlToWords(string|int|BigDecimal $value): string
+    {
+        return NumberToWordsHelper::brl($value);
     }
 }
 
