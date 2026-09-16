@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Enums\BrazilianState;
+use Database\Factories\CityFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -21,6 +23,9 @@ use Illuminate\Support\Str;
 #[Fillable(['ibge_code', 'name', 'state'])]
 class City extends Model
 {
+    /** @use HasFactory<CityFactory> */
+    use HasFactory;
+
     /**
      * Get the attributes that should be cast.
      *
@@ -35,6 +40,9 @@ class City extends Model
 
     /**
      * Scope a query to a Brazilian state.
+     *
+     * @param  Builder<City>  $query
+     * @return Builder<City>
      */
     public function scopeForState(Builder $query, BrazilianState|string $state): Builder
     {
@@ -47,9 +55,17 @@ class City extends Model
 
     /**
      * Get the municipal holidays associated with the city.
+     *
+     * @return HasMany<Holiday, $this>
      */
     public function holidays(): HasMany
     {
         return $this->hasMany(Holiday::class);
+    }
+
+    /** @return HasMany<Address, $this> */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
     }
 }
