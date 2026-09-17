@@ -8,7 +8,6 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
-use InvalidArgumentException;
 
 test('creates the holidays table with catalog indexes', function () {
     expect(Schema::hasTable('holidays'))->toBeTrue()
@@ -194,6 +193,63 @@ function createHoliday(array $attributes = []): Holiday
         ...$attributes,
     ]);
 }
+
+test('validates required holiday fields when saving the model', function (string $field, mixed $value) {
+    expect(fn () => createHoliday([$field => $value]))->toThrow(InvalidArgumentException::class)
+        ->and(Holiday::count())->toBe(0);
+})->with([
+    'missing date' => ['date', null],
+    'missing name' => ['name', null],
+    'blank name' => ['name', '   '],
+    'numeric name' => ['name', 123],
+    'long name' => ['name', str_repeat('á', 256)],
+    'missing scope' => ['scope', null],
+    'invalid city identifier' => ['city_id', 'abc'],
+]);
+
+test('rejects invalid holiday updates without changing persisted data', function () {
+    $holiday = createHoliday();
+    $original = $holiday->fresh()->getRawOriginal();
+
+    expect(fn () => $holiday->update(['name' => '']))->toThrow(InvalidArgumentException::class)
+        ->and($holiday->fresh()->getRawOriginal())->toBe($original);
+});
+
+test('accepts the holiday name limit including multibyte characters', function () {
+    $holiday = createHoliday(['name' => str_repeat('á', 255)]);
+    expect($holiday->fresh()->name)->toBe(str_repeat('á', 255));
+});
+
+test('rejects malformed imported holidays before writing any rows', function (string $field, mixed $value) {
+    Http::preventStrayRequests();
+    $existing = createHoliday(['name' => 'Registro existente']);
+    $original = $existing->fresh()->getRawOriginal();
+    $valid = ['date' => '2026-04-21', 'name' => 'Tiradentes', 'type' => 'national'];
+    Http::fake([
+        'https://brasilapi.com.br/api/feriados/v1/2026' => Http::response([
+            $valid,
+            [...$valid, 'name' => 'Outro feriado', $field => $value],
+        ]),
+    ]);
+
+    $this->artisan('holidays:import', ['year' => '2026'])->assertFailed();
+    expect(Holiday::count())->toBe(1)
+        ->and($existing->fresh()->getRawOriginal())->toBe($original);
+    Http::assertSentCount(1);
+})->with([
+    'missing date' => ['date', null],
+    'non-string date' => ['date', 20260421],
+    'impossible date' => ['date', '2026-02-30'],
+    'unformatted date' => ['date', '21/04/2026'],
+    'date containing time' => ['date', '2026-04-21 00:00:00'],
+    'date from another year' => ['date', '2025-04-21'],
+    'missing name' => ['name', null],
+    'blank name' => ['name', '   '],
+    'non-string name' => ['name', 123],
+    'long name' => ['name', str_repeat('á', 256)],
+    'unknown scope' => ['type', 'unknown'],
+    'state scope without requested UF' => ['type', 'state'],
+]);
 
 function createTestCity(BrazilianState $state): City
 {

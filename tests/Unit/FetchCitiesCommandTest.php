@@ -4,7 +4,6 @@ use App\Enums\BrazilianState;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -65,6 +64,46 @@ test('fetches all cities and writes a normalized catalog', function () {
         File::delete($outputPath);
     }
 });
+
+test('rejects invalid fetched city fields without replacing the existing catalog', function (string $field, mixed $value) {
+    Http::preventStrayRequests();
+    $states = BrazilianState::values();
+    $responses = [
+        'https://brasilapi.com.br/api/ibge/uf/v1' => Http::response(array_map(
+            static fn (string $state): array => ['sigla' => $state], $states,
+        )),
+    ];
+
+    foreach ($states as $index => $state) {
+        $city = [
+            'codigo_ibge' => str_pad((string) ($index + 1), 7, '0', STR_PAD_LEFT),
+            'nome' => 'Cidade de Teste',
+        ];
+        if ($state === 'AC') {
+            $city[$field] = $value;
+        }
+        $responses['https://brasilapi.com.br/api/ibge/municipios/v1/'.$state] = Http::response([$city]);
+    }
+    Http::fake($responses);
+
+    $outputPath = tempnam(sys_get_temp_dir(), 'cities-test-');
+    if ($outputPath === false) {
+        throw new RuntimeException('Não foi possível criar o arquivo temporário do teste.');
+    }
+    File::put($outputPath, '[{"existing":true}]');
+
+    try {
+        $this->artisan('cities:fetch', ['--output' => $outputPath, '--force' => true])->assertFailed();
+        expect(File::get($outputPath))->toBe('[{"existing":true}]');
+    } finally {
+        File::delete($outputPath);
+    }
+})->with([
+    'short IBGE code' => ['codigo_ibge', '000001'],
+    'invalid IBGE code' => ['codigo_ibge', '000000a'],
+    'blank name' => ['nome', '   '],
+    'long name' => ['nome', str_repeat('á', 121)],
+]);
 
 test('refuses to overwrite an existing catalog without force', function () {
     Http::preventStrayRequests();
