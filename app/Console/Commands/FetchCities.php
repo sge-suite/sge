@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Concerns\CityValidationRules;
 use App\Enums\BrazilianState;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -11,6 +12,7 @@ use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -21,6 +23,8 @@ use Throwable;
 #[Description('Baixa os municípios da BrasilAPI e gera o catálogo local de cidades.')]
 class FetchCities extends Command
 {
+    use CityValidationRules;
+
     /**
      * Executa a coleta e grava o catálogo local.
      */
@@ -100,7 +104,7 @@ class FetchCities extends Command
             throw new RuntimeException('A lista de UFs retornada pela BrasilAPI não corresponde às 27 UFs esperadas.');
         }
 
-        return $expectedStates;
+        return array_values($expectedStates);
     }
 
     /**
@@ -155,14 +159,24 @@ class FetchCities extends Command
                     throw new RuntimeException("A resposta de municípios de {$state} não contém código IBGE.");
                 }
 
-                if (! is_string($name) || trim($name) === '') {
+                if (! is_string($name)) {
                     throw new RuntimeException("A resposta de municípios de {$state} não contém nome.");
                 }
 
                 $code = trim((string) $code);
+                $record = [
+                    'ibge_code' => $code,
+                    'name' => $this->normalizeCityName($name),
+                    'state' => $state,
+                ];
+                $validator = Validator::make($record, $this->cityRules(), [
+                    'ibge_code.*' => "O código IBGE {$code} da UF {$state} não possui sete dígitos.",
+                    'name.required' => "A resposta de municípios de {$state} não contém nome.",
+                    'name.max' => "O nome do município {$code} excede o limite de 120 caracteres.",
+                ]);
 
-                if (preg_match('/^\d{7}$/', $code) !== 1) {
-                    throw new RuntimeException("O código IBGE {$code} da UF {$state} não possui sete dígitos.");
+                if ($validator->fails()) {
+                    throw new RuntimeException($validator->errors()->first());
                 }
 
                 if (array_key_exists($code, $codes)) {
@@ -170,11 +184,7 @@ class FetchCities extends Command
                 }
 
                 $codes[$code] = true;
-                $cities[] = [
-                    'ibge_code' => $code,
-                    'name' => $this->normalizeCityName($name),
-                    'state' => $state,
-                ];
+                $cities[] = $record;
             }
         }
 

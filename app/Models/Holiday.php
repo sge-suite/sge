@@ -2,20 +2,23 @@
 
 namespace App\Models;
 
+use App\Concerns\HolidayValidationRules;
 use App\Enums\BrazilianState;
 use App\Enums\HolidayScope;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
  * @property int $id
- * @property Carbon $date
+ * @property CarbonImmutable|null $date
  * @property string $name
  * @property HolidayScope $scope
  * @property BrazilianState|null $state_code
@@ -33,6 +36,7 @@ use InvalidArgumentException;
 ])]
 class Holiday extends Model
 {
+    use HolidayValidationRules;
     use SoftDeletes;
 
     /**
@@ -51,6 +55,8 @@ class Holiday extends Model
 
     /**
      * Get the city to which this holiday applies.
+     *
+     * @return BelongsTo<City, $this>
      */
     public function city(): BelongsTo
     {
@@ -59,6 +65,9 @@ class Holiday extends Model
 
     /**
      * Scope a query to a Brazilian state.
+     *
+     * @param  Builder<Holiday>  $query
+     * @return Builder<Holiday>
      */
     public function scopeForState(Builder $query, BrazilianState|string $state): Builder
     {
@@ -75,6 +84,14 @@ class Holiday extends Model
     protected static function booted(): void
     {
         static::saving(function (self $holiday): void {
+            $attributes = $holiday->getAttributes();
+            $attributes['date'] = $holiday->date?->toDateString();
+            $validator = Validator::make($attributes, $holiday->holidayRules());
+
+            if ($validator->fails()) {
+                throw new InvalidArgumentException($validator->errors()->first());
+            }
+
             match ($holiday->scope) {
                 HolidayScope::National => self::validateNationalScope($holiday),
                 HolidayScope::State => self::validateStateScope($holiday),

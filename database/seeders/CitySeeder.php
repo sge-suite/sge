@@ -2,15 +2,18 @@
 
 namespace Database\Seeders;
 
-use App\Enums\BrazilianState;
+use App\Concerns\CityValidationRules;
 use App\Models\City;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 
 class CitySeeder extends Seeder
 {
+    use CityValidationRules;
+
     private const int BATCH_SIZE = 500;
 
     /**
@@ -67,9 +70,25 @@ class CitySeeder extends Seeder
             $name = $city['name'] ?? null;
             $state = $city['state'] ?? null;
 
-            if (! is_string($ibgeCode) || preg_match('/^\d{7}$/', $ibgeCode) !== 1) {
-                throw new InvalidArgumentException('O catálogo contém um código IBGE inválido.');
+            $validator = Validator::make([
+                'ibge_code' => $ibgeCode,
+                'name' => is_string($name) ? trim($name) : $name,
+                'state' => $state,
+            ], $this->cityRules(), [
+                'ibge_code.*' => 'O catálogo contém um código IBGE inválido.',
+                'name.required' => 'O catálogo contém uma cidade sem nome válido.',
+                'name.string' => 'O catálogo contém uma cidade sem nome válido.',
+                'name.max' => 'O catálogo contém uma cidade que excede o limite de 120 caracteres.',
+                'state.*' => 'O catálogo contém uma UF inválida.',
+            ]);
+
+            if ($validator->fails()) {
+                throw new InvalidArgumentException($validator->errors()->first());
             }
+
+            /** @var array{ibge_code: string, name: string, state: string} $validated */
+            $validated = $validator->validated();
+            $ibgeCode = $validated['ibge_code'];
 
             if (isset($ibgeCodes[$ibgeCode])) {
                 throw new InvalidArgumentException("O código IBGE {$ibgeCode} está duplicado no catálogo.");
@@ -77,23 +96,7 @@ class CitySeeder extends Seeder
 
             $ibgeCodes[$ibgeCode] = true;
 
-            if (! is_string($name) || trim($name) === '') {
-                throw new InvalidArgumentException("A cidade {$ibgeCode} não contém um nome válido.");
-            }
-
-            if (mb_strlen(trim($name), 'UTF-8') > 120) {
-                throw new InvalidArgumentException("A cidade {$ibgeCode} excede o limite de 120 caracteres.");
-            }
-
-            if (! is_string($state) || BrazilianState::tryFrom($state) === null) {
-                throw new InvalidArgumentException("A cidade {$ibgeCode} contém uma UF inválida.");
-            }
-
-            $cities[] = [
-                'ibge_code' => $ibgeCode,
-                'name' => trim($name),
-                'state' => $state,
-            ];
+            $cities[] = $validated;
         }
 
         if ($cities === []) {

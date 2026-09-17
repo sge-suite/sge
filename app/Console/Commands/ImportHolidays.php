@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Concerns\HolidayValidationRules;
 use App\Enums\BrazilianState;
 use App\Enums\HolidayScope;
 use App\Models\Holiday;
@@ -12,6 +13,7 @@ use Illuminate\Console\Command;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Validator;
 use RuntimeException;
 use Throwable;
 
@@ -21,6 +23,8 @@ use Throwable;
 #[Description('Importa feriados nacionais e estaduais da BrasilAPI sem sobrescrever registros existentes.')]
 class ImportHolidays extends Command
 {
+    use HolidayValidationRules;
+
     /**
      * Importa os feriados de um ano.
      */
@@ -51,6 +55,7 @@ class ImportHolidays extends Command
 
     private function year(): int
     {
+        /** @var mixed $year */
         $year = $this->argument('year');
 
         if (! is_string($year) || preg_match('/^\d{4}$/', $year) !== 1 || (int) $year < 1900 || (int) $year > 2199) {
@@ -62,6 +67,7 @@ class ImportHolidays extends Command
 
     private function state(): ?BrazilianState
     {
+        /** @var mixed $state */
         $state = $this->option('uf');
 
         if ($state === null || (is_string($state) && trim($state) === '')) {
@@ -117,15 +123,28 @@ class ImportHolidays extends Command
                 throw new RuntimeException('A BrasilAPI retornou feriado estadual sem uma UF solicitada.');
             }
 
-            $date = $this->parseDate($holiday['date'] ?? null, $year);
+            $holidayState = $scope === HolidayScope::State ? $state : null;
             $name = $holiday['name'] ?? null;
+            $validator = Validator::make([
+                'date' => $holiday['date'] ?? null,
+                'name' => is_string($name) ? trim($name) : $name,
+                'scope' => $scope->value,
+                'state_code' => $holidayState?->value,
+                'city_id' => null,
+            ], $this->holidayRules(), [
+                'date.*' => 'A resposta de feriados não contém uma data válida no formato YYYY-MM-DD.',
+                'name.*' => 'A resposta de feriados não contém um nome válido.',
+            ]);
 
-            if (! is_string($name) || trim($name) === '' || mb_strlen(trim($name)) > 255) {
-                throw new RuntimeException('A resposta de feriados não contém um nome válido.');
+            if ($validator->fails()) {
+                throw new RuntimeException($validator->errors()->first());
             }
 
-            $name = trim($name);
-            $key = $date->toDateString().'|'.$scope->value.'|'.($state?->value ?? '').'|'.$name;
+            /** @var array{date: string, name: string, scope: string, state_code: string|null, city_id: int|null} $validated */
+            $validated = $validator->validated();
+            $date = $this->parseDate($validated['date'], $year);
+            $name = $validated['name'];
+            $key = $date->toDateString().'|'.$scope->value.'|'.($validated['state_code'] ?? '').'|'.$name;
 
             if (isset($keys[$key])) {
                 throw new RuntimeException("O feriado {$name} apareceu mais de uma vez na resposta.");
@@ -136,7 +155,7 @@ class ImportHolidays extends Command
                 'date' => $date,
                 'name' => $name,
                 'scope' => $scope,
-                'state' => $scope === HolidayScope::State ? $state : null,
+                'state' => $holidayState,
             ];
         }
 
@@ -147,16 +166,12 @@ class ImportHolidays extends Command
         return $holidays;
     }
 
-    private function parseDate(mixed $value, int $year): CarbonImmutable
+    private function parseDate(string $value, int $year): CarbonImmutable
     {
-        if (! is_string($value)) {
-            throw new RuntimeException('A resposta de feriados não contém uma data válida.');
-        }
-
         $date = CarbonImmutable::createFromFormat('!Y-m-d', $value);
 
-        if ($date === false || $date->toDateString() !== $value || $date->year !== $year) {
-            throw new RuntimeException("A data {$value} não pertence ao ano importado ou não está no formato YYYY-MM-DD.");
+        if ($date->year !== $year) {
+            throw new RuntimeException("A data {$value} não pertence ao ano importado.");
         }
 
         return $date;

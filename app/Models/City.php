@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\CityValidationRules;
 use App\Enums\BrazilianState;
 use Database\Factories\CityFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 /**
@@ -23,6 +25,8 @@ use Illuminate\Support\Str;
 #[Fillable(['ibge_code', 'name', 'state'])]
 class City extends Model
 {
+    use CityValidationRules;
+
     /** @use HasFactory<CityFactory> */
     use HasFactory;
 
@@ -67,5 +71,12 @@ class City extends Model
     public function addresses(): HasMany
     {
         return $this->hasMany(Address::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $city): void {
+            Validator::make($city->getAttributes(), $city->cityRules())->validate();
+        });
     }
 }
