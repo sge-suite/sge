@@ -55,17 +55,21 @@ test('creates the addresses schema with exact PostgreSQL types and constraints',
         ]);
 });
 
-test('rolls back and reapplies only the addresses migration on PostgreSQL', function () {
+test('rolls back and reapplies migrations from addresses onwards on PostgreSQL', function () {
     $paths = glob(database_path('migrations/*_create_addresses_table.php'));
     expect($paths)->toHaveCount(1);
-    $options = ['--path' => $paths, '--realpath' => true, '--no-interaction' => true];
+    $addressMigration = pathinfo($paths[0], PATHINFO_FILENAME);
+    $steps = DB::table('migrations')->where('migration', '>=', $addressMigration)->count();
 
-    $this->artisan('migrate:rollback', [...$options, '--step' => 1])->assertSuccessful();
+    expect($steps)->toBeGreaterThan(0);
+    $this->artisan('migrate:rollback', ['--step' => $steps, '--no-interaction' => true])->assertSuccessful();
     expect(Schema::hasTable('addresses'))->toBeFalse()
-        ->and(Schema::hasTable('cities'))->toBeTrue();
+        ->and(Schema::hasTable('cities'))->toBeTrue()
+        ->and(Schema::hasTable('user_personal_data'))->toBeFalse();
 
-    $this->artisan('migrate', $options)->assertSuccessful();
-    expect(Schema::hasTable('addresses'))->toBeTrue();
+    $this->artisan('migrate', ['--no-interaction' => true])->assertSuccessful();
+    expect(Schema::hasTable('addresses'))->toBeTrue()
+        ->and(Schema::hasTable('user_personal_data'))->toBeTrue();
 });
 
 test('enforces required columns in PostgreSQL even when model validation is bypassed', function (string $field) {
