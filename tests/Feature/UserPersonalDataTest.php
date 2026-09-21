@@ -59,18 +59,22 @@ test('creates the user personal data schema with exact PostgreSQL types and cons
         ]);
 });
 
-test('rolls back and reapplies only the user personal data migration on PostgreSQL', function () {
+test('rolls back and reapplies migrations from user personal data onwards on PostgreSQL', function () {
     $paths = glob(database_path('migrations/*_create_user_personal_data_table.php'));
     expect($paths)->toHaveCount(1);
-    $options = ['--path' => $paths, '--realpath' => true, '--no-interaction' => true];
+    $personalDataMigration = pathinfo($paths[0], PATHINFO_FILENAME);
+    $steps = DB::table('migrations')->where('migration', '>=', $personalDataMigration)->count();
 
-    $this->artisan('migrate:rollback', [...$options, '--step' => 1])->assertSuccessful();
+    expect($steps)->toBeGreaterThan(0);
+    $this->artisan('migrate:rollback', ['--step' => $steps, '--no-interaction' => true])->assertSuccessful();
     expect(Schema::hasTable('user_personal_data'))->toBeFalse()
+        ->and(Schema::hasTable('campuses'))->toBeFalse()
         ->and(Schema::hasTable('users'))->toBeTrue()
         ->and(Schema::hasTable('addresses'))->toBeTrue();
 
-    $this->artisan('migrate', $options)->assertSuccessful();
-    expect(Schema::hasTable('user_personal_data'))->toBeTrue();
+    $this->artisan('migrate', ['--no-interaction' => true])->assertSuccessful();
+    expect(Schema::hasTable('user_personal_data'))->toBeTrue()
+        ->and(Schema::hasTable('campuses'))->toBeTrue();
 });
 
 test('enforces the required user, unique profile, and foreign keys in PostgreSQL', function () {

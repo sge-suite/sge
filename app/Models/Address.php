@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -52,6 +53,12 @@ class Address extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class);
+    }
+
+    /** @return HasMany<Campus, $this> */
+    public function campuses(): HasMany
+    {
+        return $this->hasMany(Campus::class);
     }
 
     public function getActivitylogOptions(): LogOptions
