@@ -70,18 +70,21 @@ test('creates the campuses schema with exact PostgreSQL types and constraints', 
         ]);
 });
 
-test('rolls back and reapplies only the campuses migration on PostgreSQL', function () {
+test('rolls back campuses and affiliations in dependency order on PostgreSQL', function () {
     $paths = glob(database_path('migrations/*_create_campuses_table.php'));
     expect($paths)->toHaveCount(1);
-    $options = ['--path' => $paths, '--realpath' => true, '--no-interaction' => true];
+    $campusMigration = pathinfo($paths[0], PATHINFO_FILENAME);
+    $steps = DB::table('migrations')->where('migration', '>=', $campusMigration)->count();
 
-    $this->artisan('migrate:rollback', [...$options, '--step' => 1])->assertSuccessful();
+    $this->artisan('migrate:rollback', ['--step' => $steps, '--no-interaction' => true])->assertSuccessful();
     expect(Schema::hasTable('campuses'))->toBeFalse()
+        ->and(Schema::hasTable('affiliations'))->toBeFalse()
         ->and(Schema::hasTable('addresses'))->toBeTrue()
         ->and(Schema::hasTable('user_personal_data'))->toBeTrue();
 
-    $this->artisan('migrate', $options)->assertSuccessful();
-    expect(Schema::hasTable('campuses'))->toBeTrue();
+    $this->artisan('migrate', ['--no-interaction' => true])->assertSuccessful();
+    expect(Schema::hasTable('campuses'))->toBeTrue()
+        ->and(Schema::hasTable('affiliations'))->toBeTrue();
 });
 
 test('enforces the required current address and its foreign key in PostgreSQL', function () {

@@ -1,0 +1,115 @@
+<?php
+
+namespace App\Models;
+
+use App\Concerns\AffiliationValidationRules;
+use App\Enums\AffiliationType;
+use Database\Factories\AffiliationFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
+
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property int|null $campus_id
+ * @property AffiliationType $type
+ * @property string|null $registration_number
+ * @property string $email
+ * @property Carbon|null $deactivated_at
+ * @property Carbon|null $last_used_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read User $user
+ * @property-read Campus|null $campus
+ */
+#[Fillable(['user_id', 'campus_id', 'type', 'registration_number', 'email', 'deactivated_at'])]
+class Affiliation extends Model
+{
+    use AffiliationValidationRules;
+
+    /** @use HasFactory<AffiliationFactory> */
+    use HasFactory;
+
+    use LogsActivity;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'user_id' => 'integer',
+            'campus_id' => 'integer',
+            'type' => AffiliationType::class,
+            'registration_number' => 'string',
+            'email' => 'string',
+            'deactivated_at' => 'datetime',
+            'last_used_at' => 'datetime',
+        ];
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<Campus, $this> */
+    public function campus(): BelongsTo
+    {
+        return $this->belongsTo(Campus::class);
+    }
+
+    /**
+     * @param  Builder<Affiliation>  $query
+     * @return Builder<Affiliation>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNull('deactivated_at');
+    }
+
+    /**
+     * @param  Builder<Affiliation>  $query
+     * @return Builder<Affiliation>
+     */
+    public function scopeOrderByLastUsedAt(Builder $query): Builder
+    {
+        return $query->orderByRaw('last_used_at DESC NULLS LAST')->orderBy('id');
+    }
+
+    public function markAsUsed(): bool
+    {
+        if (! $this->exists || $this->deactivated_at !== null) {
+            return false;
+        }
+
+        $this->last_used_at = now();
+
+        return $this->save();
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges();
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $affiliation): void {
+            $affiliation->nullifyBlankOptionalAffiliationValues();
+
+            Validator::make($affiliation->getAttributes(), $affiliation->affiliationRules())->validate();
+        });
+    }
+}
