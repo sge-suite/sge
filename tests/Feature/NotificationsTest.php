@@ -49,6 +49,17 @@ test('creates the native notifications schema with PostgreSQL jsonb data and UUI
 });
 
 test('rolls back and reapplies only the notifications migration on PostgreSQL', function () {
+    $emailMessagePath = glob(database_path('migrations/*_create_email_messages_table.php'))[0];
+    $emailDeliveryAttemptPath = glob(database_path('migrations/*_create_email_delivery_attempts_table.php'))[0];
+    foreach ([$emailDeliveryAttemptPath, $emailMessagePath] as $path) {
+        $dependentBatch = DB::table('migrations')
+            ->where('migration', pathinfo($path, PATHINFO_FILENAME))
+            ->value('batch');
+        $this->artisan('migrate:rollback', [
+            '--path' => [$path], '--realpath' => true, '--batch' => $dependentBatch, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
+
     $paths = glob(database_path('migrations/*_create_notifications_table.php'));
     expect($paths)->toHaveCount(1);
     $options = ['--path' => $paths, '--realpath' => true, '--no-interaction' => true];
@@ -62,6 +73,9 @@ test('rolls back and reapplies only the notifications migration on PostgreSQL', 
         ->and(Schema::hasTable('users'))->toBeTrue();
 
     $this->artisan('migrate', $options)->assertSuccessful();
+    foreach ([$emailMessagePath, $emailDeliveryAttemptPath] as $path) {
+        $this->artisan('migrate', ['--path' => [$path], '--realpath' => true, '--no-interaction' => true])->assertSuccessful();
+    }
     expect(Schema::hasTable('notifications'))->toBeTrue();
 });
 
