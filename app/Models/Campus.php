@@ -88,6 +88,12 @@ class Campus extends Model
         return $this->hasMany(Affiliation::class);
     }
 
+    /** @return HasMany<Course, $this> */
+    public function courses(): HasMany
+    {
+        return $this->hasMany(Course::class);
+    }
+
     /**
      * @param  Builder<Campus>  $query
      * @return Builder<Campus>

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $id
  * @property int $user_id
  * @property int|null $campus_id
+ * @property int|null $course_id
  * @property AffiliationType $type
  * @property string|null $registration_number
  * @property string $email
@@ -30,7 +32,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property-read User $user
  * @property-read Campus|null $campus
  */
-#[Fillable(['user_id', 'campus_id', 'type', 'registration_number', 'email', 'deactivated_at'])]
+#[Fillable(['user_id', 'campus_id', 'course_id', 'type', 'registration_number', 'email', 'deactivated_at'])]
 class Affiliation extends Model
 {
     use AffiliationValidationRules;
@@ -49,6 +51,7 @@ class Affiliation extends Model
         return [
             'user_id' => 'integer',
             'campus_id' => 'integer',
+            'course_id' => 'integer',
             'type' => AffiliationType::class,
             'registration_number' => 'string',
             'email' => 'string',
@@ -67,6 +70,24 @@ class Affiliation extends Model
     public function campus(): BelongsTo
     {
         return $this->belongsTo(Campus::class);
+    }
+
+    /** @return BelongsTo<Course, $this> */
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
+    }
+
+    /** @return HasMany<Course, $this> */
+    public function primaryCoordinatedCourses(): HasMany
+    {
+        return $this->hasMany(Course::class, 'primary_coordinator_affiliation_id');
+    }
+
+    /** @return HasMany<Course, $this> */
+    public function secondaryCoordinatedCourses(): HasMany
+    {
+        return $this->hasMany(Course::class, 'secondary_coordinator_affiliation_id');
     }
 
     /**

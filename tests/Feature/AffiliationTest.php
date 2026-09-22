@@ -3,6 +3,7 @@
 use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\Campus;
+use App\Models\Course;
 use App\Models\User;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Database\QueryException;
@@ -27,12 +28,14 @@ test('creates the affiliations schema with expected columns and foreign keys', f
         'last_used_at',
         'created_at',
         'updated_at',
+        'course_id',
     ]);
 
     foreach ([
         'id' => ['bigint', false],
         'user_id' => ['bigint', false],
         'campus_id' => ['bigint', true],
+        'course_id' => ['bigint', true],
         'type' => ['character varying(255)', false],
         'registration_number' => ['character varying(255)', true],
         'email' => ['character varying(255)', false],
@@ -50,7 +53,6 @@ test('creates the affiliations schema with expected columns and foreign keys', f
     expect($indexes->firstWhere('primary', true))->toMatchArray([
         'columns' => ['id'], 'primary' => true, 'unique' => true,
     ])
-        ->and($indexes->where('primary', false))->toBeEmpty()
         ->and($foreignKeys->firstWhere('columns', ['user_id']))->toMatchArray([
             'columns' => ['user_id'],
             'foreign_table' => 'users',
@@ -63,25 +65,28 @@ test('creates the affiliations schema with expected columns and foreign keys', f
             'foreign_columns' => ['id'],
             'on_delete' => 'restrict',
         ])
-        ->and(Schema::hasColumn('affiliations', 'course_id'))->toBeFalse()
+        ->and($foreignKeys->firstWhere('columns', ['course_id']))->toMatchArray([
+            'columns' => ['course_id'],
+            'foreign_table' => 'courses',
+            'foreign_columns' => ['id'],
+            'on_delete' => 'restrict',
+        ])
         ->and(Schema::hasColumn('affiliations', 'deleted_at'))->toBeFalse();
 });
 
-test('rolls back and reapplies only the affiliations migration on PostgreSQL', function () {
+test('rolls back and reapplies affiliations with later dependencies on PostgreSQL', function () {
     $paths = glob(database_path('migrations/*_create_affiliations_table.php'));
     expect($paths)->toHaveCount(1);
-    $options = ['--path' => $paths, '--realpath' => true, '--no-interaction' => true];
-    $batch = DB::table('migrations')
-        ->where('migration', pathinfo($paths[0], PATHINFO_FILENAME))
-        ->value('batch');
+    $migration = pathinfo($paths[0], PATHINFO_FILENAME);
+    $steps = DB::table('migrations')->where('migration', '>=', $migration)->count();
 
-    $this->artisan('migrate:rollback', [...$options, '--batch' => $batch])->assertSuccessful();
+    $this->artisan('migrate:rollback', ['--step' => $steps, '--no-interaction' => true])->assertSuccessful();
     expect(Schema::hasTable('affiliations'))->toBeFalse()
         ->and(Schema::hasTable('users'))->toBeTrue()
         ->and(Schema::hasTable('user_personal_data'))->toBeTrue()
         ->and(Schema::hasTable('campuses'))->toBeTrue();
 
-    $this->artisan('migrate', $options)->assertSuccessful();
+    $this->artisan('migrate', ['--no-interaction' => true])->assertSuccessful();
     expect(Schema::hasTable('affiliations'))->toBeTrue()
         ->and(Schema::hasTable('campuses'))->toBeTrue();
 });
@@ -108,9 +113,13 @@ test('accepts every affiliation enum value with its required scope and registrat
     foreach (AffiliationType::cases() as $index => $type) {
         $isGlobal = $type === AffiliationType::SystemAdministrator;
         $isSupervisor = $type === AffiliationType::Supervisor;
+        $campus = $isGlobal ? null : Campus::factory()->create();
         $affiliation = Affiliation::factory()->create([
             'type' => $type,
-            'campus_id' => $isGlobal ? null : Campus::factory()->create()->id,
+            'campus_id' => $campus?->id,
+            'course_id' => $type === AffiliationType::Student
+                ? Course::factory()->create(['campus_id' => $campus->id])->id
+                : null,
             'registration_number' => $isSupervisor ? null : 'ENUM-REG-'.$index,
         ]);
 
@@ -180,9 +189,11 @@ test('casts affiliation types and dates and supports multiple affiliations per u
 test('validates required campus, registration, email, and existing foreign keys', function (array $overrides) {
     $user = User::factory()->create();
     $campus = Campus::factory()->create();
+    $course = Course::factory()->create(['campus_id' => $campus->id]);
     $attributes = [
         'user_id' => $user->id,
         'campus_id' => $campus->id,
+        'course_id' => $course->id,
         'type' => AffiliationType::Student,
         'registration_number' => 'VALIDATION-REG-001',
         'email' => 'valid-affiliation@example.test',
@@ -195,13 +206,17 @@ test('validates required campus, registration, email, and existing foreign keys'
     'missing local campus' => [['campus_id' => null]],
     'nonexistent campus' => [['campus_id' => PHP_INT_MAX]],
     'nonexistent user' => [['user_id' => PHP_INT_MAX]],
+    'missing student course' => [['course_id' => null]],
+    'nonexistent course' => [['course_id' => PHP_INT_MAX]],
     'missing student registration' => [['registration_number' => null]],
     'missing server registration' => [[
         'type' => AffiliationType::Coordinator,
+        'course_id' => null,
         'registration_number' => null,
     ]],
     'supervisor with registration' => [[
         'type' => AffiliationType::Supervisor,
+        'course_id' => null,
         'registration_number' => 'SUPERVISOR-REG-001',
     ]],
     'missing email' => [['email' => null]],

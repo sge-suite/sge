@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\Campus;
+use App\Models\Course;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -23,6 +24,7 @@ class AffiliationFactory extends Factory
         return [
             'user_id' => User::factory(),
             'campus_id' => Campus::factory(),
+            'course_id' => null,
             'type' => AffiliationType::InternshipOffice,
             'registration_number' => fake()->numerify('EMP-########'),
             'email' => fake()->safeEmail(),
@@ -56,9 +58,12 @@ class AffiliationFactory extends Factory
 
     public function student(): static
     {
-        return $this->state(fn (): array => [
+        return $this->state(fn (array $attributes): array => [
             'type' => AffiliationType::Student,
             'registration_number' => fake()->unique()->numerify('STU-########'),
+            'course_id' => $attributes['course_id'] ?? fn (array $attributes): int => Course::factory()->create([
+                'campus_id' => $attributes['campus_id'],
+            ])->id,
         ]);
     }
 
