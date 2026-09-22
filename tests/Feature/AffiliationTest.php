@@ -71,8 +71,11 @@ test('rolls back and reapplies only the affiliations migration on PostgreSQL', f
     $paths = glob(database_path('migrations/*_create_affiliations_table.php'));
     expect($paths)->toHaveCount(1);
     $options = ['--path' => $paths, '--realpath' => true, '--no-interaction' => true];
+    $batch = DB::table('migrations')
+        ->where('migration', pathinfo($paths[0], PATHINFO_FILENAME))
+        ->value('batch');
 
-    $this->artisan('migrate:rollback', [...$options, '--step' => 1])->assertSuccessful();
+    $this->artisan('migrate:rollback', [...$options, '--batch' => $batch])->assertSuccessful();
     expect(Schema::hasTable('affiliations'))->toBeFalse()
         ->and(Schema::hasTable('users'))->toBeTrue()
         ->and(Schema::hasTable('user_personal_data'))->toBeTrue()
