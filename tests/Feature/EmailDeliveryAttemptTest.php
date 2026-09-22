@@ -6,7 +6,6 @@ use App\Models\EmailMessage;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 test('creates attempt schema with UUID, foreign key, unique sequence and status index', function () {
@@ -15,8 +14,8 @@ test('creates attempt schema with UUID, foreign key, unique sequence and status 
     $columns = collect(Schema::getColumns('email_delivery_attempts'))->keyBy('name');
     $indexes = collect(Schema::getIndexes('email_delivery_attempts'));
 
-    expect($columns->get('id'))->toMatchArray(['type' => 'uuid', 'nullable' => false])
-        ->and($columns->get('email_message_id'))->toMatchArray(['type' => 'uuid', 'nullable' => false])
+    expect($columns->get('id'))->toMatchArray(['type' => 'bigint', 'nullable' => false])
+        ->and($columns->get('email_message_id'))->toMatchArray(['type' => 'bigint', 'nullable' => false])
         ->and($columns->get('attempt_number'))->toMatchArray(['type' => 'smallint', 'nullable' => false])
         ->and($indexes->firstWhere('columns', ['email_message_id', 'attempt_number'])['unique'])->toBeTrue()
         ->and($indexes->firstWhere('columns', ['email_message_id', 'status']))->not->toBeNull()
@@ -27,7 +26,7 @@ test('records queued, sent and failed attempts without overwriting prior history
     $message = EmailMessage::factory()->create();
     $first = EmailDeliveryAttempt::factory()->for($message)->create();
 
-    expect(Str::isUuid($first->id))->toBeTrue()
+    expect($first->id)->toBeInt()
         ->and($first->status)->toBe(EmailDeliveryAttemptStatus::Queued);
 
     $first->update(['status' => EmailDeliveryAttemptStatus::Failed, 'failed_at' => now(), 'failure_reason' => 'smtp_rejected']);

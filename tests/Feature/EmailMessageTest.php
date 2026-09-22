@@ -16,7 +16,7 @@ test('creates the email message schema with UUID, foreign keys and encrypted tex
     $columns = collect(Schema::getColumns('email_messages'))->keyBy('name');
     $indexes = collect(Schema::getIndexes('email_messages'));
 
-    expect($columns->get('id'))->toMatchArray(['type' => 'uuid', 'nullable' => false])
+    expect($columns->get('id'))->toMatchArray(['type' => 'bigint', 'nullable' => false])
         ->and($columns->get('notification_id'))->toMatchArray(['type' => 'uuid', 'nullable' => true])
         ->and($columns->get('user_id'))->toMatchArray(['type' => 'bigint', 'nullable' => true])
         ->and($columns->get('affiliation_id'))->toMatchArray(['type' => 'bigint', 'nullable' => true])
@@ -32,7 +32,7 @@ test('stores a protected immutable account message without persisting access con
     $message = EmailMessage::factory()->for($user)->create();
     $raw = DB::table('email_messages')->where('id', $message->id)->first();
 
-    expect(Str::isUuid($message->id))->toBeTrue()
+    expect($message->id)->toBeInt()
         ->and($message->purpose)->toBe(EmailMessagePurpose::PasswordReset)
         ->and($message->recipient_email)->toBe($user->email)
         ->and($raw->recipient_email)->not->toContain($user->email)

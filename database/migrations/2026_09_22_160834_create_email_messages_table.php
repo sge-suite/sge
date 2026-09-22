@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('email_messages', function (Blueprint $table) {
-            $table->uuid('id')->primary();
+            $table->id();
             $table->foreignUuid('notification_id')->nullable()->constrained('notifications')->restrictOnDelete();
             $table->foreignId('user_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('affiliation_id')->nullable()->constrained()->restrictOnDelete();

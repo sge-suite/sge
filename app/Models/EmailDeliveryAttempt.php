@@ -6,7 +6,6 @@ use App\Enums\EmailDeliveryAttemptStatus;
 use Database\Factories\EmailDeliveryAttemptFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,8 +19,6 @@ class EmailDeliveryAttempt extends Model
 {
     /** @use HasFactory<EmailDeliveryAttemptFactory> */
     use HasFactory;
-
-    use HasUuids;
 
     protected function casts(): array
     {
@@ -50,7 +47,7 @@ class EmailDeliveryAttempt extends Model
                 'status' => $attempt->status?->value,
                 'failure_reason' => $attempt->failure_reason,
             ], [
-                'email_message_id' => ['required', 'uuid'],
+                'email_message_id' => ['required', 'integer', 'min:1'],
                 'attempt_number' => ['required', 'integer', 'min:1', 'max:65535'],
                 'status' => ['required', Rule::enum(EmailDeliveryAttemptStatus::class)],
                 'failure_reason' => ['nullable', 'regex:/^[a-z0-9_.-]+$/', 'max:120'],

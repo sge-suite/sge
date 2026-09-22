@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('email_delivery_attempts', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('email_message_id')->constrained()->restrictOnDelete();
+            $table->id();
+            $table->foreignId('email_message_id')->constrained()->restrictOnDelete();
             $table->unsignedSmallInteger('attempt_number');
             $table->string('status');
             $table->string('provider')->nullable();
