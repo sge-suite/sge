@@ -55,11 +55,25 @@ test('creates the granting parties schema with the contracted PostgreSQL types',
 });
 
 test('rolls back and reapplies the granting parties migration', function () {
-    $this->artisan('migrate:rollback', ['--step' => 1, '--no-interaction' => true])->assertSuccessful();
+    $path = glob(database_path('migrations/*_create_granting_parties_table.php'))[0];
+    $batch = DB::table('migrations')
+        ->where('migration', pathinfo($path, PATHINFO_FILENAME))
+        ->value('batch');
+
+    $this->artisan('migrate:rollback', [
+        '--path' => [$path],
+        '--realpath' => true,
+        '--batch' => $batch,
+        '--no-interaction' => true,
+    ])->assertSuccessful();
     expect(Schema::hasTable('granting_parties'))->toBeFalse()
         ->and(Schema::hasTable('addresses'))->toBeTrue();
 
-    $this->artisan('migrate', ['--no-interaction' => true])->assertSuccessful();
+    $this->artisan('migrate', [
+        '--path' => [$path],
+        '--realpath' => true,
+        '--no-interaction' => true,
+    ])->assertSuccessful();
     expect(Schema::hasTable('granting_parties'))->toBeTrue();
 });
 
