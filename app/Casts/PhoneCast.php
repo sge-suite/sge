@@ -35,8 +35,11 @@ class PhoneCast implements CastsAttributes
         }
 
         $phone = trim((string) $value);
+        $phoneForValidation = preg_match('/^[0-9]{10,11}$/', $phone) === 1
+            ? sprintf('(%s) %s-%s', substr($phone, 0, 2), substr($phone, 2, -4), substr($phone, -4))
+            : $phone;
 
-        if (! (new CelularComDdd)->passes($key, $phone)) {
+        if (! (new CelularComDdd)->passes($key, $phoneForValidation)) {
             throw new InvalidArgumentException("O telefone '{$value}' informado é inválido.");
         }
 

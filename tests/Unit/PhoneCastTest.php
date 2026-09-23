@@ -30,10 +30,26 @@ test('stores blank telephones as null', function () {
     expect($cast->set($model, 'phone', '   ', []))->toBeNull();
 });
 
-test('rejects a telephone without a Brazilian DDD mask', function () {
+test('accepts Brazilian fixed and mobile telephones with digits only', function (string $input, string $expected) {
     $cast = new PhoneCast;
     $model = new class extends Model {};
 
-    expect(fn () => $cast->set($model, 'phone', '55999999999', []))
+    expect($cast->set($model, 'phone', $input, []))->toBe($expected);
+})->with([
+    'fixed' => ['5599999999', '5599999999'],
+    'CNPJ lookup number' => ['5599531809', '5599531809'],
+    'mobile' => ['55999999999', '55999999999'],
+]);
+
+test('rejects invalid Brazilian telephones with or without a mask', function (string $input) {
+    $cast = new PhoneCast;
+    $model = new class extends Model {};
+
+    expect(fn () => $cast->set($model, 'phone', $input, []))
         ->toThrow(InvalidArgumentException::class);
-});
+})->with([
+    'too short' => '559999999',
+    'too long' => '559999999999',
+    'masked without DDD' => '99999-9999',
+    'letters with digits' => '55a999999999',
+]);

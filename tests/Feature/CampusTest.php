@@ -219,8 +219,14 @@ test('rejects invalid Brazilian CNPJ and telephone values before persisting', fu
         ->and(Campus::count())->toBe(0);
 })->with([
     'invalid CNPJ' => ['cnpj', '04.252.011/0001-11'],
-    'telephone without mask' => ['phone', '55999999999'],
+    'telephone without DDD' => ['phone', '999999999'],
 ]);
+
+test('accepts a telephone with DDD supplied as digits only', function () {
+    $campus = Campus::factory()->create(['phone' => '55999999999']);
+
+    expect($campus->fresh()->phone)->toBe('55999999999');
+});
 
 test('logs creation and dirty campus updates with the authenticated causer', function () {
     $user = User::factory()->create();

@@ -179,7 +179,10 @@ test('uses the existing phone cast for fixed and mobile numbers and blank values
     $party->update(['phone' => '   ']);
     expect($party->fresh()->phone)->toBeNull();
 
-    expect(fn () => $party->update(['phone' => '55999999999']))
+    $party->update(['phone' => '55999999999']);
+    expect($party->fresh()->phone)->toBe('55999999999');
+
+    expect(fn () => $party->update(['phone' => '559999999']))
         ->toThrow(InvalidArgumentException::class);
 });
 

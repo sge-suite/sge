@@ -153,9 +153,9 @@ test('casts dates, exposes relationships, and keeps personal fields hidden from 
         ]);
 });
 
-test('normalizes telephone numbers to digits and nullifies blank optional values', function () {
+test('normalizes telephone numbers to digits and nullifies blank optional values', function (string $phone) {
     $personalData = UserPersonalData::factory()->create([
-        'phone' => '(55) 99999-9999',
+        'phone' => $phone,
         'rg' => '   ',
         'rg_issuer' => '   ',
         'rg_issue_date' => '',
@@ -167,7 +167,10 @@ test('normalizes telephone numbers to digits and nullifies blank optional values
         ->and($personalData->rg_issuer)->toBeNull()
         ->and($personalData->rg_issue_date)->toBeNull()
         ->and($personalData->birth_date)->toBeNull();
-});
+})->with([
+    'masked' => '(55) 99999-9999',
+    'digits only' => '55999999999',
+]);
 
 test('rejects partial RG details, invalid dates, and invalid addresses', function (array $attributes) {
     expect(fn () => UserPersonalData::factory()->create($attributes))
