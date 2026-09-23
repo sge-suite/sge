@@ -26,6 +26,10 @@ class UserPersonalDataFactory extends Factory
             'rg_issue_date' => fake()->dateTimeBetween('-50 years', '-1 year'),
             'birth_date' => fake()->dateTimeBetween('-80 years', '-16 years'),
             'phone' => fake()->numerify('(##) #####-####'),
+            'job_role' => null,
+            'qualification' => null,
+            'training' => null,
+            'professional_experience' => null,
             'address_id' => Address::factory(),
         ];
     }
@@ -41,6 +45,10 @@ class UserPersonalDataFactory extends Factory
             'rg_issue_date' => null,
             'birth_date' => null,
             'phone' => null,
+            'job_role' => null,
+            'qualification' => null,
+            'training' => null,
+            'professional_experience' => null,
             'address_id' => null,
         ]);
     }

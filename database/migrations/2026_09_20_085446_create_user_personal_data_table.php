@@ -19,6 +19,10 @@ return new class extends Migration
             $table->date('rg_issue_date')->nullable();
             $table->date('birth_date')->nullable();
             $table->string('phone')->nullable();
+            $table->string('job_role')->nullable();
+            $table->string('qualification')->nullable();
+            $table->text('training')->nullable();
+            $table->text('professional_experience')->nullable();
             $table->foreignId('address_id')->nullable()->index()->constrained()->restrictOnDelete();
             $table->timestamp('emancipation_verified_at')->nullable();
             $table->timestamps();

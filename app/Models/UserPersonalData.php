@@ -21,6 +21,10 @@ use Illuminate\Support\Facades\Validator;
  * @property Carbon|null $rg_issue_date
  * @property Carbon|null $birth_date
  * @property string|null $phone
+ * @property string|null $job_role
+ * @property string|null $qualification
+ * @property string|null $training
+ * @property string|null $professional_experience
  * @property int|null $address_id
  * @property Carbon|null $emancipation_verified_at
  * @property Carbon|null $created_at
@@ -28,8 +32,8 @@ use Illuminate\Support\Facades\Validator;
  * @property-read User $user
  * @property-read Address|null $address
  */
-#[Fillable(['user_id', 'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'address_id'])]
-#[Hidden(['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'emancipation_verified_at'])]
+#[Fillable(['user_id', 'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'qualification', 'training', 'professional_experience', 'address_id'])]
+#[Hidden(['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'qualification', 'training', 'professional_experience', 'emancipation_verified_at'])]
 class UserPersonalData extends Model
 {
     /** @use HasFactory<UserPersonalDataFactory> */
@@ -50,6 +54,10 @@ class UserPersonalData extends Model
             'rg_issue_date' => 'date',
             'birth_date' => 'date',
             'phone' => PhoneCast::class,
+            'job_role' => 'string',
+            'qualification' => 'string',
+            'training' => 'string',
+            'professional_experience' => 'string',
             'emancipation_verified_at' => 'datetime',
         ];
     }

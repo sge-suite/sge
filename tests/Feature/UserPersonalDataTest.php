@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Address;
+use App\Models\Affiliation;
 use App\Models\User;
 use App\Models\UserPersonalData;
 use Illuminate\Database\QueryException;
@@ -13,7 +14,8 @@ test('creates the user personal data schema with exact PostgreSQL types and cons
     $columns = collect(Schema::getColumns('user_personal_data'))->keyBy('name');
 
     expect($columns->keys()->all())->toBe([
-        'id', 'user_id', 'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'address_id',
+        'id', 'user_id', 'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone',
+        'job_role', 'qualification', 'training', 'professional_experience', 'address_id',
         'emancipation_verified_at', 'created_at', 'updated_at',
     ]);
 
@@ -25,6 +27,10 @@ test('creates the user personal data schema with exact PostgreSQL types and cons
         'rg_issue_date' => ['date', true],
         'birth_date' => ['date', true],
         'phone' => ['character varying(255)', true],
+        'job_role' => ['character varying(255)', true],
+        'qualification' => ['character varying(255)', true],
+        'training' => ['text', true],
+        'professional_experience' => ['text', true],
         'address_id' => ['bigint', true],
         'emancipation_verified_at' => ['timestamp(0) without time zone', true],
         'created_at' => ['timestamp(0) without time zone', true],
@@ -122,13 +128,18 @@ test('keeps personal data optional and preserves CPF on the user account', funct
         ->and($user->fresh()->cpf)->toBe('52998224725')
         ->and($user->personalData->is($personalData))->toBeTrue()
         ->and($personalData->fresh()->only([
-            'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'address_id',
+            'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone',
+            'job_role', 'qualification', 'training', 'professional_experience', 'address_id',
         ]))->toBe([
             'rg' => null,
             'rg_issuer' => null,
             'rg_issue_date' => null,
             'birth_date' => null,
             'phone' => null,
+            'job_role' => null,
+            'qualification' => null,
+            'training' => null,
+            'professional_experience' => null,
             'address_id' => null,
         ])
         ->and(Schema::hasColumn('user_personal_data', 'cpf'))->toBeFalse()
@@ -149,8 +160,58 @@ test('casts dates, exposes relationships, and keeps personal fields hidden from 
         ->and($personalData->user->personalData->is($personalData))->toBeTrue()
         ->and($personalData->address->is($personalData->address()->sole()))->toBeTrue()
         ->and($personalData->toArray())->not->toHaveKeys([
-            'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'emancipation_verified_at',
+            'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone',
+            'job_role', 'qualification', 'training', 'professional_experience', 'emancipation_verified_at',
         ]);
+});
+
+test('stores one shared professional profile for multiple supervisor affiliations of a user', function () {
+    $user = User::factory()->create();
+    $firstAffiliation = Affiliation::factory()->supervisor()->for($user)->create();
+    $secondAffiliation = Affiliation::factory()->supervisor()->for($user)->create();
+
+    expect($user->personalData)->toBeNull();
+
+    $personalData = UserPersonalData::factory()->withoutOptionalData()->for($user)->create([
+        'job_role' => 'Supervisora de estágio',
+        'qualification' => 'Bacharel em Administração',
+        'training' => 'Curso de gestão de equipes',
+        'professional_experience' => 'Cinco anos de supervisão',
+    ]);
+
+    expect($firstAffiliation->user->personalData->is($personalData))->toBeTrue()
+        ->and($secondAffiliation->user->personalData->is($personalData))->toBeTrue()
+        ->and($personalData->fresh()->only([
+            'job_role', 'qualification', 'training', 'professional_experience',
+        ]))->toBe([
+            'job_role' => 'Supervisora de estágio',
+            'qualification' => 'Bacharel em Administração',
+            'training' => 'Curso de gestão de equipes',
+            'professional_experience' => 'Cinco anos de supervisão',
+        ]);
+});
+
+test('nullifies blank professional fields and validates their string limits', function () {
+    $personalData = UserPersonalData::factory()->withoutOptionalData()->create([
+        'job_role' => '   ',
+        'qualification' => '',
+        'training' => '   ',
+        'professional_experience' => '',
+    ]);
+
+    expect($personalData->fresh()->only([
+        'job_role', 'qualification', 'training', 'professional_experience',
+    ]))->toBe([
+        'job_role' => null,
+        'qualification' => null,
+        'training' => null,
+        'professional_experience' => null,
+    ]);
+
+    expect(fn () => UserPersonalData::factory()->create(['job_role' => str_repeat('a', 256)]))
+        ->toThrow(ValidationException::class)
+        ->and(fn () => UserPersonalData::factory()->create(['qualification' => str_repeat('a', 256)]))
+        ->toThrow(ValidationException::class);
 });
 
 test('normalizes telephone numbers to digits and nullifies blank optional values', function (string $phone) {
