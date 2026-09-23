@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('city_id')->index()->constrained()->restrictOnDelete();
             $table->string('street');
-            $table->string('number', 32);
-            $table->string('neighborhood', 120);
-            $table->char('zip_code', 8)->nullable();
+            $table->string('number');
+            $table->string('neighborhood');
+            $table->string('zip_code')->nullable();
             $table->timestamps();
         });
     }

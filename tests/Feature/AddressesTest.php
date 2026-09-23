@@ -30,9 +30,9 @@ test('creates the addresses schema with exact PostgreSQL types and constraints',
         'id' => ['bigint', false],
         'city_id' => ['bigint', false],
         'street' => ['character varying(255)', false],
-        'number' => ['character varying(32)', false],
-        'neighborhood' => ['character varying(120)', false],
-        'zip_code' => ['character(8)', true],
+        'number' => ['character varying(255)', false],
+        'neighborhood' => ['character varying(255)', false],
+        'zip_code' => ['character varying(255)', true],
         'created_at' => ['timestamp(0) without time zone', true],
         'updated_at' => ['timestamp(0) without time zone', true],
     ] as $name => [$type, $nullable]) {
@@ -136,16 +136,19 @@ test('creates addresses through factories and exposes the city state without dup
 
 test('accepts textual address numbers including s/n', function (string $number) {
     expect(Address::factory()->create(['number' => $number])->fresh()->number)->toBe($number);
-})->with(['123', '0', '123 A', 's/n', 'KM 10', str_repeat('a', 32)]);
+})->with(['123', '0', '123 A', 's/n', 'KM 10', str_repeat('a', 255)]);
 
-test('accepts character limits including multibyte text', function () {
+test('accepts the default string limit including multibyte text', function () {
     $address = Address::factory()->create([
         'street' => str_repeat('á', 255),
-        'number' => str_repeat('a', 32),
-        'neighborhood' => str_repeat('ã', 120),
+        'number' => str_repeat('a', 255),
+        'neighborhood' => str_repeat('ã', 255),
+        'zip_code' => '123456789',
     ]);
     expect($address->fresh()->street)->toHaveLength(255)
-        ->and($address->fresh()->neighborhood)->toHaveLength(120);
+        ->and($address->fresh()->number)->toHaveLength(255)
+        ->and($address->fresh()->neighborhood)->toHaveLength(255)
+        ->and($address->fresh()->zip_code)->toBe('123456789');
 });
 
 test('normalizes an omitted or empty optional CEP to null', function (?string $zipCode) {
@@ -168,7 +171,7 @@ test('persists optional CEP values without format validation or sanitization', f
     $address = Address::factory()->create(['zip_code' => $zipCode]);
 
     expect($address->zip_code)->toBe($zipCode)
-        ->and(rtrim($address->fresh()->zip_code))->toBe($zipCode);
+        ->and($address->fresh()->zip_code)->toBe($zipCode);
 })->with(['1234567', '1234567a', 'abc', '0', '12-34567']);
 
 test('validates required address fields before persisting', function (string $field, mixed $value) {
@@ -184,10 +187,10 @@ test('validates required address fields before persisting', function (string $fi
     'missing number' => ['number', null],
     'blank number' => ['number', ''],
     'numeric number' => ['number', 123],
-    'long number' => ['number', str_repeat('a', 33)],
+    'long number' => ['number', str_repeat('a', 256)],
     'missing neighborhood' => ['neighborhood', null],
     'blank neighborhood' => ['neighborhood', '   '],
-    'long neighborhood' => ['neighborhood', str_repeat('ã', 121)],
+    'long neighborhood' => ['neighborhood', str_repeat('ã', 256)],
 ]);
 
 test('validates updates and leaves the persisted address unchanged after a failure', function () {

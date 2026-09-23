@@ -16,8 +16,8 @@ trait AddressValidationRules
         return [
             'city_id' => ['bail', 'required', 'integer', Rule::exists(City::class, 'id')],
             'street' => ['required', 'string', 'max:255'],
-            'number' => ['required', 'string', 'max:32'],
-            'neighborhood' => ['required', 'string', 'max:120'],
+            'number' => ['required', 'string', 'max:255'],
+            'neighborhood' => ['required', 'string', 'max:255'],
         ];
     }
 }
