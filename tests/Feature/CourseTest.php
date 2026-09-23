@@ -151,11 +151,12 @@ test('restricts physical deletion of a referenced course', function () {
     $this->assertModelExists($course);
 });
 
-test('rolls back and reapplies migrations 10 and 09 in dependency order', function () {
+test('rolls back and reapplies migrations 11, 10 and 09 in dependency order', function () {
     $coursePath = glob(database_path('migrations/*_create_courses_table.php'))[0];
     $affiliationCoursePath = glob(database_path('migrations/*_add_course_id_to_affiliations_table.php'))[0];
+    $internshipTypePath = glob(database_path('migrations/*_create_internship_types_table.php'))[0];
 
-    foreach ([$affiliationCoursePath, $coursePath] as $path) {
+    foreach ([$internshipTypePath, $affiliationCoursePath, $coursePath] as $path) {
         $batch = DB::table('migrations')->where('migration', pathinfo($path, PATHINFO_FILENAME))->value('batch');
         $this->artisan('migrate:rollback', [
             '--path' => [$path], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
@@ -164,12 +165,14 @@ test('rolls back and reapplies migrations 10 and 09 in dependency order', functi
 
     expect(Schema::hasColumn('affiliations', 'course_id'))->toBeFalse()
         ->and(Schema::hasTable('courses'))->toBeFalse()
+        ->and(Schema::hasTable('internship_types'))->toBeFalse()
         ->and(Schema::hasTable('affiliations'))->toBeTrue();
 
-    foreach ([$coursePath, $affiliationCoursePath] as $path) {
+    foreach ([$coursePath, $affiliationCoursePath, $internshipTypePath] as $path) {
         $this->artisan('migrate', ['--path' => [$path], '--realpath' => true, '--no-interaction' => true])->assertSuccessful();
     }
 
     expect(Schema::hasTable('courses'))->toBeTrue()
-        ->and(Schema::hasColumn('affiliations', 'course_id'))->toBeTrue();
+        ->and(Schema::hasColumn('affiliations', 'course_id'))->toBeTrue()
+        ->and(Schema::hasTable('internship_types'))->toBeTrue();
 });

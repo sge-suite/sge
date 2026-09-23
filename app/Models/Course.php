@@ -68,6 +68,12 @@ class Course extends Model
         return $this->hasMany(Affiliation::class);
     }
 
+    /** @return HasMany<InternshipType, $this> */
+    public function internshipTypes(): HasMany
+    {
+        return $this->hasMany(InternshipType::class);
+    }
+
     /**
      * @param  Builder<Course>  $query
      * @return Builder<Course>
