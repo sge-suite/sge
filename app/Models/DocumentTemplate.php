@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -36,6 +38,19 @@ class DocumentTemplate extends Model
     public function campus(): BelongsTo
     {
         return $this->belongsTo(Campus::class);
+    }
+
+    /** @return HasMany<TemplateVersion, $this> */
+    public function templateVersions(): HasMany
+    {
+        return $this->hasMany(TemplateVersion::class);
+    }
+
+    /** @return HasOne<TemplateVersion, $this> */
+    public function latestValidatedVersion(): HasOne
+    {
+        return $this->hasOne(TemplateVersion::class)
+            ->ofMany(['version' => 'max'], fn (Builder $query): Builder => $query->whereNotNull('validated_at'));
     }
 
     /**

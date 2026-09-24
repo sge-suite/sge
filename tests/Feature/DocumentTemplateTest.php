@@ -55,9 +55,17 @@ test('creates the document templates schema with a campus foreign key and no loo
 
 test('rolls back and reapplies the document templates migration', function () {
     $path = glob(database_path('migrations/*_create_document_templates_table.php'))[0];
+    $versionPath = glob(database_path('migrations/*_create_template_versions_table.php'))[0];
     $batch = DB::table('migrations')
         ->where('migration', pathinfo($path, PATHINFO_FILENAME))
         ->value('batch');
+
+    $this->artisan('migrate:rollback', [
+        '--path' => [$versionPath],
+        '--realpath' => true,
+        '--batch' => $batch,
+        '--no-interaction' => true,
+    ])->assertSuccessful();
 
     $this->artisan('migrate:rollback', [
         '--path' => [$path],
@@ -71,6 +79,12 @@ test('rolls back and reapplies the document templates migration', function () {
 
     $this->artisan('migrate', [
         '--path' => [$path],
+        '--realpath' => true,
+        '--no-interaction' => true,
+    ])->assertSuccessful();
+
+    $this->artisan('migrate', [
+        '--path' => [$versionPath],
         '--realpath' => true,
         '--no-interaction' => true,
     ])->assertSuccessful();
