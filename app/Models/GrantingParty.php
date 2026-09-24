@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -54,6 +55,12 @@ class GrantingParty extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(Address::class);
+    }
+
+    /** @return HasMany<GrantingPartyRegistrationRequest, $this> */
+    public function grantingPartyRegistrationRequests(): HasMany
+    {
+        return $this->hasMany(GrantingPartyRegistrationRequest::class);
     }
 
     public function getActivitylogOptions(): LogOptions
