@@ -126,6 +126,10 @@ class InternshipWorkSchedule extends Model
                         $validator->errors()->add('starts_on', 'A vigência deve começar no dia seguinte à anterior.');
                     }
 
+                    if ((clone $otherSchedules)->where('starts_on', '>', $schedule->starts_on)->exists()) {
+                        $validator->errors()->add('starts_on', 'Uma nova vigência não pode anteceder uma vigência já registrada.');
+                    }
+
                     if ((clone $otherSchedules)->where('generated_document_id', $schedule->generated_document_id)->exists()) {
                         $validator->errors()->add('generated_document_id', 'Este aditivo já possui uma vigência.');
                     }
