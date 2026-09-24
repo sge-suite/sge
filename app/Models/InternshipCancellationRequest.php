@@ -65,7 +65,7 @@ class InternshipCancellationRequest extends Model
                 'status' => ['required', Rule::enum(InternshipCancellationRequestStatus::class)],
                 'reviewed_at' => [$approved || $rejected ? 'required' : 'nullable', 'date'],
                 'decision_reason' => [$rejected ? 'required' : 'nullable', 'string'],
-                'effective_date' => [$approved ? 'required' : 'prohibited', 'date'],
+                'effective_date' => [$approved ? 'required' : 'prohibited', 'nullable', 'date'],
             ]);
 
             $validator->after(function (LaravelValidator $validator) use ($request): void {
