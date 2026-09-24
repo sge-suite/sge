@@ -130,6 +130,12 @@ class InternshipRequest extends Model
         return $this->hasMany(EmancipationEvidence::class);
     }
 
+    /** @return HasMany<InternshipRequestCorrection, $this> */
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(InternshipRequestCorrection::class);
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logFillable()->logOnlyDirty()->dontLogEmptyChanges();
