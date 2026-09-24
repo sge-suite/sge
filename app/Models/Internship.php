@@ -124,6 +124,12 @@ class Internship extends Model
         return $this->hasMany(InternshipCancellationRequest::class);
     }
 
+    /** @return HasMany<InternshipCalendarOverride, $this> */
+    public function calendarOverrides(): HasMany
+    {
+        return $this->hasMany(InternshipCalendarOverride::class);
+    }
+
     /** @return HasOne<InternshipRequest, $this> */
     public function internshipRequest(): HasOne
     {
