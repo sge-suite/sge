@@ -75,7 +75,7 @@ class EmancipationEvidence extends Model implements HasMedia
                 'return_reason' => [$evidence->status === EmancipationEvidenceStatus::Returned ? 'required' : 'nullable', 'string'],
             ])->validate();
 
-            if ($reviewed && ! $evidence->hasMedia('emancipation_evidence')) {
+            if ($reviewed && ! $evidence->media()->where('collection_name', 'emancipation_evidence')->exists()) {
                 throw ValidationException::withMessages(['evidence' => 'A análise exige o comprovante privado anexado.']);
             }
         });
