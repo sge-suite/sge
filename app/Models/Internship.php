@@ -112,6 +112,12 @@ class Internship extends Model
         return $this->hasMany(GeneratedDocument::class);
     }
 
+    /** @return HasMany<InternshipPause, $this> */
+    public function pauses(): HasMany
+    {
+        return $this->hasMany(InternshipPause::class);
+    }
+
     /** @return HasOne<InternshipRequest, $this> */
     public function internshipRequest(): HasOne
     {
