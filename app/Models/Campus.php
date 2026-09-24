@@ -94,6 +94,12 @@ class Campus extends Model
         return $this->hasMany(Course::class);
     }
 
+    /** @return HasMany<DocumentTemplate, $this> */
+    public function documentTemplates(): HasMany
+    {
+        return $this->hasMany(DocumentTemplate::class);
+    }
+
     /**
      * @param  Builder<Campus>  $query
      * @return Builder<Campus>
