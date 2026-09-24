@@ -130,6 +130,12 @@ class Internship extends Model
         return $this->hasMany(InternshipCalendarOverride::class);
     }
 
+    /** @return HasMany<InternshipWorkSchedule, $this> */
+    public function workSchedules(): HasMany
+    {
+        return $this->hasMany(InternshipWorkSchedule::class);
+    }
+
     /** @return HasOne<InternshipRequest, $this> */
     public function internshipRequest(): HasOne
     {

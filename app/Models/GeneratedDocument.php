@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -57,6 +58,12 @@ class GeneratedDocument extends Model
     public function templateVersion(): BelongsTo
     {
         return $this->belongsTo(TemplateVersion::class);
+    }
+
+    /** @return HasMany<InternshipWorkSchedule, $this> */
+    public function workSchedules(): HasMany
+    {
+        return $this->hasMany(InternshipWorkSchedule::class);
     }
 
     public function getActivitylogOptions(): LogOptions
