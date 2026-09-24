@@ -58,9 +58,21 @@ test('rolls back and reapplies the granting parties migration', function () {
     $path = glob(database_path('migrations/*_create_granting_parties_table.php'))[0];
     $requestPath = glob(database_path('migrations/*_create_granting_party_registration_requests_table.php'))[0];
     $internshipPath = glob(database_path('migrations/*_create_internships_table.php'))[0];
+    $evaluationPath = glob(database_path('migrations/*_create_supervisor_evaluations_table.php'))[0];
+    $internshipRequestPath = glob(database_path('migrations/*_create_internship_requests_table.php'))[0];
     $batch = DB::table('migrations')
         ->where('migration', pathinfo($path, PATHINFO_FILENAME))
         ->value('batch');
+
+    $this->artisan('migrate:rollback', [
+        '--path' => [$internshipRequestPath], '--realpath' => true,
+        '--batch' => $batch, '--no-interaction' => true,
+    ])->assertSuccessful();
+
+    $this->artisan('migrate:rollback', [
+        '--path' => [$evaluationPath], '--realpath' => true,
+        '--batch' => $batch, '--no-interaction' => true,
+    ])->assertSuccessful();
 
     $this->artisan('migrate:rollback', [
         '--path' => [$internshipPath],
@@ -98,6 +110,14 @@ test('rolls back and reapplies the granting parties migration', function () {
     $this->artisan('migrate', [
         '--path' => [$internshipPath],
         '--realpath' => true,
+        '--no-interaction' => true,
+    ])->assertSuccessful();
+    $this->artisan('migrate', [
+        '--path' => [$evaluationPath], '--realpath' => true,
+        '--no-interaction' => true,
+    ])->assertSuccessful();
+    $this->artisan('migrate', [
+        '--path' => [$internshipRequestPath], '--realpath' => true,
         '--no-interaction' => true,
     ])->assertSuccessful();
     expect(Schema::hasTable('granting_parties'))->toBeTrue()

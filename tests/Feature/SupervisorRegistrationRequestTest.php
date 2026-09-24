@@ -55,9 +55,14 @@ test('creates the supervisor registration request schema with PostgreSQL types a
 
 test('rolls back and reapplies the supervisor registration request migration', function () {
     $path = glob(database_path('migrations/*_create_supervisor_registration_requests_table.php'))[0];
+    $internshipRequestPath = glob(database_path('migrations/*_create_internship_requests_table.php'))[0];
     $batch = DB::table('migrations')
         ->where('migration', pathinfo($path, PATHINFO_FILENAME))
         ->value('batch');
+
+    $this->artisan('migrate:rollback', [
+        '--path' => [$internshipRequestPath], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
+    ])->assertSuccessful();
 
     $this->artisan('migrate:rollback', [
         '--path' => [$path],
@@ -73,6 +78,10 @@ test('rolls back and reapplies the supervisor registration request migration', f
         '--path' => [$path],
         '--realpath' => true,
         '--no-interaction' => true,
+    ])->assertSuccessful();
+
+    $this->artisan('migrate', [
+        '--path' => [$internshipRequestPath], '--realpath' => true, '--no-interaction' => true,
     ])->assertSuccessful();
 
     expect(Schema::hasTable('supervisor_registration_requests'))->toBeTrue();

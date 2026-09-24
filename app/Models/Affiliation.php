@@ -102,6 +102,12 @@ class Affiliation extends Model
         return $this->hasMany(SupervisorEvaluation::class, 'supervisor_affiliation_id');
     }
 
+    /** @return HasMany<InternshipRequest, $this> */
+    public function internshipRequests(): HasMany
+    {
+        return $this->hasMany(InternshipRequest::class);
+    }
+
     /**
      * @param  Builder<Affiliation>  $query
      * @return Builder<Affiliation>

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as LaravelValidator;
@@ -103,6 +104,12 @@ class Internship extends Model
     public function supervisorEvaluations(): HasMany
     {
         return $this->hasMany(SupervisorEvaluation::class);
+    }
+
+    /** @return HasOne<InternshipRequest, $this> */
+    public function internshipRequest(): HasOne
+    {
+        return $this->hasOne(InternshipRequest::class);
     }
 
     /** @return BelongsTo<SupervisorEvaluation, $this> */

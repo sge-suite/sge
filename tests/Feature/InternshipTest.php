@@ -87,8 +87,14 @@ test('restricts deletion of referenced records through all internship foreign ke
 test('rolls back and reapplies the internships migration', function () {
     $path = glob(database_path('migrations/*_create_internships_table.php'))[0];
     $evaluationPath = glob(database_path('migrations/*_create_supervisor_evaluations_table.php'))[0];
+    $requestPath = glob(database_path('migrations/*_create_internship_requests_table.php'))[0];
+    $requestBatch = DB::table('migrations')->where('migration', pathinfo($requestPath, PATHINFO_FILENAME))->value('batch');
     $evaluationBatch = DB::table('migrations')->where('migration', pathinfo($evaluationPath, PATHINFO_FILENAME))->value('batch');
     $batch = DB::table('migrations')->where('migration', pathinfo($path, PATHINFO_FILENAME))->value('batch');
+
+    $this->artisan('migrate:rollback', [
+        '--path' => [$requestPath], '--realpath' => true, '--batch' => $requestBatch, '--no-interaction' => true,
+    ])->assertSuccessful();
 
     $this->artisan('migrate:rollback', [
         '--path' => [$evaluationPath], '--realpath' => true, '--batch' => $evaluationBatch, '--no-interaction' => true,
@@ -109,8 +115,13 @@ test('rolls back and reapplies the internships migration', function () {
         '--path' => [$evaluationPath], '--realpath' => true, '--no-interaction' => true,
     ])->assertSuccessful();
 
+    $this->artisan('migrate', [
+        '--path' => [$requestPath], '--realpath' => true, '--no-interaction' => true,
+    ])->assertSuccessful();
+
     expect(Schema::hasTable('internships'))->toBeTrue()
-        ->and(Schema::hasTable('supervisor_evaluations'))->toBeTrue();
+        ->and(Schema::hasTable('supervisor_evaluations'))->toBeTrue()
+        ->and(Schema::hasTable('internship_requests'))->toBeTrue();
 });
 
 test('casts status, snapshots, dates, remuneration and follows the affiliation relations', function () {
