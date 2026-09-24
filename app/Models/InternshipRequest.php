@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\CpfCast;
 use App\Enums\AffiliationType;
+use App\Enums\EmancipationEvidenceStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\LegalCapacityDeclaration;
 use Database\Factories\InternshipRequestFactory;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -122,6 +124,12 @@ class InternshipRequest extends Model
         return $this->belongsTo(Internship::class);
     }
 
+    /** @return HasMany<EmancipationEvidence, $this> */
+    public function emancipationEvidences(): HasMany
+    {
+        return $this->hasMany(EmancipationEvidence::class);
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logFillable()->logOnlyDirty()->dontLogEmptyChanges();
@@ -229,6 +237,17 @@ class InternshipRequest extends Model
                     $birthDate = $owner?->user?->personalData?->birth_date;
                     if ($birthDate === null || $birthDate->copy()->addYears(18)->isAfter($request->terms_accepted_at)) {
                         $validator->errors()->add('legal_capacity_declaration', 'A opção maior de idade exige 18 anos completos na data do envio.');
+                    }
+                }
+
+                if ($declaration === LegalCapacityDeclaration::EmancipatedMinor && ! $isIncomplete) {
+                    $evidences = $request->emancipationEvidences()->whereHas('media', fn ($query) => $query->where('collection_name', 'emancipation_evidence'));
+                    if (! $evidences->exists()) {
+                        $validator->errors()->add('legal_capacity_declaration', 'O envio exige comprovante de emancipação anexado.');
+                    }
+
+                    if ($status === InternshipRequestStatus::Accepted && ! $evidences->where('status', EmancipationEvidenceStatus::Approved->value)->exists()) {
+                        $validator->errors()->add('legal_capacity_declaration', 'O aceite exige comprovante de emancipação aprovado.');
                     }
                 }
 
