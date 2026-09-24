@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -49,6 +50,12 @@ class TemplateVersion extends Model implements HasMedia
     public function documentTemplate(): BelongsTo
     {
         return $this->belongsTo(DocumentTemplate::class);
+    }
+
+    /** @return HasMany<GeneratedDocument, $this> */
+    public function generatedDocuments(): HasMany
+    {
+        return $this->hasMany(GeneratedDocument::class);
     }
 
     /** @return BelongsTo<Affiliation, $this> */

@@ -106,6 +106,12 @@ class Internship extends Model
         return $this->hasMany(SupervisorEvaluation::class);
     }
 
+    /** @return HasMany<GeneratedDocument, $this> */
+    public function generatedDocuments(): HasMany
+    {
+        return $this->hasMany(GeneratedDocument::class);
+    }
+
     /** @return HasOne<InternshipRequest, $this> */
     public function internshipRequest(): HasOne
     {
