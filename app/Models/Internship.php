@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as LaravelValidator;
@@ -26,6 +27,8 @@ use Spatie\Activitylog\Support\LogOptions;
     'report_grade', 'presentation_grade', 'report_graded_by_affiliation_id',
     'presentation_graded_by_affiliation_id', 'report_graded_at',
     'presentation_graded_at', 'consolidated_grade', 'status',
+    'evaluation_released_at', 'evaluation_released_by_affiliation_id',
+    'current_supervisor_evaluation_id',
 ])]
 class Internship extends Model
 {
@@ -72,6 +75,9 @@ class Internship extends Model
             'presentation_graded_at' => 'datetime',
             'consolidated_grade' => 'decimal:1',
             'status' => InternshipStatus::class,
+            'evaluation_released_at' => 'datetime',
+            'evaluation_released_by_affiliation_id' => 'integer',
+            'current_supervisor_evaluation_id' => 'integer',
         ];
     }
 
@@ -91,6 +97,24 @@ class Internship extends Model
     public function supervisorAffiliation(): BelongsTo
     {
         return $this->belongsTo(Affiliation::class, 'supervisor_affiliation_id');
+    }
+
+    /** @return HasMany<SupervisorEvaluation, $this> */
+    public function supervisorEvaluations(): HasMany
+    {
+        return $this->hasMany(SupervisorEvaluation::class);
+    }
+
+    /** @return BelongsTo<SupervisorEvaluation, $this> */
+    public function currentSupervisorEvaluation(): BelongsTo
+    {
+        return $this->belongsTo(SupervisorEvaluation::class, 'current_supervisor_evaluation_id');
+    }
+
+    /** @return BelongsTo<Affiliation, $this> */
+    public function evaluationReleasedByAffiliation(): BelongsTo
+    {
+        return $this->belongsTo(Affiliation::class, 'evaluation_released_by_affiliation_id');
     }
 
     /** @return BelongsTo<Address, $this> */
@@ -210,6 +234,9 @@ class Internship extends Model
                 'presentation_graded_at' => ['nullable', 'date'],
                 'consolidated_grade' => ['nullable', 'numeric', 'min:0'],
                 'status' => ['required', Rule::enum(InternshipStatus::class)],
+                'evaluation_released_at' => ['nullable', 'date'],
+                'evaluation_released_by_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::InternshipOffice->value)],
+                'current_supervisor_evaluation_id' => ['nullable', 'integer', Rule::exists(SupervisorEvaluation::class, 'id')->where('internship_id', $internship->id)->where('status', 'approved')],
             ]);
 
             $validator->after(function (LaravelValidator $validator) use ($internship): void {

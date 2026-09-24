@@ -29,7 +29,8 @@ test('creates the internships schema with historical snapshots and no formula JS
         'supervisor_grade', 'report_grade', 'presentation_grade',
         'report_graded_by_affiliation_id', 'presentation_graded_by_affiliation_id',
         'report_graded_at', 'presentation_graded_at', 'consolidated_grade',
-        'status', 'created_at', 'updated_at',
+        'status', 'created_at', 'updated_at', 'evaluation_released_at',
+        'evaluation_released_by_affiliation_id', 'current_supervisor_evaluation_id',
     ]);
 
     foreach (['student_snapshot', 'internship_type_snapshot', 'granting_party_snapshot', 'supervisor_snapshot', 'weekly_hours'] as $column) {
@@ -85,7 +86,13 @@ test('restricts deletion of referenced records through all internship foreign ke
 
 test('rolls back and reapplies the internships migration', function () {
     $path = glob(database_path('migrations/*_create_internships_table.php'))[0];
+    $evaluationPath = glob(database_path('migrations/*_create_supervisor_evaluations_table.php'))[0];
+    $evaluationBatch = DB::table('migrations')->where('migration', pathinfo($evaluationPath, PATHINFO_FILENAME))->value('batch');
     $batch = DB::table('migrations')->where('migration', pathinfo($path, PATHINFO_FILENAME))->value('batch');
+
+    $this->artisan('migrate:rollback', [
+        '--path' => [$evaluationPath], '--realpath' => true, '--batch' => $evaluationBatch, '--no-interaction' => true,
+    ])->assertSuccessful();
 
     $this->artisan('migrate:rollback', [
         '--path' => [$path], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
@@ -98,7 +105,12 @@ test('rolls back and reapplies the internships migration', function () {
         '--path' => [$path], '--realpath' => true, '--no-interaction' => true,
     ])->assertSuccessful();
 
-    expect(Schema::hasTable('internships'))->toBeTrue();
+    $this->artisan('migrate', [
+        '--path' => [$evaluationPath], '--realpath' => true, '--no-interaction' => true,
+    ])->assertSuccessful();
+
+    expect(Schema::hasTable('internships'))->toBeTrue()
+        ->and(Schema::hasTable('supervisor_evaluations'))->toBeTrue();
 });
 
 test('casts status, snapshots, dates, remuneration and follows the affiliation relations', function () {

@@ -96,6 +96,12 @@ class Affiliation extends Model
         return $this->hasMany(SupervisorRegistrationRequest::class, 'supervisor_affiliation_id');
     }
 
+    /** @return HasMany<SupervisorEvaluation, $this> */
+    public function supervisorEvaluations(): HasMany
+    {
+        return $this->hasMany(SupervisorEvaluation::class, 'supervisor_affiliation_id');
+    }
+
     /**
      * @param  Builder<Affiliation>  $query
      * @return Builder<Affiliation>
