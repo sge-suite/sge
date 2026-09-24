@@ -151,7 +151,7 @@ test('restricts physical deletion of a referenced course', function () {
     $this->assertModelExists($course);
 });
 
-test('rolls back and reapplies migrations 19, 18, 15, 11, 10 and 09 in dependency order', function () {
+test('rolls back and reapplies course dependencies in foreign key order', function () {
     $coursePath = glob(database_path('migrations/*_create_courses_table.php'))[0];
     $affiliationCoursePath = glob(database_path('migrations/*_add_course_id_to_affiliations_table.php'))[0];
     $internshipTypePath = glob(database_path('migrations/*_create_internship_types_table.php'))[0];
@@ -159,7 +159,13 @@ test('rolls back and reapplies migrations 19, 18, 15, 11, 10 and 09 in dependenc
     $evaluationPath = glob(database_path('migrations/*_create_supervisor_evaluations_table.php'))[0];
     $requestPath = glob(database_path('migrations/*_create_internship_requests_table.php'))[0];
 
-    foreach ([$requestPath, $evaluationPath, $internshipPath, $internshipTypePath, $affiliationCoursePath, $coursePath] as $path) {
+    $laterPaths = array_map(
+        fn (string $name): string => glob(database_path("migrations/*_create_{$name}_table.php"))[0],
+        ['internship_work_schedules', 'internship_calendar_overrides', 'internship_cancellation_requests',
+            'internship_request_corrections', 'emancipation_evidences', 'internship_pauses', 'generated_documents'],
+    );
+
+    foreach ([...$laterPaths, $requestPath, $evaluationPath, $internshipPath, $internshipTypePath, $affiliationCoursePath, $coursePath] as $path) {
         $batch = DB::table('migrations')->where('migration', pathinfo($path, PATHINFO_FILENAME))->value('batch');
         $this->artisan('migrate:rollback', [
             '--path' => [$path], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
@@ -171,7 +177,7 @@ test('rolls back and reapplies migrations 19, 18, 15, 11, 10 and 09 in dependenc
         ->and(Schema::hasTable('internship_types'))->toBeFalse()
         ->and(Schema::hasTable('affiliations'))->toBeTrue();
 
-    foreach ([$coursePath, $affiliationCoursePath, $internshipTypePath, $internshipPath, $evaluationPath, $requestPath] as $path) {
+    foreach ([$coursePath, $affiliationCoursePath, $internshipTypePath, $internshipPath, $evaluationPath, $requestPath, ...array_reverse($laterPaths)] as $path) {
         $this->artisan('migrate', ['--path' => [$path], '--realpath' => true, '--no-interaction' => true])->assertSuccessful();
     }
 

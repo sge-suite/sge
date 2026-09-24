@@ -60,6 +60,17 @@ test('rolls back and reapplies the document templates migration', function () {
         ->where('migration', pathinfo($path, PATHINFO_FILENAME))
         ->value('batch');
 
+    $dependentPaths = array_map(
+        fn (string $name): string => glob(database_path("migrations/*_create_{$name}_table.php"))[0],
+        ['internship_work_schedules', 'generated_documents'],
+    );
+
+    foreach ($dependentPaths as $dependentPath) {
+        $this->artisan('migrate:rollback', [
+            '--path' => [$dependentPath], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
+
     $this->artisan('migrate:rollback', [
         '--path' => [$versionPath],
         '--realpath' => true,
@@ -88,6 +99,12 @@ test('rolls back and reapplies the document templates migration', function () {
         '--realpath' => true,
         '--no-interaction' => true,
     ])->assertSuccessful();
+
+    foreach (array_reverse($dependentPaths) as $dependentPath) {
+        $this->artisan('migrate', [
+            '--path' => [$dependentPath], '--realpath' => true, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
 
     expect(Schema::hasTable('document_templates'))->toBeTrue();
 });

@@ -68,6 +68,17 @@ test('rolls back and reapplies the template versions migration', function () {
     $path = glob(database_path('migrations/*_create_template_versions_table.php'))[0];
     $batch = DB::table('migrations')->where('migration', pathinfo($path, PATHINFO_FILENAME))->value('batch');
 
+    $dependentPaths = array_map(
+        fn (string $name): string => glob(database_path("migrations/*_create_{$name}_table.php"))[0],
+        ['internship_work_schedules', 'generated_documents'],
+    );
+
+    foreach ($dependentPaths as $dependentPath) {
+        $this->artisan('migrate:rollback', [
+            '--path' => [$dependentPath], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
+
     $this->artisan('migrate:rollback', [
         '--path' => [$path], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
     ])->assertSuccessful();
@@ -78,6 +89,12 @@ test('rolls back and reapplies the template versions migration', function () {
     $this->artisan('migrate', [
         '--path' => [$path], '--realpath' => true, '--no-interaction' => true,
     ])->assertSuccessful();
+
+    foreach (array_reverse($dependentPaths) as $dependentPath) {
+        $this->artisan('migrate', [
+            '--path' => [$dependentPath], '--realpath' => true, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
 
     expect(Schema::hasTable('template_versions'))->toBeTrue();
 });

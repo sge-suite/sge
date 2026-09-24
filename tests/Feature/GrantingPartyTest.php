@@ -64,6 +64,18 @@ test('rolls back and reapplies the granting parties migration', function () {
         ->where('migration', pathinfo($path, PATHINFO_FILENAME))
         ->value('batch');
 
+    $laterPaths = array_map(
+        fn (string $name): string => glob(database_path("migrations/*_create_{$name}_table.php"))[0],
+        ['internship_work_schedules', 'internship_calendar_overrides', 'internship_cancellation_requests',
+            'internship_request_corrections', 'emancipation_evidences', 'internship_pauses', 'generated_documents'],
+    );
+
+    foreach ($laterPaths as $laterPath) {
+        $this->artisan('migrate:rollback', [
+            '--path' => [$laterPath], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
+
     $this->artisan('migrate:rollback', [
         '--path' => [$internshipRequestPath], '--realpath' => true,
         '--batch' => $batch, '--no-interaction' => true,
@@ -120,6 +132,12 @@ test('rolls back and reapplies the granting parties migration', function () {
         '--path' => [$internshipRequestPath], '--realpath' => true,
         '--no-interaction' => true,
     ])->assertSuccessful();
+
+    foreach (array_reverse($laterPaths) as $laterPath) {
+        $this->artisan('migrate', [
+            '--path' => [$laterPath], '--realpath' => true, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
     expect(Schema::hasTable('granting_parties'))->toBeTrue()
         ->and(Schema::hasTable('granting_party_registration_requests'))->toBeTrue();
 });

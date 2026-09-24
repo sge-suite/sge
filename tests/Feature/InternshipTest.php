@@ -92,6 +92,18 @@ test('rolls back and reapplies the internships migration', function () {
     $evaluationBatch = DB::table('migrations')->where('migration', pathinfo($evaluationPath, PATHINFO_FILENAME))->value('batch');
     $batch = DB::table('migrations')->where('migration', pathinfo($path, PATHINFO_FILENAME))->value('batch');
 
+    $laterPaths = array_map(
+        fn (string $name): string => glob(database_path("migrations/*_create_{$name}_table.php"))[0],
+        ['internship_work_schedules', 'internship_calendar_overrides', 'internship_cancellation_requests',
+            'internship_request_corrections', 'emancipation_evidences', 'internship_pauses', 'generated_documents'],
+    );
+
+    foreach ($laterPaths as $laterPath) {
+        $this->artisan('migrate:rollback', [
+            '--path' => [$laterPath], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
+
     $this->artisan('migrate:rollback', [
         '--path' => [$requestPath], '--realpath' => true, '--batch' => $requestBatch, '--no-interaction' => true,
     ])->assertSuccessful();
@@ -118,6 +130,12 @@ test('rolls back and reapplies the internships migration', function () {
     $this->artisan('migrate', [
         '--path' => [$requestPath], '--realpath' => true, '--no-interaction' => true,
     ])->assertSuccessful();
+
+    foreach (array_reverse($laterPaths) as $laterPath) {
+        $this->artisan('migrate', [
+            '--path' => [$laterPath], '--realpath' => true, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
 
     expect(Schema::hasTable('internships'))->toBeTrue()
         ->and(Schema::hasTable('supervisor_evaluations'))->toBeTrue()

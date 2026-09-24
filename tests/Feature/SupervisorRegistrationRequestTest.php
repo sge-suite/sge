@@ -60,6 +60,17 @@ test('rolls back and reapplies the supervisor registration request migration', f
         ->where('migration', pathinfo($path, PATHINFO_FILENAME))
         ->value('batch');
 
+    $dependentPaths = array_map(
+        fn (string $name): string => glob(database_path("migrations/*_create_{$name}_table.php"))[0],
+        ['internship_request_corrections', 'emancipation_evidences'],
+    );
+
+    foreach ($dependentPaths as $dependentPath) {
+        $this->artisan('migrate:rollback', [
+            '--path' => [$dependentPath], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
+
     $this->artisan('migrate:rollback', [
         '--path' => [$internshipRequestPath], '--realpath' => true, '--batch' => $batch, '--no-interaction' => true,
     ])->assertSuccessful();
@@ -83,6 +94,12 @@ test('rolls back and reapplies the supervisor registration request migration', f
     $this->artisan('migrate', [
         '--path' => [$internshipRequestPath], '--realpath' => true, '--no-interaction' => true,
     ])->assertSuccessful();
+
+    foreach (array_reverse($dependentPaths) as $dependentPath) {
+        $this->artisan('migrate', [
+            '--path' => [$dependentPath], '--realpath' => true, '--no-interaction' => true,
+        ])->assertSuccessful();
+    }
 
     expect(Schema::hasTable('supervisor_registration_requests'))->toBeTrue();
 });
