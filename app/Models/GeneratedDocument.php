@@ -84,18 +84,18 @@ class GeneratedDocument extends Model
             $isCancelled = $document->status === GeneratedDocumentStatus::Cancelled;
             $validator = Validator::make([...$document->getAttributes(), 'snapshot' => $document->snapshot], [
                 'internship_id' => ['required', 'integer', Rule::exists(Internship::class, 'id')],
-                'template_version_id' => [$isSge ? 'required' : 'prohibited', 'integer', Rule::exists(TemplateVersion::class, 'id')->whereNotNull('validated_at')],
+                'template_version_id' => [$isSge ? 'required' : 'prohibited', 'nullable', 'integer', Rule::exists(TemplateVersion::class, 'id')->whereNotNull('validated_at')],
                 'origin' => ['required', Rule::enum(GeneratedDocumentOrigin::class)],
                 'type' => ['required', Rule::enum(GeneratedDocumentType::class)],
                 'status' => ['required', Rule::enum(GeneratedDocumentStatus::class)],
                 'signature_availability_location' => [$document->status === GeneratedDocumentStatus::AwaitingSignature ? 'required' : 'nullable', 'string', 'max:500'],
-                'snapshot' => [$isSge ? 'required' : 'prohibited', 'array'],
+                'snapshot' => [$isSge ? 'required' : 'prohibited', 'nullable', 'array'],
                 'generation_token' => ['required', 'uuid', Rule::unique('generated_documents', 'generation_token')->ignore($document->id)],
-                'output_filename' => [$isSge ? 'required' : 'prohibited', 'string', 'max:255'],
-                'template_sha256' => [$isSge ? 'required' : 'prohibited', 'regex:/\A[a-f0-9]{64}\z/'],
+                'output_filename' => [$isSge ? 'required' : 'prohibited', 'nullable', 'string', 'max:255'],
+                'template_sha256' => [$isSge ? 'required' : 'prohibited', 'nullable', 'regex:/\A[a-f0-9]{64}\z/'],
                 'generated_at' => [$isSge ? 'required' : 'nullable', 'date'],
-                'cancelled_at' => [$isCancelled ? 'required' : 'prohibited', 'date'],
-                'cancellation_reason' => [$isCancelled ? 'required' : 'prohibited', 'string'],
+                'cancelled_at' => [$isCancelled ? 'required' : 'prohibited', 'nullable', 'date'],
+                'cancellation_reason' => [$isCancelled ? 'required' : 'prohibited', 'nullable', 'string'],
             ]);
 
             $validator->after(function (LaravelValidator $validator) use ($document): void {
