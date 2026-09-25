@@ -213,6 +213,9 @@ test('authorizes the notification inbox only for an active affiliation owned by 
     $deactivatedAffiliation = Affiliation::factory()->student()->deactivated()->for($user)->create();
     $otherUsersAffiliation = Affiliation::factory()->student()->for($otherUser)->create();
 
+    $this->actingAs($user)->post(route('affiliations.store'), ['affiliation_id' => $activeAffiliation->id])
+        ->assertRedirect(route('dashboard'));
+
     expect(Gate::forUser($user)->allows('viewNotifications', $activeAffiliation))->toBeTrue()
         ->and(Gate::forUser($user)->allows('viewNotifications', $deactivatedAffiliation))->toBeFalse()
         ->and(Gate::forUser($user)->allows('viewNotifications', $otherUsersAffiliation))->toBeFalse();

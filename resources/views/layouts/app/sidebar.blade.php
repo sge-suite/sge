@@ -65,6 +65,11 @@
                     <flux:menu.separator />
 
                     <flux:menu.radio.group>
+                        @if (auth()->user()->affiliations()->active()->count() > 1)
+                            <flux:menu.item :href="route('affiliations.select')" icon="arrows-right-left" wire:navigate>
+                                Trocar vínculo
+                            </flux:menu.item>
+                        @endif
                         <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
                             Configurações
                         </flux:menu.item>
