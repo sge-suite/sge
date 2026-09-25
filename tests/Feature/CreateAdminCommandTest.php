@@ -135,7 +135,7 @@ test('re-prompts until the cpf contains eleven digits and the email is unique', 
         ->and(Affiliation::query()->whereBelongsTo($user)->sole()->email)->toBe($user->email);
 });
 
-test('re-prompts when the password is weak or does not match its confirmation', function () {
+test('shows password rules and validates the password before requesting its confirmation', function () {
     fakePasswordBreachCheck();
     queueAdminCreatePrompts([
         'Katherine Johnson',
@@ -143,15 +143,20 @@ test('re-prompts when the password is weak or does not match its confirmation', 
         'katherine@example.test',
         'ADM-004',
         'weak',
-        'weak',
         'SgeInitialPassword9!a',
         'SgeDifferentPassword8!b',
-        'SgeInitialPassword9!a',
         'SgeInitialPassword9!a',
     ]);
 
     $this->artisan('admin:create')->assertSuccessful();
 
+    $output = Prompt::strippedContent();
+    $rulesPosition = strpos($output, 'Regras da senha');
+    $passwordPosition = strpos($output, 'Senha inicial');
+
+    expect($rulesPosition)->toBeInt()
+        ->and($passwordPosition)->toBeInt()
+        ->and($rulesPosition)->toBeLessThan($passwordPosition);
     expect(User::query()->count())->toBe(1)
         ->and(Affiliation::query()->count())->toBe(1);
 });

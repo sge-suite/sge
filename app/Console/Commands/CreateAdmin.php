@@ -18,6 +18,7 @@ use RuntimeException;
 use Throwable;
 
 use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\note;
 use function Laravel\Prompts\password;
 use function Laravel\Prompts\text;
 
@@ -125,22 +126,28 @@ class CreateAdmin extends Command
 
     private function askPassword(): string
     {
-        while (true) {
-            $passwordValue = password('Senha inicial', required: true);
-            $confirmation = password('Confirme a senha', required: true);
-            $validator = Validator::make([
-                'password' => $passwordValue,
-                'password_confirmation' => $confirmation,
-            ], [
-                'password' => $this->passwordRules(),
-            ]);
+        note('Regras da senha: 8 a 64 caracteres, letras maiúsculas e minúsculas, números, símbolos e sem comprometimento conhecido.');
 
-            if ($validator->passes()) {
-                return $passwordValue;
-            }
+        $passwordRules = array_values(array_filter(
+            $this->passwordRules(),
+            static fn (mixed $rule): bool => $rule !== 'confirmed',
+        ));
 
-            $this->error($validator->errors()->first('password'));
-        }
+        $passwordValue = password(
+            'Senha inicial',
+            required: true,
+            validate: fn (string $value): ?string => $this->validationError('password', $value, $passwordRules),
+        );
+
+        password(
+            'Confirme a senha',
+            required: true,
+            validate: static fn (string $confirmation): ?string => hash_equals($passwordValue, $confirmation)
+                ? null
+                : 'A confirmação não corresponde à senha.',
+        );
+
+        return $passwordValue;
     }
 
     private function askEmail(): string
