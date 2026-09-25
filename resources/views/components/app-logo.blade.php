@@ -3,7 +3,7 @@
 ])
 
 @if($sidebar)
-    <flux:sidebar.brand {{ $attributes }}>
+    <flux:sidebar.brand :name="config('app.name', 'Sistema de Gestão de Estágios')" {{ $attributes }}>
         <x-slot name="logo" class="flex items-center justify-center text-accent-content">
             <x-app-logo-icon class="size-8 fill-current" />
         </x-slot>
