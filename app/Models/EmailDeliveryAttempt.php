@@ -25,7 +25,6 @@ class EmailDeliveryAttempt extends Model
         return [
             'attempt_number' => 'integer',
             'status' => EmailDeliveryAttemptStatus::class,
-            'provider_message_id' => 'encrypted',
             'queued_at' => 'datetime',
             'sent_at' => 'datetime',
             'failed_at' => 'datetime',

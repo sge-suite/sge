@@ -51,6 +51,16 @@ test('rejects duplicate sequence and unsafe failure text', function () {
         ->toThrow(ValidationException::class);
 });
 
+test('stores provider message identifiers as plain text', function () {
+    $message = EmailMessage::factory()->create();
+    $attempt = EmailDeliveryAttempt::factory()->for($message)->create([
+        'provider_message_id' => 'smtp-id-123',
+    ]);
+
+    expect(DB::table('email_delivery_attempts')->where('id', $attempt->id)->value('provider_message_id'))
+        ->toBe('smtp-id-123');
+});
+
 test('rolls back and reapplies email tables in dependency order', function () {
     $attemptPath = glob(database_path('migrations/*_create_email_delivery_attempts_table.php'))[0];
     $messagePath = glob(database_path('migrations/*_create_email_messages_table.php'))[0];

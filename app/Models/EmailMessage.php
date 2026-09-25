@@ -26,10 +26,6 @@ class EmailMessage extends Model
     {
         return [
             'purpose' => EmailMessagePurpose::class,
-            'recipient_email' => 'encrypted',
-            'subject' => 'encrypted',
-            'content_text' => 'encrypted',
-            'content_html' => 'encrypted',
         ];
     }
 

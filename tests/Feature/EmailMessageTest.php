@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
-test('creates the email message schema with UUID, foreign keys and encrypted text columns', function () {
+test('creates the email message schema with UUID, foreign keys and text columns', function () {
     expect(DB::getDriverName())->toBe('pgsql');
 
     $columns = collect(Schema::getColumns('email_messages'))->keyBy('name');
@@ -27,7 +27,7 @@ test('creates the email message schema with UUID, foreign keys and encrypted tex
         ->and(collect(Schema::getForeignKeys('email_messages'))->count())->toBe(3);
 });
 
-test('stores a protected immutable account message without persisting access content', function () {
+test('stores an immutable account message without access content', function () {
     $user = User::factory()->create();
     $message = EmailMessage::factory()->for($user)->create();
     $raw = DB::table('email_messages')->where('id', $message->id)->first();
@@ -35,7 +35,7 @@ test('stores a protected immutable account message without persisting access con
     expect($message->id)->toBeInt()
         ->and($message->purpose)->toBe(EmailMessagePurpose::PasswordReset)
         ->and($message->recipient_email)->toBe($user->email)
-        ->and($raw->recipient_email)->not->toContain($user->email)
+        ->and($raw->recipient_email)->toBe($user->email)
         ->and($message->toArray())->not->toHaveKey('recipient_email')
         ->and($message->content_text)->toBeNull()
         ->and($message->user->is($user))->toBeTrue();
@@ -48,7 +48,7 @@ test('stores a protected immutable account message without persisting access con
     expect(fn () => $message->save())->toThrow(ValidationException::class);
 });
 
-test('rejects access content in account messages and mismatched recipients', function () {
+test('rejects access content and recipient addresses in account messages', function () {
     $user = User::factory()->create();
     $affiliation = Affiliation::factory()->student()->for($user)->create();
     $wrongNotification = $affiliation->notifications()->create([
@@ -74,7 +74,7 @@ test('supports a separate account message for a new affiliation', function () {
         ->and($message->content_text)->toBeNull();
 });
 
-test('links protected operational content only to the notified affiliation', function () {
+test('links operational content only to the notified affiliation', function () {
     $user = User::factory()->create();
     $affiliation = Affiliation::factory()->student()->for($user)->create();
     $otherAffiliation = Affiliation::factory()->supervisor()->for($user)->create();
@@ -88,8 +88,10 @@ test('links protected operational content only to the notified affiliation', fun
     expect($message->affiliation->is($affiliation))->toBeTrue()
         ->and($message->notification->is($notification))->toBeTrue()
         ->and($message->user_id)->toBeNull()
-        ->and($raw->recipient_email)->not->toContain($affiliation->email)
-        ->and($raw->content_text)->not->toContain('documento')
+        ->and($raw->recipient_email)->toBe($affiliation->email)
+        ->and($raw->subject)->toBe('Documento disponível')
+        ->and($raw->content_text)->toBe('Um documento está disponível para análise.')
+        ->and($raw->content_html)->toBe('<p>Um documento está disponível para análise.</p>')
         ->and($otherAffiliation->notifications()->whereKey($notification->id)->exists())->toBeFalse();
 
     expect(fn () => EmailMessage::factory()->operational($otherAffiliation, $notification)->create())
