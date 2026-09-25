@@ -39,6 +39,18 @@ class User extends Authenticatable
         return LogOptions::defaults()->logFillable()->logOnlyDirty()->dontLogEmptyChanges();
     }
 
+    protected static function booted(): void
+    {
+        static::updated(function (self $user): void {
+            if ($user->wasChanged('password')) {
+                activity()
+                    ->performedOn($user)
+                    ->event('password_changed')
+                    ->log('Senha alterada');
+            }
+        });
+    }
+
     /**
      * Get the attributes that should be cast.
      *

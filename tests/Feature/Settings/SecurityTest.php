@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
+use Spatie\Activitylog\Models\Activity;
 
 test('security settings page can be rendered', function () {
     $user = User::factory()->create();
@@ -39,6 +40,10 @@ test('password can be updated', function () {
     $response->assertHasNoErrors();
 
     expect(Hash::check('SgeNewPassword9!a', $user->refresh()->password))->toBeTrue();
+
+    $activity = Activity::forSubject($user)->where('event', 'password_changed')->sole();
+    expect($activity->attribute_changes?->isEmpty() ?? true)->toBeTrue()
+        ->and($activity->toJson())->not->toContain('SgeNewPassword9!a', $user->password);
 });
 
 test('correct password must be provided to update password', function () {

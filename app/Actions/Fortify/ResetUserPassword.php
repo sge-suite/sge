@@ -6,6 +6,7 @@ use App\Concerns\PasswordValidationRules;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
+use Spatie\Activitylog\Support\CauserResolver;
 
 class ResetUserPassword implements ResetsUserPasswords
 {
@@ -22,8 +23,10 @@ class ResetUserPassword implements ResetsUserPasswords
             'password' => $this->passwordRules(),
         ])->validate();
 
-        $user->forceFill([
-            'password' => $input['password'],
-        ])->save();
+        app(CauserResolver::class)->withCauser($user, function () use ($user, $input): void {
+            $user->forceFill([
+                'password' => $input['password'],
+            ])->save();
+        });
     }
 }

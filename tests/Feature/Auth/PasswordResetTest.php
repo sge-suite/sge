@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
+use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     $this->skipUnlessFortifyHas(Features::resetPasswords());
@@ -64,6 +65,12 @@ test('password can be reset with valid token', function () {
         $response
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('login', absolute: false));
+
+        $activity = Activity::forSubject($user)->where('event', 'password_changed')->sole();
+        expect($activity->causer_type)->toBe(User::class)
+            ->and($activity->causer_id)->toBe($user->id)
+            ->and($activity->attribute_changes?->isEmpty() ?? true)->toBeTrue()
+            ->and($activity->toJson())->not->toContain('SgeResetPassword9!a', $user->password);
 
         return true;
     });
