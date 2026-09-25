@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EmailDeliveryAttemptStatus;
+use App\Enums\EmailMessagePurpose;
 use Database\Factories\EmailDeliveryAttemptFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -12,9 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Support\CauserResolver;
 
-#[Fillable(['email_message_id', 'attempt_number', 'status', 'provider', 'provider_message_id', 'queued_at', 'sent_at', 'failed_at', 'failure_reason'])]
-#[Hidden(['provider_message_id'])]
+#[Fillable(['email_message_id', 'purpose', 'recipient_email', 'requested_by_affiliation_id', 'attempt_number', 'status', 'provider', 'provider_message_id', 'queued_at', 'sent_at', 'failed_at', 'failure_reason'])]
+#[Hidden(['recipient_email', 'provider_message_id'])]
 class EmailDeliveryAttempt extends Model
 {
     /** @use HasFactory<EmailDeliveryAttemptFactory> */
@@ -23,6 +25,7 @@ class EmailDeliveryAttempt extends Model
     protected function casts(): array
     {
         return [
+            'purpose' => EmailMessagePurpose::class,
             'attempt_number' => 'integer',
             'status' => EmailDeliveryAttemptStatus::class,
             'queued_at' => 'datetime',
@@ -37,26 +40,79 @@ class EmailDeliveryAttempt extends Model
         return $this->belongsTo(EmailMessage::class);
     }
 
+    /** @return BelongsTo<Affiliation, $this> */
+    public function requestedByAffiliation(): BelongsTo
+    {
+        return $this->belongsTo(Affiliation::class, 'requested_by_affiliation_id');
+    }
+
     protected static function booted(): void
     {
+        static::creating(function (self $attempt): void {
+            $requester = app(CauserResolver::class)->resolve();
+
+            if ($requester instanceof Affiliation) {
+                $attempt->requested_by_affiliation_id = $requester->id;
+            } elseif ($requester instanceof User) {
+                throw ValidationException::withMessages(['requested_by_affiliation_id' => 'O envio humano exige um vínculo ativo.']);
+            }
+        });
+
         static::saving(function (self $attempt): void {
             Validator::make([
                 'email_message_id' => $attempt->email_message_id,
+                'purpose' => $attempt->purpose?->value,
+                'recipient_email' => $attempt->recipient_email,
+                'requested_by_affiliation_id' => $attempt->requested_by_affiliation_id,
                 'attempt_number' => $attempt->attempt_number,
                 'status' => $attempt->status?->value,
                 'failure_reason' => $attempt->failure_reason,
             ], [
-                'email_message_id' => ['required', 'integer', 'min:1'],
+                'email_message_id' => ['nullable', 'integer', 'min:1'],
+                'purpose' => ['required', Rule::enum(EmailMessagePurpose::class)],
+                'recipient_email' => ['required', 'email'],
+                'requested_by_affiliation_id' => ['nullable', 'integer', 'min:1'],
                 'attempt_number' => ['required', 'integer', 'min:1', 'max:65535'],
                 'status' => ['required', Rule::enum(EmailDeliveryAttemptStatus::class)],
                 'failure_reason' => ['nullable', 'regex:/^[a-z0-9_.-]+$/', 'max:120'],
             ])->validate();
 
+            if (! $attempt->exists) {
+                if (($attempt->purpose === EmailMessagePurpose::Notification) !== ($attempt->email_message_id !== null)) {
+                    throw ValidationException::withMessages(['email_message_id' => 'Notificações exigem conteúdo e convites não armazenam conteúdo.']);
+                }
+
+                if ($attempt->email_message_id !== null) {
+                    $message = EmailMessage::query()->with('notification.notifiable')->find($attempt->email_message_id);
+
+                    if ($message === null || $message->purpose !== $attempt->purpose) {
+                        throw ValidationException::withMessages(['email_message_id' => 'A mensagem deve corresponder à finalidade do envio.']);
+                    }
+
+                    $notifiable = $message->notification?->notifiable;
+
+                    if ($notifiable !== null && (! ($notifiable instanceof Affiliation || $notifiable instanceof User) ||
+                        $notifiable->email !== $attempt->recipient_email)) {
+                        throw ValidationException::withMessages(['recipient_email' => 'O destinatário não corresponde à notificação.']);
+                    }
+                }
+
+                if ($attempt->requested_by_affiliation_id !== null) {
+                    $affiliation = Affiliation::query()->active()->find($attempt->requested_by_affiliation_id);
+
+                    if ($affiliation === null) {
+                        throw ValidationException::withMessages(['requested_by_affiliation_id' => 'O vínculo solicitante deve estar ativo.']);
+                    }
+                }
+            }
+
             if ($attempt->exists && $attempt->getRawOriginal('status') !== EmailDeliveryAttemptStatus::Queued->value) {
                 throw ValidationException::withMessages(['status' => 'Uma tentativa finalizada é imutável.']);
             }
 
-            if ($attempt->exists && ($attempt->isDirty('email_message_id') || $attempt->isDirty('attempt_number') || $attempt->isDirty('queued_at'))) {
+            if ($attempt->exists && ($attempt->isDirty('email_message_id') || $attempt->isDirty('purpose') ||
+                $attempt->isDirty('recipient_email') || $attempt->isDirty('requested_by_affiliation_id') || $attempt->isDirty('attempt_number') ||
+                $attempt->isDirty('queued_at'))) {
                 throw ValidationException::withMessages(['attempt_number' => 'A identidade e a reserva da tentativa são imutáveis.']);
             }
 
@@ -74,6 +130,10 @@ class EmailDeliveryAttempt extends Model
                 ($attempt->failed_at === null || $attempt->sent_at !== null || $attempt->failure_reason === null)) {
                 throw ValidationException::withMessages(['failed_at' => 'Uma tentativa falha exige data e motivo sanitizado.']);
             }
+        });
+
+        static::deleting(function (): void {
+            throw ValidationException::withMessages(['email_delivery_attempt' => 'O histórico de entregas não pode ser excluído.']);
         });
     }
 }

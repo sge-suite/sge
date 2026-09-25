@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
-#[Fillable(['notification_id', 'user_id', 'affiliation_id', 'purpose', 'recipient_email', 'subject', 'content_text', 'content_html', 'template_key', 'template_version', 'idempotency_key'])]
-#[Hidden(['recipient_email', 'subject', 'content_text', 'content_html'])]
+#[Fillable(['notification_id', 'purpose', 'subject', 'content_text', 'content_html', 'template_key', 'template_version', 'idempotency_key'])]
+#[Hidden(['subject', 'content_text', 'content_html'])]
 class EmailMessage extends Model
 {
     /** @use HasFactory<EmailMessageFactory> */
@@ -35,18 +35,6 @@ class EmailMessage extends Model
         return $this->belongsTo(DatabaseNotification::class);
     }
 
-    /** @return BelongsTo<User, $this> */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /** @return BelongsTo<Affiliation, $this> */
-    public function affiliation(): BelongsTo
-    {
-        return $this->belongsTo(Affiliation::class);
-    }
-
     /** @return HasMany<EmailDeliveryAttempt, $this> */
     public function deliveryAttempts(): HasMany
     {
@@ -58,39 +46,30 @@ class EmailMessage extends Model
         static::creating(function (self $message): void {
             Validator::make([
                 'purpose' => $message->purpose?->value,
-                'recipient_email' => $message->recipient_email,
+                'subject' => $message->subject,
+                'content_text' => $message->content_text,
+                'content_html' => $message->content_html,
                 'idempotency_key' => $message->idempotency_key,
             ], [
                 'purpose' => ['required', Rule::enum(EmailMessagePurpose::class)],
-                'recipient_email' => ['required', 'email'],
+                'subject' => ['required', 'string'],
+                'content_text' => ['required_without:content_html', 'nullable', 'string'],
+                'content_html' => ['required_without:content_text', 'nullable', 'string'],
                 'idempotency_key' => ['required', 'uuid'],
             ])->validate();
 
-            if ($message->purpose === EmailMessagePurpose::Notification) {
-                $affiliation = Affiliation::find($message->affiliation_id);
-                $notification = DatabaseNotification::find($message->notification_id);
-
-                if ($message->user_id !== null || ! $affiliation || ! $notification ||
-                    $notification->notifiable_type !== Affiliation::class ||
-                    (int) $notification->notifiable_id !== $affiliation->id ||
-                    $message->recipient_email !== $affiliation->email) {
-                    throw ValidationException::withMessages(['affiliation_id' => 'A mensagem operacional exige notificação e endereço do vínculo destinatário.']);
-                }
-            } else {
-                $user = User::find($message->user_id);
-                $notification = $message->notification_id === null ? null : DatabaseNotification::find($message->notification_id);
-
-                if ($message->affiliation_id !== null || ! $user || $message->recipient_email !== $user->email ||
-                    $message->content_text !== null || $message->content_html !== null ||
-                    ($message->notification_id !== null && (! $notification ||
-                        $notification->notifiable_type !== User::class || (int) $notification->notifiable_id !== $user->id))) {
-                    throw ValidationException::withMessages(['user_id' => 'A mensagem de conta exige usuário e não pode persistir conteúdo de acesso.']);
-                }
+            if ($message->purpose !== EmailMessagePurpose::Notification ||
+                ($message->notification_id !== null && ! DatabaseNotification::find($message->notification_id))) {
+                throw ValidationException::withMessages(['purpose' => 'Somente conteúdo de notificação pode ser armazenado.']);
             }
         });
 
         static::updating(function (): void {
             throw ValidationException::withMessages(['email_message' => 'O snapshot da mensagem é imutável.']);
+        });
+
+        static::deleting(function (): void {
+            throw ValidationException::withMessages(['email_message' => 'O snapshot da mensagem não pode ser excluído.']);
         });
     }
 }

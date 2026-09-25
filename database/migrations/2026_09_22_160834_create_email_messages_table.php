@@ -14,10 +14,7 @@ return new class extends Migration
         Schema::create('email_messages', function (Blueprint $table) {
             $table->id();
             $table->foreignUuid('notification_id')->nullable()->constrained('notifications')->restrictOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained()->restrictOnDelete();
-            $table->foreignId('affiliation_id')->nullable()->constrained()->restrictOnDelete();
             $table->string('purpose');
-            $table->text('recipient_email');
             $table->text('subject')->nullable();
             $table->text('content_text')->nullable();
             $table->text('content_html')->nullable();

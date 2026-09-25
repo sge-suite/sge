@@ -4,7 +4,6 @@ namespace App\Enums;
 
 enum EmailMessagePurpose: string
 {
-    case PasswordReset = 'password_reset';
     case Notification = 'notification';
     case NewAffiliation = 'new_affiliation';
 
@@ -14,7 +13,6 @@ enum EmailMessagePurpose: string
     public function label(): string
     {
         return match ($this) {
-            self::PasswordReset => 'Recuperação de senha',
             self::Notification => 'Notificação operacional',
             self::NewAffiliation => 'Novo vínculo',
         };
