@@ -57,7 +57,7 @@ class EmancipationEvidence extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logOnly(['internship_request_id', 'status', 'reviewed_at', 'return_reason'])
-            ->logOnlyDirty()->dontLogEmptyChanges();
+            ->logOnlyDirty();
     }
 
     protected static function booted(): void

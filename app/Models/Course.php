@@ -87,8 +87,7 @@ class Course extends Model
     {
         return LogOptions::defaults()
             ->logFillable()
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges();
+            ->logOnlyDirty();
     }
 
     protected static function booted(): void

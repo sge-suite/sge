@@ -83,8 +83,7 @@ class TemplateVersion extends Model implements HasMedia
     {
         return LogOptions::defaults()
             ->logFillable()
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges();
+            ->logOnlyDirty();
     }
 
     protected static function booted(): void

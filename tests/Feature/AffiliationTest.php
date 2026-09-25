@@ -351,7 +351,7 @@ test('orders active affiliations by latest use with nulls last and an id tie bre
     expect($neverUsedAffiliation->fresh()->last_used_at)->toBeInstanceOf(DateTimeInterface::class);
 });
 
-test('audits relevant affiliation changes but not isolated last-used updates', function () {
+test('audits affiliation changes including last-used updates from a console-like context', function () {
     $causer = User::factory()->create();
     $this->actingAs($causer);
 
@@ -362,7 +362,7 @@ test('audits relevant affiliation changes but not isolated last-used updates', f
     $creation = Activity::forSubject($affiliation)->where('event', 'created')->sole();
 
     expect($creation->causer_id)->toBe($causer->id)
-        ->and($creation->attribute_changes->get('attributes'))->not->toHaveKey('last_used_at');
+        ->and($creation->attribute_changes->get('attributes'))->toHaveKey('last_used_at');
 
     $affiliation->update(['email' => 'updated@example.test']);
     expect(Activity::forSubject($affiliation)->where('event', 'updated')->count())->toBe(1);
@@ -373,7 +373,7 @@ test('audits relevant affiliation changes but not isolated last-used updates', f
 
     $affiliation->markAsUsed();
 
-    expect(Activity::forSubject($affiliation)->count())->toBe($activityCountBeforeUsage)
-        ->and(Activity::forSubject($affiliation)->count())->toBe(4)
-        ->and(Activity::forSubject($affiliation)->where('event', 'updated')->count())->toBe(3);
+    expect(Activity::forSubject($affiliation)->count())->toBe($activityCountBeforeUsage + 1)
+        ->and(Activity::forSubject($affiliation)->count())->toBe(5)
+        ->and(Activity::forSubject($affiliation)->where('event', 'updated')->count())->toBe(4);
 });

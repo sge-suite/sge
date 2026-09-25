@@ -228,7 +228,7 @@ test('accepts a telephone with DDD supplied as digits only', function () {
     expect($campus->fresh()->phone)->toBe('55999999999');
 });
 
-test('logs creation and dirty campus updates with the authenticated causer', function () {
+test('logs campus changes from a console-like context, including timestamp touches', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
     $campus = Campus::factory()->create(['name' => 'Campus Original']);
@@ -241,7 +241,7 @@ test('logs creation and dirty campus updates with the authenticated causer', fun
     $campus->update(['name' => 'Campus Atualizado']);
     $update = Activity::forSubject($campus)->where('event', 'updated')->sole();
     expect($update->causer_id)->toBe($user->id)
-        ->and($update->attribute_changes->all())->toBe([
+        ->and($update->attribute_changes->all())->toEqual([
             'attributes' => ['name' => 'Campus Atualizado'],
             'old' => ['name' => 'Campus Original'],
         ]);
@@ -249,5 +249,5 @@ test('logs creation and dirty campus updates with the authenticated causer', fun
     $campus->save();
     $this->travel(1)->minutes();
     $campus->touch();
-    expect(Activity::forSubject($campus)->count())->toBe(2);
+    expect(Activity::forSubject($campus)->count())->toBe(3);
 });

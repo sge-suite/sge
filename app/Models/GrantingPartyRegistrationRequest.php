@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 #[Fillable([
     'document_type', 'document_number', 'name', 'street', 'number', 'neighborhood',
@@ -31,6 +33,13 @@ class GrantingPartyRegistrationRequest extends Model
 {
     /** @use HasFactory<GrantingPartyRegistrationRequestFactory> */
     use HasFactory;
+
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->logFillable()->logOnlyDirty();
+    }
 
     /** @return array<string, string> */
     protected function casts(): array

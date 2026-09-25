@@ -68,7 +68,7 @@ class GeneratedDocument extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logFillable()->logOnlyDirty()->dontLogEmptyChanges();
+        return LogOptions::defaults()->logFillable()->logOnlyDirty();
     }
 
     protected static function booted(): void

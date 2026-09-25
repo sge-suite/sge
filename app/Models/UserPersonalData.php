@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @property int $id
@@ -39,7 +41,13 @@ class UserPersonalData extends Model
     /** @use HasFactory<UserPersonalDataFactory> */
     use HasFactory;
 
+    use LogsActivity;
     use UserPersonalDataValidationRules;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->logFillable()->logOnly(['emancipation_verified_at'])->logOnlyDirty();
+    }
 
     /**
      * @return array<string, string>

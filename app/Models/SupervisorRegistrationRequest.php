@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 #[Fillable([
     'name', 'cpf', 'phone', 'email', 'job_role', 'qualification',
@@ -26,6 +28,13 @@ class SupervisorRegistrationRequest extends Model
 {
     /** @use HasFactory<SupervisorRegistrationRequestFactory> */
     use HasFactory;
+
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->logFillable()->logOnlyDirty();
+    }
 
     /** @return array<string, string> */
     protected function casts(): array

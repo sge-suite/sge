@@ -176,7 +176,8 @@ test('persists optional CEP values without format validation or sanitization', f
 
 test('validates required address fields before persisting', function (string $field, mixed $value) {
     expect(fn () => Address::factory()->create([$field => $value]))->toThrow(ValidationException::class);
-    expect(Address::count())->toBe(0)->and(Activity::count())->toBe(0);
+    expect(Address::count())->toBe(0)
+        ->and(Activity::query()->where('subject_type', Address::class)->count())->toBe(0);
 })->with([
     'missing city' => ['city_id', null],
     'nonexistent city' => ['city_id', PHP_INT_MAX],
@@ -244,7 +245,7 @@ test('rejects copying an address that no longer exists', function () {
         ->and(Address::count())->toBe(0);
 });
 
-test('logs creation and dirty cadastral updates with the authenticated causer', function () {
+test('logs address changes with account authorship and previous values', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
     $address = Address::factory()->create(['street' => 'Rua Original']);
@@ -257,7 +258,7 @@ test('logs creation and dirty cadastral updates with the authenticated causer', 
     $address->update(['street' => 'Rua Atualizada']);
     $update = Activity::forSubject($address)->where('event', 'updated')->sole();
     expect($update->causer_id)->toBe($user->id)
-        ->and($update->attribute_changes->all())->toBe([
+        ->and($update->attribute_changes->all())->toEqual([
             'attributes' => ['street' => 'Rua Atualizada'],
             'old' => ['street' => 'Rua Original'],
         ]);
@@ -265,5 +266,5 @@ test('logs creation and dirty cadastral updates with the authenticated causer', 
     $address->save();
     $this->travel(1)->minutes();
     $address->touch();
-    expect(Activity::forSubject($address)->count())->toBe(2);
+    expect(Activity::forSubject($address)->count())->toBe(3);
 });

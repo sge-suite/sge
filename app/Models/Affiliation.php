@@ -141,8 +141,8 @@ class Affiliation extends Model
     {
         return LogOptions::defaults()
             ->logFillable()
-            ->logOnlyDirty()
-            ->dontLogEmptyChanges();
+            ->logOnly(['last_used_at'])
+            ->logOnlyDirty();
     }
 
     protected static function booted(): void

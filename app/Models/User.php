@@ -12,7 +12,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @property int $id
@@ -29,7 +32,12 @@ use Illuminate\Support\Str;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, LogsActivity, Notifiable;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->logFillable()->logOnlyDirty()->dontLogEmptyChanges();
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -66,5 +74,14 @@ class User extends Authenticatable
     public function affiliations(): HasMany
     {
         return $this->hasMany(Affiliation::class);
+    }
+
+    public function delete(): ?bool
+    {
+        return DB::transaction(function (): ?bool {
+            $this->personalData()->first()?->delete();
+
+            return parent::delete();
+        });
     }
 }
