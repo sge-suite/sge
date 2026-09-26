@@ -44,6 +44,15 @@ class EmailDeliveryAttemptFactory extends Factory
         ]);
     }
 
+    public function accountCreated(User $recipient): static
+    {
+        return $this->state(fn (): array => [
+            'email_message_id' => null,
+            'purpose' => EmailMessagePurpose::AccountCreated,
+            'recipient_email' => $recipient->email,
+        ]);
+    }
+
     public function sent(): static
     {
         return $this->state(fn (): array => [

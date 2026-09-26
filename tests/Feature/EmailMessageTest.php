@@ -54,6 +54,19 @@ test('rejects contentless messages and invitation snapshots', function () {
         ->toThrow(ValidationException::class);
 });
 
+test('stores an immutable account email change without an internal notification', function () {
+    $message = EmailMessage::factory()->create([
+        'purpose' => EmailMessagePurpose::AccountEmailChanged,
+        'subject' => 'E-mail da conta alterado',
+        'content_text' => 'E-mail anterior: antigo@example.test. Novo e-mail: novo@example.test.',
+        'content_html' => '<p>E-mail anterior: antigo@example.test. Novo e-mail: novo@example.test.</p>',
+    ]);
+
+    expect($message->notification_id)->toBeNull()
+        ->and($message->content_text)->toContain('antigo@example.test', 'novo@example.test')
+        ->and(fn () => $message->update(['content_text' => 'Alterado']))->toThrow(ValidationException::class);
+});
+
 test('enforces one content snapshot per idempotency key', function () {
     $message = EmailMessage::factory()->create();
 

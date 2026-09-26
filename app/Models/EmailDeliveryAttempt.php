@@ -96,8 +96,13 @@ class EmailDeliveryAttempt extends Model
             ])->validate();
 
             if (! $attempt->exists) {
-                if (($attempt->purpose === EmailMessagePurpose::Notification) !== ($attempt->email_message_id !== null)) {
-                    throw ValidationException::withMessages(['email_message_id' => 'Notificações exigem conteúdo e convites não armazenam conteúdo.']);
+                $requiresMessage = in_array($attempt->purpose, [
+                    EmailMessagePurpose::Notification,
+                    EmailMessagePurpose::AccountEmailChanged,
+                ], true);
+
+                if ($requiresMessage !== ($attempt->email_message_id !== null)) {
+                    throw ValidationException::withMessages(['email_message_id' => 'Notificações e avisos de alteração de e-mail exigem conteúdo; avisos de conta e vínculo não armazenam conteúdo.']);
                 }
 
                 if ($attempt->email_message_id !== null) {

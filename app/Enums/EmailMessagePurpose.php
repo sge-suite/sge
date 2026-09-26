@@ -5,6 +5,7 @@ namespace App\Enums;
 enum EmailMessagePurpose: string
 {
     case Notification = 'notification';
+    case AccountCreated = 'account_created';
     case NewAffiliation = 'new_affiliation';
     case AccountEmailChanged = 'account_email_changed';
 
@@ -15,6 +16,7 @@ enum EmailMessagePurpose: string
     {
         return match ($this) {
             self::Notification => 'Notificação operacional',
+            self::AccountCreated => 'Conta criada',
             self::NewAffiliation => 'Novo vínculo',
             self::AccountEmailChanged => 'Alteração de e-mail da conta',
         };

@@ -9,9 +9,11 @@ use App\Models\Affiliation;
 use App\Models\EmailDeliveryAttempt;
 use App\Models\EmailMessage;
 use App\Models\User;
+use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class RequestEmailDelivery
@@ -46,14 +48,54 @@ class RequestEmailDelivery
         });
     }
 
-    public function invitation(string $recipientEmail, string $deliveryKey): EmailDeliveryAttempt
+    public function accountCreated(string $recipientEmail, string $deliveryKey): EmailDeliveryAttempt
+    {
+        return $this->withoutContent(EmailMessagePurpose::AccountCreated, $recipientEmail, $deliveryKey);
+    }
+
+    public function affiliationCreated(string $recipientEmail, string $deliveryKey): EmailDeliveryAttempt
     {
         return $this->withoutContent(EmailMessagePurpose::NewAffiliation, $recipientEmail, $deliveryKey);
     }
 
-    public function accountEmailChanged(string $recipientEmail, string $deliveryKey): EmailDeliveryAttempt
+    public function accountEmailChanged(string $recipientEmail, string $previousEmail, string $newEmail, string $deliveryKey): EmailDeliveryAttempt
     {
-        return $this->withoutContent(EmailMessagePurpose::AccountEmailChanged, $recipientEmail, $deliveryKey);
+        $this->validateKey($deliveryKey);
+
+        Validator::make(compact('recipientEmail', 'previousEmail', 'newEmail'), [
+            'recipientEmail' => ['required', 'email', Rule::in([$previousEmail, $newEmail])],
+            'previousEmail' => ['required', 'email'],
+            'newEmail' => ['required', 'email', 'different:previousEmail'],
+        ])->validate();
+
+        $subject = 'E-mail da conta alterado';
+        $data = [
+            'previousEmail' => $previousEmail,
+            'newEmail' => $newEmail,
+            'loginUrl' => route('login'),
+        ];
+        $markdown = app(Markdown::class);
+        $contentHtml = (string) $markdown->render('emails.account-email-changed', $data);
+        $contentText = (string) $markdown->renderText('emails.account-email-changed', $data);
+
+        return DB::transaction(function () use ($deliveryKey, $recipientEmail, $subject, $contentHtml, $contentText): EmailDeliveryAttempt {
+            $message = EmailMessage::query()->firstOrCreate(
+                ['idempotency_key' => $deliveryKey],
+                [
+                    'purpose' => EmailMessagePurpose::AccountEmailChanged,
+                    'subject' => $subject,
+                    'content_text' => $contentText,
+                    'content_html' => $contentHtml,
+                ],
+            );
+
+            if ($message->purpose !== EmailMessagePurpose::AccountEmailChanged || $message->subject !== $subject ||
+                $message->content_text !== $contentText || $message->content_html !== $contentHtml) {
+                throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
+            }
+
+            return $this->reserve($deliveryKey, EmailMessagePurpose::AccountEmailChanged, $recipientEmail, $message);
+        });
     }
 
     public function retry(EmailDeliveryAttempt $attempt): EmailDeliveryAttempt

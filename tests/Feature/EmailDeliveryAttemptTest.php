@@ -26,6 +26,7 @@ test('creates attempt schema with optional content, recipient and requester', fu
         ->and($columns->get('requested_by_affiliation_id'))->toMatchArray(['type' => 'bigint', 'nullable' => true])
         ->and($columns->has('requested_by_user_id'))->toBeFalse()
         ->and($columns->get('recipient_email'))->toMatchArray(['type' => 'text', 'nullable' => false])
+        ->and($columns->has('change_context'))->toBeFalse()
         ->and($columns->get('attempt_number'))->toMatchArray(['type' => 'smallint', 'nullable' => false])
         ->and($indexes->firstWhere('columns', ['email_message_id', 'attempt_number'])['unique'])->toBeTrue()
         ->and($indexes->firstWhere('columns', ['delivery_key', 'attempt_number'])['unique'])->toBeTrue()
@@ -35,10 +36,10 @@ test('creates attempt schema with optional content, recipient and requester', fu
 
 test('records invitation delivery without storing message content', function () {
     $recipient = User::factory()->create();
-    $attempt = EmailDeliveryAttempt::factory()->newAffiliation($recipient)->sent()->create();
+    $attempt = EmailDeliveryAttempt::factory()->accountCreated($recipient)->sent()->create();
     $raw = DB::table('email_delivery_attempts')->where('id', $attempt->id)->first();
 
-    expect($attempt->purpose)->toBe(EmailMessagePurpose::NewAffiliation)
+    expect($attempt->purpose)->toBe(EmailMessagePurpose::AccountCreated)
         ->and($attempt->email_message_id)->toBeNull()
         ->and($raw->recipient_email)->toBe($recipient->email)
         ->and($attempt->requested_by_affiliation_id)->toBeNull()

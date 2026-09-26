@@ -68,9 +68,10 @@ class EmailMessage extends Model
                 'idempotency_key' => ['required', 'uuid'],
             ])->validate();
 
-            if ($message->purpose !== EmailMessagePurpose::Notification ||
+            if (! in_array($message->purpose, [EmailMessagePurpose::Notification, EmailMessagePurpose::AccountEmailChanged], true) ||
+                ($message->purpose === EmailMessagePurpose::AccountEmailChanged && $message->notification_id !== null) ||
                 ($message->notification_id !== null && ! DatabaseNotification::find($message->notification_id))) {
-                throw ValidationException::withMessages(['purpose' => 'Somente conteúdo de notificação pode ser armazenado.']);
+                throw ValidationException::withMessages(['purpose' => 'Somente conteúdo de notificação ou aviso de alteração de e-mail pode ser armazenado.']);
             }
         });
 
