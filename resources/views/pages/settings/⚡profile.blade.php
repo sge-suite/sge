@@ -3,8 +3,6 @@
 use App\Concerns\ProfileValidationRules;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
-use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -24,6 +22,23 @@ new #[Title('Profile settings')] class extends Component {
     }
 
 
+    /**
+     * Update the authenticated account's login email.
+     */
+    public function updateEmail(): void
+    {
+        $user = Auth::user();
+        $this->email = mb_strtolower(trim($this->email));
+
+        $validated = $this->validate([
+            'email' => $this->emailRules($user->id),
+        ]);
+
+        $user->update(['email' => $validated['email']]);
+        $this->email = $user->email;
+
+        Flux::toast(variant: 'success', text: 'E-mail da conta atualizado.');
+    }
 }; ?>
 
 <section class="w-full">
@@ -35,9 +50,23 @@ new #[Title('Profile settings')] class extends Component {
         <div class="my-6 w-full space-y-6">
             <flux:input wire:model="name" label="Nome" type="text" readonly disabled />
 
-            <div>
-                <flux:input wire:model="email" label="E-mail" type="email" readonly disabled />
-            </div>
+            <form method="POST" wire:submit="updateEmail" class="space-y-4">
+                <flux:input
+                    wire:model="email"
+                    label="E-mail da conta"
+                    type="email"
+                    required
+                    autocomplete="email"
+                />
+                <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                    Usado para entrar e recuperar sua senha. A alteração não modifica o e-mail dos seus vínculos.
+                </p>
+                <flux:error name="email" />
+
+                <flux:button variant="primary" type="submit" data-test="update-account-email-button">
+                    Salvar e-mail
+                </flux:button>
+            </form>
         </div>
     </x-pages::settings.layout>
 </section>
