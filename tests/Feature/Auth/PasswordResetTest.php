@@ -52,7 +52,8 @@ test('reset password screen can be rendered', function () {
         $response = $this->get(route('password.reset', $notification->token));
 
         $response->assertOk()
-            ->assertSee('A nova senha deve:')
+            ->assertSee('Regras para senha')
+            ->assertSee('A senha deve:')
             ->assertSee('Ter entre 8 e 64 caracteres.')
             ->assertSee('Conter letras maiúsculas e minúsculas.')
             ->assertSee('Conter pelo menos um número.')

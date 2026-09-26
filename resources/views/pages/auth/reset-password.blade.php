@@ -20,8 +20,6 @@
                 autocomplete="email"
             />
 
-            <x-password-requirements />
-
             <!-- Password -->
             <flux:input
                 name="password"
@@ -33,6 +31,17 @@
                 passwordrules="{{ \Illuminate\Validation\Rules\Password::min(8)->max(64)->letters()->mixedCase()->numbers()->symbols()->toPasswordRulesString() }}"
                 viewable
             />
+
+            <x-accordion title="Regras para senha" :open="$errors->has('password')">
+                <p class="text-sm font-medium text-zinc-700 dark:text-zinc-200">A senha deve:</p>
+                <ul class="mt-2 list-disc space-y-1 ps-5 text-sm text-zinc-600 dark:text-zinc-300">
+                    <li>Ter entre 8 e 64 caracteres.</li>
+                    <li>Conter letras maiúsculas e minúsculas.</li>
+                    <li>Conter pelo menos um número.</li>
+                    <li>Conter pelo menos um símbolo.</li>
+                    <li>Não ter sido exposta em vazamentos de dados conhecidos.</li>
+                </ul>
+            </x-accordion>
 
             <!-- Confirm Password -->
             <flux:input
