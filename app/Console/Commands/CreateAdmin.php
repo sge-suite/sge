@@ -2,41 +2,31 @@
 
 namespace App\Console\Commands;
 
-use App\Concerns\PasswordValidationRules;
+use App\Actions\RequestEmailDelivery;
 use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\User;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Laravel\Prompts\Prompt;
+use Illuminate\Support\Str;
 use LaravelLegends\PtBrValidator\Rules\Cpf;
-use RuntimeException;
 use Throwable;
 
 use function Laravel\Prompts\confirm;
-use function Laravel\Prompts\note;
-use function Laravel\Prompts\password;
 use function Laravel\Prompts\text;
 
 #[Signature('admin:create')]
-#[Description('Cria o primeiro vínculo ativo de Administrador do Sistema.')]
+#[Description('Cria um vínculo ativo de Administrador do Sistema.')]
 class CreateAdmin extends Command
 {
-    use PasswordValidationRules;
-
     public function handle(): int
     {
         if (! $this->input->isInteractive()) {
             $this->error('Este comando precisa de um terminal interativo.');
-
-            return self::FAILURE;
-        }
-
-        if ($this->hasActiveSystemAdministrator()) {
-            $this->error('Já existe um Administrador do Sistema ativo.');
 
             return self::FAILURE;
         }
@@ -70,8 +60,6 @@ class CreateAdmin extends Command
                 ['required', 'string', 'max:255'],
                 transform: static fn (string $value): string => trim($value),
             );
-            $password = $existingUser === null ? $this->askPassword() : null;
-
             $this->newLine();
             $this->table(['Campo', 'Valor'], [
                 ['Nome', $name],
@@ -92,29 +80,43 @@ class CreateAdmin extends Command
                 return self::FAILURE;
             }
 
-            DB::transaction(function () use ($existingUser, $name, $cpf, $accountEmail, $affiliationEmail, $registrationNumber, $password): void {
-                if ($this->hasActiveSystemAdministrator()) {
-                    throw new RuntimeException('Já existe um Administrador do Sistema ativo.');
-                }
-
+            DB::transaction(function () use ($existingUser, $name, $cpf, $accountEmail, $affiliationEmail, $registrationNumber): void {
                 if ($existingUser === null) {
-                    $user = User::query()->create([
-                        'name' => $name,
-                        'cpf' => $cpf,
-                        'email' => $accountEmail,
-                        'password' => $password,
-                    ]);
+                    $user = Context::scope(
+                        fn (): User => User::query()->create([
+                            'name' => $name,
+                            'cpf' => $cpf,
+                            'email' => $accountEmail,
+                            'password' => Str::password(64),
+                        ]),
+                        ['audit_actor' => 'terminal'],
+                    );
                 } else {
                     $user = $existingUser;
                 }
 
-                $user->affiliations()->create([
-                    'campus_id' => null,
-                    'course_id' => null,
-                    'type' => AffiliationType::SystemAdministrator,
-                    'registration_number' => $registrationNumber,
-                    'email' => $affiliationEmail,
-                ]);
+                $affiliation = Context::scope(
+                    fn (): Affiliation => $user->affiliations()->create([
+                        'campus_id' => null,
+                        'course_id' => null,
+                        'type' => AffiliationType::SystemAdministrator,
+                        'registration_number' => $registrationNumber,
+                        'email' => $affiliationEmail,
+                    ]),
+                    ['audit_actor' => 'terminal'],
+                );
+
+                $emailDelivery = app(RequestEmailDelivery::class);
+
+                if ($existingUser === null) {
+                    $emailDelivery->accountCreated($user->email, (string) Str::uuid());
+
+                    return;
+                }
+
+                foreach (array_unique([$user->email, $affiliation->email]) as $recipientEmail) {
+                    $emailDelivery->affiliationCreated($recipientEmail, (string) Str::uuid());
+                }
             });
         } catch (Throwable) {
             $this->error('Não foi possível criar o administrador. Nenhum novo registro foi mantido.');
@@ -123,8 +125,8 @@ class CreateAdmin extends Command
         }
 
         $this->info($existingUser === null
-            ? 'Conta Administrador do Sistema criada com sucesso.'
-            : 'Vínculo de Administrador do Sistema adicionado à conta existente.');
+            ? 'Conta Administrador do Sistema criada com sucesso. O convite para definir a senha foi enfileirado.'
+            : 'Vínculo de Administrador do Sistema adicionado. Os avisos foram enfileirados para a conta e o vínculo.');
 
         return self::SUCCESS;
     }
@@ -144,32 +146,6 @@ class CreateAdmin extends Command
         );
     }
 
-    private function askPassword(): string
-    {
-        note('Regras da senha: 8 a 64 caracteres, letras maiúsculas e minúsculas, números, símbolos e sem comprometimento conhecido.');
-
-        $passwordRules = array_values(array_filter(
-            $this->passwordRules(),
-            static fn (mixed $rule): bool => $rule !== 'confirmed',
-        ));
-
-        $passwordValue = password(
-            'Senha inicial',
-            required: true,
-            validate: fn (string $value): ?string => $this->validationError('password', $value, $passwordRules),
-        );
-
-        password(
-            'Confirme a senha',
-            required: true,
-            validate: static fn (string $confirmation): ?string => hash_equals($passwordValue, $confirmation)
-                ? null
-                : 'A confirmação não corresponde à senha.',
-        );
-
-        return $passwordValue;
-    }
-
     private function askEmail(string $label, bool $checkUserUniqueness): string
     {
         $value = text(
@@ -177,7 +153,13 @@ class CreateAdmin extends Command
             required: true,
             validate: function (string $value) use ($checkUserUniqueness): ?string {
                 $email = mb_strtolower(trim($value));
-                $error = $this->validationError('email', $email, ['required', 'string', 'email', 'max:255']);
+                $error = $this->validationError('email', $email, [
+                    'required',
+                    'string',
+                    'email:rfc',
+                    'regex:/^[^@\\s]+@[^@\\s.]+(?:\\.[^@\\s.]+)+$/',
+                    'max:255',
+                ]);
 
                 if ($error !== null) {
                     return $error;
@@ -203,13 +185,5 @@ class CreateAdmin extends Command
             ->first($attribute);
 
         return $message === '' ? null : $message;
-    }
-
-    private function hasActiveSystemAdministrator(): bool
-    {
-        return Affiliation::query()
-            ->where('type', AffiliationType::SystemAdministrator->value)
-            ->active()
-            ->exists();
     }
 }

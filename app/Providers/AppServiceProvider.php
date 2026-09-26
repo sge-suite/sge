@@ -9,6 +9,7 @@ use App\Support\AuditInfrastructureModel;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -40,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
         Media::observe(AuditInfrastructureModel::class);
         LogActivityAction::beforeLogging(function (Activity $activity): void {
             $causer = $activity->causer;
-            $actor = match (true) {
+            $actor = Context::get('audit_actor') ?? match (true) {
                 $causer instanceof Affiliation => 'affiliation',
                 $causer instanceof User => 'account',
                 default => 'system',
