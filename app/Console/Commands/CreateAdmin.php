@@ -11,7 +11,6 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Laravel\Prompts\Prompt;
 use LaravelLegends\PtBrValidator\Rules\Cpf;
 use RuntimeException;
@@ -23,7 +22,7 @@ use function Laravel\Prompts\password;
 use function Laravel\Prompts\text;
 
 #[Signature('admin:create')]
-#[Description('Cria a primeira conta Administrador do Sistema.')]
+#[Description('Cria o primeiro vínculo ativo de Administrador do Sistema.')]
 class CreateAdmin extends Command
 {
     use PasswordValidationRules;
@@ -43,68 +42,89 @@ class CreateAdmin extends Command
         }
 
         try {
-            $name = $this->askText(
-                'Nome completo',
-                'name',
-                ['required', 'string', 'max:255'],
-                transform: static fn (string $value): string => trim($value),
-            );
             $cpf = $this->askText(
                 'CPF (11 dígitos, somente números)',
                 'cpf',
-                ['required', 'string', 'regex:/^[0-9]{11}$/', new Cpf, Rule::unique(User::class, 'cpf')],
+                ['required', 'string', 'regex:/^[0-9]{11}$/', new Cpf],
             );
-            $email = $this->askEmail();
+            $existingUser = User::query()->where('cpf', $cpf)->first();
+
+            if ($existingUser === null) {
+                $name = $this->askText(
+                    'Nome completo',
+                    'name',
+                    ['required', 'string', 'max:255'],
+                    transform: static fn (string $value): string => trim($value),
+                );
+                $accountEmail = $this->askEmail('E-mail da conta', checkUserUniqueness: true);
+                $affiliationEmail = $accountEmail;
+            } else {
+                $name = $existingUser->name;
+                $accountEmail = $existingUser->email;
+                $affiliationEmail = $this->askEmail('E-mail do vínculo', checkUserUniqueness: false);
+            }
+
             $registrationNumber = $this->askText(
                 'Número de registro institucional',
                 'registration_number',
                 ['required', 'string', 'max:255'],
                 transform: static fn (string $value): string => trim($value),
             );
-            $password = $this->askPassword();
+            $password = $existingUser === null ? $this->askPassword() : null;
 
             $this->newLine();
             $this->table(['Campo', 'Valor'], [
                 ['Nome', $name],
                 ['CPF', $cpf],
-                ['E-mail da conta e do vínculo', $email],
+                ['E-mail da conta', $accountEmail],
+                ['E-mail do vínculo', $affiliationEmail],
                 ['Número de registro', $registrationNumber],
                 ['Vínculo', AffiliationType::SystemAdministrator->label()],
             ]);
 
-            if (! confirm('Criar esta conta e seu vínculo administrador?', default: false)) {
+            $confirmation = $existingUser === null
+                ? 'Criar esta conta e seu vínculo administrador?'
+                : 'Adicionar o vínculo administrador a esta conta?';
+
+            if (! confirm($confirmation, default: false)) {
                 $this->comment('Criação cancelada. Nenhum registro foi criado.');
 
                 return self::FAILURE;
             }
 
-            DB::transaction(function () use ($name, $cpf, $email, $registrationNumber, $password): void {
+            DB::transaction(function () use ($existingUser, $name, $cpf, $accountEmail, $affiliationEmail, $registrationNumber, $password): void {
                 if ($this->hasActiveSystemAdministrator()) {
                     throw new RuntimeException('Já existe um Administrador do Sistema ativo.');
                 }
 
-                $user = User::query()->create([
-                    'name' => $name,
-                    'cpf' => $cpf,
-                    'email' => $email,
-                    'password' => $password,
-                ]);
+                if ($existingUser === null) {
+                    $user = User::query()->create([
+                        'name' => $name,
+                        'cpf' => $cpf,
+                        'email' => $accountEmail,
+                        'password' => $password,
+                    ]);
+                } else {
+                    $user = $existingUser;
+                }
 
                 $user->affiliations()->create([
                     'campus_id' => null,
                     'course_id' => null,
                     'type' => AffiliationType::SystemAdministrator,
                     'registration_number' => $registrationNumber,
-                    'email' => $email,
+                    'email' => $affiliationEmail,
                 ]);
             });
         } catch (Throwable) {
-            $this->error('Não foi possível criar a conta e o vínculo. Nenhum registro foi mantido.');
+            $this->error('Não foi possível criar o administrador. Nenhum novo registro foi mantido.');
 
             return self::FAILURE;
         }
 
-        $this->info('Conta Administrador do Sistema criada com sucesso.');
+        $this->info($existingUser === null
+            ? 'Conta Administrador do Sistema criada com sucesso.'
+            : 'Vínculo de Administrador do Sistema adicionado à conta existente.');
 
         return self::SUCCESS;
     }
@@ -150,12 +170,12 @@ class CreateAdmin extends Command
         return $passwordValue;
     }
 
-    private function askEmail(): string
+    private function askEmail(string $label, bool $checkUserUniqueness): string
     {
-        return text(
-            'E-mail',
+        $value = text(
+            $label,
             required: true,
-            validate: function (string $value): ?string {
+            validate: function (string $value) use ($checkUserUniqueness): ?string {
                 $email = mb_strtolower(trim($value));
                 $error = $this->validationError('email', $email, ['required', 'string', 'email', 'max:255']);
 
@@ -163,12 +183,14 @@ class CreateAdmin extends Command
                     return $error;
                 }
 
-                return User::query()->whereRaw('LOWER(email) = ?', [$email])->exists()
+                return $checkUserUniqueness && User::query()->whereRaw('LOWER(email) = ?', [$email])->exists()
                     ? 'Este e-mail já está cadastrado.'
                     : null;
             },
             transform: static fn (string $value): string => mb_strtolower(trim($value)),
         );
+
+        return mb_strtolower(trim($value));
     }
 
     /**
