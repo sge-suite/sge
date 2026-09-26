@@ -13,6 +13,7 @@
                 name="email"
                 label="Endereço de e-mail"
                 type="email"
+                :value="request()->query('email')"
                 required
                 autofocus
                 placeholder="email@example.com"

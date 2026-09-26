@@ -6,6 +6,7 @@ enum EmailMessagePurpose: string
 {
     case Notification = 'notification';
     case NewAffiliation = 'new_affiliation';
+    case AccountEmailChanged = 'account_email_changed';
 
     /**
      * Obter o rótulo da finalidade da mensagem de e-mail em português.
@@ -15,6 +16,7 @@ enum EmailMessagePurpose: string
         return match ($this) {
             self::Notification => 'Notificação operacional',
             self::NewAffiliation => 'Novo vínculo',
+            self::AccountEmailChanged => 'Alteração de e-mail da conta',
         };
     }
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\CpfCast;
+use App\Notifications\QueuedPasswordReset;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -78,6 +79,11 @@ class User extends Authenticatable
         return Str::length($initials) > 1
             ? Str::substr($initials, 0, 1).Str::substr($initials, -1)
             : $initials;
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify((new QueuedPasswordReset($token))->afterCommit());
     }
 
     /** @return HasOne<UserPersonalData, $this> */

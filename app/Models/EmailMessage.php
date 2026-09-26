@@ -15,6 +15,16 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @property int $id
+ * @property string|null $notification_id
+ * @property EmailMessagePurpose|null $purpose
+ * @property string $subject
+ * @property string|null $content_text
+ * @property string|null $content_html
+ * @property string $idempotency_key
+ * @property-read DatabaseNotification|null $notification
+ */
 #[Fillable(['notification_id', 'purpose', 'subject', 'content_text', 'content_html', 'template_key', 'template_version', 'idempotency_key'])]
 #[Hidden(['subject', 'content_text', 'content_html'])]
 class EmailMessage extends Model
@@ -45,7 +55,7 @@ class EmailMessage extends Model
     {
         static::creating(function (self $message): void {
             Validator::make([
-                'purpose' => $message->purpose?->value,
+                'purpose' => $message->purpose instanceof EmailMessagePurpose ? $message->purpose->value : null,
                 'subject' => $message->subject,
                 'content_text' => $message->content_text,
                 'content_html' => $message->content_html,

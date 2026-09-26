@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('email_delivery_attempts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('email_message_id')->nullable()->constrained()->restrictOnDelete();
+            $table->uuid('delivery_key');
             $table->foreignId('requested_by_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();
             $table->string('purpose');
             $table->text('recipient_email');
@@ -27,6 +28,7 @@ return new class extends Migration
             $table->string('failure_reason', 120)->nullable();
             $table->timestamps();
             $table->unique(['email_message_id', 'attempt_number']);
+            $table->unique(['delivery_key', 'attempt_number']);
             $table->index(['email_message_id', 'status']);
             $table->index(['purpose', 'created_at']);
         });

@@ -22,11 +22,13 @@ test('creates attempt schema with optional content, recipient and requester', fu
 
     expect($columns->get('id'))->toMatchArray(['type' => 'bigint', 'nullable' => false])
         ->and($columns->get('email_message_id'))->toMatchArray(['type' => 'bigint', 'nullable' => true])
+        ->and($columns->get('delivery_key'))->toMatchArray(['type' => 'uuid', 'nullable' => false])
         ->and($columns->get('requested_by_affiliation_id'))->toMatchArray(['type' => 'bigint', 'nullable' => true])
         ->and($columns->has('requested_by_user_id'))->toBeFalse()
         ->and($columns->get('recipient_email'))->toMatchArray(['type' => 'text', 'nullable' => false])
         ->and($columns->get('attempt_number'))->toMatchArray(['type' => 'smallint', 'nullable' => false])
         ->and($indexes->firstWhere('columns', ['email_message_id', 'attempt_number'])['unique'])->toBeTrue()
+        ->and($indexes->firstWhere('columns', ['delivery_key', 'attempt_number'])['unique'])->toBeTrue()
         ->and($indexes->firstWhere('columns', ['email_message_id', 'status']))->not->toBeNull()
         ->and(collect(Schema::getForeignKeys('email_delivery_attempts'))->count())->toBe(2);
 });

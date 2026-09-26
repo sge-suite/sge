@@ -8,6 +8,7 @@ use App\Models\EmailDeliveryAttempt;
 use App\Models\EmailMessage;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<EmailDeliveryAttempt>
@@ -23,6 +24,7 @@ class EmailDeliveryAttemptFactory extends Factory
     {
         return [
             'email_message_id' => EmailMessage::factory(),
+            'delivery_key' => (string) Str::uuid(),
             'purpose' => EmailMessagePurpose::Notification,
             'recipient_email' => fake()->safeEmail(),
             'requested_by_affiliation_id' => null,

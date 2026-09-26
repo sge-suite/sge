@@ -10,12 +10,28 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Support\CauserResolver;
 
-#[Fillable(['email_message_id', 'purpose', 'recipient_email', 'requested_by_affiliation_id', 'attempt_number', 'status', 'provider', 'provider_message_id', 'queued_at', 'sent_at', 'failed_at', 'failure_reason'])]
+/**
+ * @property int $id
+ * @property int|null $email_message_id
+ * @property string $delivery_key
+ * @property EmailMessagePurpose|null $purpose
+ * @property string $recipient_email
+ * @property int|null $requested_by_affiliation_id
+ * @property int $attempt_number
+ * @property EmailDeliveryAttemptStatus|null $status
+ * @property Carbon|null $queued_at
+ * @property Carbon|null $sent_at
+ * @property Carbon|null $failed_at
+ * @property string|null $failure_reason
+ * @property-read EmailMessage|null $emailMessage
+ */
+#[Fillable(['email_message_id', 'delivery_key', 'purpose', 'recipient_email', 'requested_by_affiliation_id', 'attempt_number', 'status', 'provider', 'provider_message_id', 'queued_at', 'sent_at', 'failed_at', 'failure_reason'])]
 #[Hidden(['recipient_email', 'provider_message_id'])]
 class EmailDeliveryAttempt extends Model
 {
@@ -61,14 +77,16 @@ class EmailDeliveryAttempt extends Model
         static::saving(function (self $attempt): void {
             Validator::make([
                 'email_message_id' => $attempt->email_message_id,
-                'purpose' => $attempt->purpose?->value,
+                'delivery_key' => $attempt->delivery_key,
+                'purpose' => $attempt->purpose instanceof EmailMessagePurpose ? $attempt->purpose->value : null,
                 'recipient_email' => $attempt->recipient_email,
                 'requested_by_affiliation_id' => $attempt->requested_by_affiliation_id,
                 'attempt_number' => $attempt->attempt_number,
-                'status' => $attempt->status?->value,
+                'status' => $attempt->status instanceof EmailDeliveryAttemptStatus ? $attempt->status->value : null,
                 'failure_reason' => $attempt->failure_reason,
             ], [
                 'email_message_id' => ['nullable', 'integer', 'min:1'],
+                'delivery_key' => ['required', 'uuid'],
                 'purpose' => ['required', Rule::enum(EmailMessagePurpose::class)],
                 'recipient_email' => ['required', 'email'],
                 'requested_by_affiliation_id' => ['nullable', 'integer', 'min:1'],
@@ -110,7 +128,7 @@ class EmailDeliveryAttempt extends Model
                 throw ValidationException::withMessages(['status' => 'Uma tentativa finalizada é imutável.']);
             }
 
-            if ($attempt->exists && ($attempt->isDirty('email_message_id') || $attempt->isDirty('purpose') ||
+            if ($attempt->exists && ($attempt->isDirty('email_message_id') || $attempt->isDirty('delivery_key') || $attempt->isDirty('purpose') ||
                 $attempt->isDirty('recipient_email') || $attempt->isDirty('requested_by_affiliation_id') || $attempt->isDirty('attempt_number') ||
                 $attempt->isDirty('queued_at'))) {
                 throw ValidationException::withMessages(['attempt_number' => 'A identidade e a reserva da tentativa são imutáveis.']);
