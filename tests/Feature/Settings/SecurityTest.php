@@ -12,7 +12,14 @@ test('security settings page can be rendered', function () {
         ->withSession(['auth.password_confirmed_at' => time()])
         ->get(route('security.edit'));
 
-    $response->assertOk();
+    $response->assertOk()
+        ->assertSee('A nova senha deve:')
+        ->assertSee('Ter entre 8 e 64 caracteres.')
+        ->assertSee('Conter letras maiúsculas e minúsculas.')
+        ->assertSee('Conter pelo menos um número.')
+        ->assertSee('Conter pelo menos um símbolo.')
+        ->assertSee('Não ter sido exposta em vazamentos de dados conhecidos.')
+        ->assertSee('passwordrules="minlength: 8; maxlength: 64; required: lower; required: upper; required: digit; required: special;"', false);
 });
 
 test('security settings page requires password confirmation when enabled', function () {

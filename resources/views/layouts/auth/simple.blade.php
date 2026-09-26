@@ -8,7 +8,7 @@
             <div class="flex w-full max-w-sm flex-col gap-2">
                 <a href="{{ route('home') }}" class="flex flex-col items-center gap-2 font-medium" wire:navigate>
                     <span class="flex items-center justify-center mb-1">
-                        <x-app-logo-icon class="size-16 text-accent dark:text-accent-content" />
+                        <x-app-logo-icon class="size-16 text-brand" />
                     </span>
                     <span class="sr-only">{{ config('app.name', 'Laravel') }}</span>
                 </a>

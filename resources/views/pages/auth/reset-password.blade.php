@@ -20,6 +20,8 @@
                 autocomplete="email"
             />
 
+            <x-password-requirements />
+
             <!-- Password -->
             <flux:input
                 name="password"
@@ -28,7 +30,7 @@
                 required
                 autocomplete="new-password"
                 placeholder="Senha"
-                passwordrules="{{ \Illuminate\Validation\Rules\Password::defaults()->toPasswordRulesString() }}"
+                passwordrules="{{ \Illuminate\Validation\Rules\Password::min(8)->max(64)->letters()->mixedCase()->numbers()->symbols()->toPasswordRulesString() }}"
                 viewable
             />
 
@@ -40,7 +42,7 @@
                 required
                 autocomplete="new-password"
                 placeholder="Confirmar senha"
-                passwordrules="{{ \Illuminate\Validation\Rules\Password::defaults()->toPasswordRulesString() }}"
+                passwordrules="{{ \Illuminate\Validation\Rules\Password::min(8)->max(64)->letters()->mixedCase()->numbers()->symbols()->toPasswordRulesString() }}"
                 viewable
             />
 

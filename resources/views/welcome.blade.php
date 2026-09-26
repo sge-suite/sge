@@ -10,7 +10,7 @@
         <div class="max-w-4xl mx-auto w-full text-center space-y-8">
             
             <div class="inline-flex items-center justify-center mb-6">
-                <x-app-logo-icon class="size-24 text-accent dark:text-accent-content" />
+                <x-app-logo-icon class="size-24 text-brand" />
             </div>
 
             <h1 class="text-4xl md:text-6xl font-bold tracking-tight text-zinc-900 dark:text-white">
@@ -18,7 +18,7 @@
             </h1>
             
             <p class="text-lg text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">
-                Plataforma unificada para simplificar e centralizar todo o fluxo de estágios.
+                O SGE organiza a jornada do estágio em um só processo, da solicitação à conclusão. Discentes, Setor de Estágio, supervisores e orientadores acompanham as etapas e responsabilidades em um só lugar.
             </p>
 
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2 pb-6">
@@ -28,7 +28,7 @@
                     </flux:button>
                 @else
                     <flux:button variant="primary" href="{{ route('login') }}" wire:navigate class="w-full sm:w-auto">
-                        Fazer Login no Sistema
+                        Acessar o sistema
                     </flux:button>
                 @endauth
             </div>
@@ -38,24 +38,24 @@
                     <div class="size-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
                         <flux:icon name="document-text" class="size-5" />
                     </div>
-                    <flux:heading size="lg">Solicitações Simplificadas</flux:heading>
-                    <flux:text class="text-sm">Inicie o processo de estágio via formulários digitais e acompanhe cada etapa da aprovação online.</flux:text>
+                    <flux:heading size="lg">Solicitação e análise</flux:heading>
+                    <flux:text class="text-sm">O discente registra os dados do estágio, acompanha a análise e responde às orientações do Setor de Estágio.</flux:text>
                 </flux:card>
                 
                 <flux:card class="flex flex-col gap-3">
                     <div class="size-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
-                        <flux:icon name="folder-open" class="size-5" />
+                        <flux:icon name="clipboard-document-list" class="size-5" />
                     </div>
-                    <flux:heading size="lg">Gestão de Documentos</flux:heading>
-                    <flux:text class="text-sm">Centralize a geração, coleta de assinaturas e armazenamento de termos, planos e relatórios.</flux:text>
+                    <flux:heading size="lg">Formalização e acompanhamento</flux:heading>
+                    <flux:text class="text-sm">Após a análise, o Setor de Estágio conduz a formalização e acompanha jornada, pausas e mudanças durante o estágio.</flux:text>
                 </flux:card>
 
                 <flux:card class="flex flex-col gap-3">
                     <div class="size-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
-                        <flux:icon name="chart-pie" class="size-5" />
+                        <flux:icon name="check-circle" class="size-5" />
                     </div>
-                    <flux:heading size="lg">Acompanhamento Ativo</flux:heading>
-                    <flux:text class="text-sm">Monitore prazos, avaliações e o andamento geral dos vínculos com painéis de controle claros.</flux:text>
+                    <flux:heading size="lg">Avaliação e conclusão</flux:heading>
+                    <flux:text class="text-sm">Supervisor e orientador registram o acompanhamento sob sua responsabilidade. A conclusão considera o cumprimento da carga horária.</flux:text>
                 </flux:card>
             </div>
         </div>

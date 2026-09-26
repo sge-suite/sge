@@ -70,13 +70,15 @@ new #[Title('Security settings')] class extends Component {
                 autocomplete="current-password"
                 viewable
             />
+            <x-password-requirements />
+
             <flux:input
                 wire:model="password"
                 label="Nova senha"
                 type="password"
                 required
                 autocomplete="new-password"
-                passwordrules="{{ \Illuminate\Validation\Rules\Password::defaults()->toPasswordRulesString() }}"
+                passwordrules="{{ \Illuminate\Validation\Rules\Password::min(8)->max(64)->letters()->mixedCase()->numbers()->symbols()->toPasswordRulesString() }}"
                 viewable
             />
             <flux:input
@@ -85,7 +87,7 @@ new #[Title('Security settings')] class extends Component {
                 type="password"
                 required
                 autocomplete="new-password"
-                passwordrules="{{ \Illuminate\Validation\Rules\Password::defaults()->toPasswordRulesString() }}"
+                passwordrules="{{ \Illuminate\Validation\Rules\Password::min(8)->max(64)->letters()->mixedCase()->numbers()->symbols()->toPasswordRulesString() }}"
                 viewable
             />
 
