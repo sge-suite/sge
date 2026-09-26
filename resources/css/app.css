@@ -50,6 +50,47 @@
     }
 }
 
+:root {
+    --scrollbar-thumb: var(--color-zinc-400);
+    --scrollbar-thumb-hover: var(--color-zinc-600);
+    --scrollbar-track: var(--color-zinc-100);
+}
+
+.dark {
+    --scrollbar-thumb: var(--color-zinc-600);
+    --scrollbar-thumb-hover: var(--color-zinc-400);
+    --scrollbar-track: var(--color-zinc-900);
+}
+
+html {
+    background-color: var(--scrollbar-track);
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+html::-webkit-scrollbar {
+    width: 0.7rem;
+}
+
+html::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+html::-webkit-scrollbar-thumb {
+    border: 0.15rem solid var(--scrollbar-track);
+    border-radius: 999px;
+    background: var(--scrollbar-thumb);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+html::-webkit-scrollbar-corner {
+    background: var(--scrollbar-track);
+}
+
 [data-flux-field]:not(ui-radio, ui-checkbox) {
     @apply grid gap-2;
 }
@@ -62,6 +103,12 @@ input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-accent dark:ring-accent;
+}
+
+input:focus[data-flux-control][data-invalid],
+textarea:focus[data-flux-control][data-invalid],
+select:focus[data-flux-control][data-invalid] {
+    @apply outline-hidden ring-2 ring-red-500 dark:ring-red-400;
 }
 
 /* \[:where(&)\]:size-4 {
