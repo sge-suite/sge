@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Affiliation;
+use App\Models\Campus;
 use App\Models\User;
 use App\Policies\ActivityPolicy;
+use App\Policies\CampusPolicy;
 use App\Support\AuditInfrastructureModel;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Eloquent\Model;
@@ -37,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->requirePostgreSqlForMigrations();
         Gate::policy(Activity::class, ActivityPolicy::class);
+        Gate::policy(Campus::class, CampusPolicy::class);
         DatabaseNotification::observe(AuditInfrastructureModel::class);
         Media::observe(AuditInfrastructureModel::class);
         LogActivityAction::beforeLogging(function (Activity $activity): void {

@@ -61,6 +61,24 @@ class Address extends Model
         return $this->hasMany(Campus::class);
     }
 
+    public function hasReferencesOutsideCampus(Campus $campus): bool
+    {
+        $addressId = $this->getKey();
+
+        return Campus::withTrashed()
+            ->where('address_id', $addressId)
+            ->where('id', '!=', $campus->getKey())
+            ->exists()
+            || UserPersonalData::query()->where('address_id', $addressId)->exists()
+            || GrantingParty::withTrashed()->where('address_id', $addressId)->exists()
+            || Internship::query()
+                ->where(function ($query) use ($addressId): void {
+                    $query->where('student_address_id', $addressId)
+                        ->orWhere('workplace_address_id', $addressId);
+                })
+                ->exists();
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

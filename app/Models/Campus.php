@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\CnpjCast;
 use App\Casts\PhoneCast;
 use App\Concerns\CampusValidationRules;
+use App\Enums\AffiliationType;
 use Database\Factories\CampusFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -109,6 +111,69 @@ class Campus extends Model
         return $query->whereNull('deactivated_at');
     }
 
+    /**
+     * @param  Builder<Campus>  $query
+     * @return Builder<Campus>
+     */
+    public function scopeVisibleTo(Builder $query, Affiliation $affiliation): Builder
+    {
+        if ($affiliation->deactivated_at !== null) {
+            return $query->whereNull($query->getModel()->getQualifiedKeyName());
+        }
+
+        return match ($affiliation->type) {
+            AffiliationType::SystemAdministrator => $query,
+            AffiliationType::CampusAdministrator => $affiliation->campus_id === null
+                ? $query->whereNull($query->getModel()->getQualifiedKeyName())
+                : $query->whereKey($affiliation->campus_id),
+            default => $query->whereNull($query->getModel()->getQualifiedKeyName()),
+        };
+    }
+
+    public function assertWritable(): void
+    {
+        if (! $this->exists || $this->trashed() || $this->deactivated_at !== null) {
+            throw ValidationException::withMessages([
+                'campus' => 'Este campus está desativado e não pode ser alterado.',
+            ]);
+        }
+    }
+
+    public function deactivate(): bool
+    {
+        if (! $this->exists || $this->trashed()) {
+            throw ValidationException::withMessages([
+                'campus' => 'Somente um campus persistido pode ser desativado.',
+            ]);
+        }
+
+        if ($this->deactivated_at !== null) {
+            return false;
+        }
+
+        $this->assertWritable();
+        $this->deactivated_at = now();
+
+        return $this->save();
+    }
+
+    public function reactivate(): bool
+    {
+        if (! $this->exists || $this->trashed()) {
+            throw ValidationException::withMessages([
+                'campus' => 'Somente um campus persistido pode ser reativado.',
+            ]);
+        }
+
+        if ($this->deactivated_at === null) {
+            return false;
+        }
+
+        $this->deactivated_at = null;
+
+        return $this->save();
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
@@ -119,6 +184,17 @@ class Campus extends Model
     protected static function booted(): void
     {
         static::saving(function (self $campus): void {
+            if ($campus->exists && $campus->getOriginal('deactivated_at') !== null) {
+                $dirtyAttributes = array_diff(array_keys($campus->getDirty()), ['deactivated_at']);
+                $isReactivation = $campus->isDirty('deactivated_at') && $campus->deactivated_at === null;
+
+                if ($dirtyAttributes !== [] || ! $isReactivation) {
+                    throw ValidationException::withMessages([
+                        'campus' => 'Um campus desativado só pode ser reativado.',
+                    ]);
+                }
+            }
+
             $campus->nullifyBlankOptionalCampusValues();
 
             Validator::make($campus->getAttributes(), $campus->campusRules())->validate();
