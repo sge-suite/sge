@@ -195,18 +195,15 @@ test('rejects an account email already used by another user', function () {
         ->and(Affiliation::query()->count())->toBe(0);
 });
 
-test('rejects an email without a complete domain and accepts a corrected address', function () {
-    $command = $this->artisan('admin:create')
+test('rejects an email without a complete domain before creating the account', function () {
+    $this->artisan('admin:create')
         ->expectsQuestion('CPF (11 dígitos, somente números)', '52998224725')
         ->expectsQuestion('Nome completo', 'Ada Lovelace')
         ->expectsQuestion('E-mail da conta', 'arthur2008willers@g')
-        ->expectsQuestion('E-mail da conta', 'arthur2008willers@gmail.com')
-        ->expectsQuestion('Número de registro institucional', 'ADM-001')
-        ->expectsQuestion('Criar esta conta e seu vínculo administrador?', true);
+        ->assertFailed();
 
-    $command->assertSuccessful();
-
-    expect(User::query()->sole()->email)->toBe('arthur2008willers@gmail.com');
+    expect(User::query()->count())->toBe(0)
+        ->and(Affiliation::query()->count())->toBe(0);
 });
 
 test('rejects an invalid affiliation email without changing the existing user', function () {
