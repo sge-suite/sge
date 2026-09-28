@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
 @import './accordion.css';
+@import './select.css';
 
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -53,13 +54,37 @@
 :root {
     --scrollbar-thumb: var(--color-zinc-400);
     --scrollbar-thumb-hover: var(--color-zinc-600);
-    --scrollbar-track: var(--color-zinc-100);
+    --scrollbar-track: var(--color-white);
 }
 
 .dark {
     --scrollbar-thumb: var(--color-zinc-600);
     --scrollbar-thumb-hover: var(--color-zinc-400);
-    --scrollbar-track: var(--color-zinc-900);
+    --scrollbar-track: var(--color-zinc-800);
+}
+
+.app-shell {
+    --scrollbar-track: var(--color-white);
+}
+
+.app-shell.dark {
+    --scrollbar-track: var(--color-zinc-800);
+}
+
+.auth-shell {
+    --scrollbar-track: var(--color-white);
+}
+
+.auth-shell.dark {
+    --scrollbar-track: var(--color-neutral-950);
+}
+
+.auth-card-shell {
+    --scrollbar-track: var(--color-neutral-100);
+}
+
+.auth-card-shell.dark {
+    --scrollbar-track: var(--color-neutral-950);
 }
 
 html {
@@ -126,4 +151,62 @@ label,
 ui-checkbox,
 ui-radio {
     @apply cursor-pointer;
+}
+
+@property --scroll-fade-t {
+    syntax: "<length-percentage>";
+    inherits: false;
+    initial-value: 0px;
+}
+
+@property --scroll-fade-b {
+    syntax: "<length-percentage>";
+    inherits: false;
+    initial-value: 0px;
+}
+
+@keyframes scroll-fade-reveal-t {
+    from {
+        --scroll-fade-t: 0px;
+    }
+
+    to {
+        --scroll-fade-t: var(--_scroll-fade-size-t);
+    }
+}
+
+@keyframes scroll-fade-reveal-b {
+    from {
+        --scroll-fade-b: var(--_scroll-fade-size-b);
+    }
+
+    to {
+        --scroll-fade-b: 0px;
+    }
+}
+
+.scroll-fade-y {
+    --_scroll-fade-size-t: var(--scroll-fade-t-size, var(--scroll-fade-size, min(12%, 2.5rem)));
+    --_scroll-fade-size-b: var(--scroll-fade-b-size, var(--scroll-fade-size, min(12%, 2.5rem)));
+    --scroll-fade-block: linear-gradient(
+        to bottom,
+        transparent 0,
+        #000 var(--scroll-fade-t, 0px),
+        #000 calc(100% - var(--scroll-fade-b, 0px)),
+        transparent 100%
+    );
+
+    -webkit-mask-image: var(--scroll-fade-block);
+    mask-image: var(--scroll-fade-block);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+    scrollbar-width: thin;
+
+    @supports (animation-timeline: scroll()) {
+        animation: scroll-fade-reveal-t 1ms ease-in-out, scroll-fade-reveal-b 1ms ease-in-out;
+        animation-timeline: scroll(self y), scroll(self y);
+        animation-range: 0 6rem, calc(100% - 6rem) 100%;
+        animation-fill-mode: both;
+    }
 }

@@ -1,0 +1,62 @@
+.select-search input[data-flux-control],
+.select-search input[data-flux-control]:focus,
+.select-search input[data-flux-control]:focus-visible {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    outline: 0 !important;
+}
+
+.select-trigger:focus-visible {
+    outline: 2px solid var(--color-brand) !important;
+    outline-offset: 2px !important;
+}
+
+.select-trigger[aria-invalid='true']:focus-visible {
+    outline-color: var(--color-red-500) !important;
+}
+
+.select-options {
+    --select-scrollbar-thumb: var(--color-zinc-300);
+    --select-scrollbar-hover: var(--color-zinc-500);
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--select-scrollbar-thumb) transparent;
+}
+
+.dark .select-options {
+    --select-scrollbar-thumb: var(--color-zinc-500);
+    --select-scrollbar-hover: var(--color-zinc-300);
+}
+
+@supports selector(::-webkit-scrollbar) {
+    .select-options {
+        scrollbar-width: auto;
+        scrollbar-color: auto;
+    }
+
+    .select-options::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
+
+    .select-options::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .select-options::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: var(--select-scrollbar-thumb);
+    }
+
+    .select-options::-webkit-scrollbar-thumb:hover {
+        background: var(--select-scrollbar-hover);
+    }
+
+    .select-options::-webkit-scrollbar-button {
+        display: none;
+    }
+}
