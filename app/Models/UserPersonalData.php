@@ -46,7 +46,11 @@ class UserPersonalData extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logFillable()->logOnly(['emancipation_verified_at'])->logOnlyDirty();
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnly(['emancipation_verified_at'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges();
     }
 
     /**
