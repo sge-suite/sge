@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark app-shell">
     <head>
         @include('partials.head')
     </head>
@@ -16,6 +16,13 @@
                         Painel
                     </flux:sidebar.item>
                 </flux:sidebar.group>
+                @can('viewAdministration', \App\Models\Campus::class)
+                    <flux:sidebar.group heading="Administração" class="grid">
+                        <flux:sidebar.item icon="building-office-2" :href="route('campuses.index')" :current="request()->routeIs('campuses.*')" wire:navigate>
+                            Campi
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endcan
             </flux:sidebar.nav>
 
             <flux:spacer />
