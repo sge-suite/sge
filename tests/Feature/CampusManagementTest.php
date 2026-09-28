@@ -17,11 +17,10 @@ function campusManagementInput(City $city): array
         'name' => 'Campus de Teste',
         'cnpj' => '04.252.011/0001-10',
         'phone' => '(55) 99999-9999',
-        'email' => 'campus@example.test',
         'legal_representative_name' => 'Pessoa Responsável',
         'legal_representative_position' => 'Diretor(a) Geral',
-        'insurance_company_name' => null,
-        'insurance_policy_number' => null,
+        'insurance_company_name' => 'Seguradora Institucional',
+        'insurance_policy_number' => 'APOL-1234',
         'address' => [
             'city_id' => $city->id,
             'street' => 'Rua Institucional',
@@ -46,6 +45,88 @@ function campusAdministratorFor(User $user, Campus $campus): Affiliation
     ]);
 }
 
+test('required campus registration fields cannot be omitted or cleared', function (string $field) {
+    $user = User::factory()->create();
+    systemAdministratorFor($user);
+    $this->actingAs($user);
+    $payload = campusManagementInput(City::factory()->create());
+    $addressCount = Address::count();
+    $activityCount = Activity::count();
+    $missing = $payload;
+    unset($missing[$field]);
+
+    foreach ([$missing, [...$payload, $field => null], [...$payload, $field => '   ']] as $input) {
+        $this->postJson(route('campuses.store'), $input)
+            ->assertUnprocessable()->assertJsonValidationErrors($field);
+    }
+
+    expect(Campus::count())->toBe(0)
+        ->and(Address::count())->toBe($addressCount)
+        ->and(Activity::count())->toBe($activityCount);
+
+    $campus = Campus::factory()->create();
+    $original = $campus->{$field};
+    $activityCount = Activity::count();
+    $this->putJson(route('campuses.update', $campus), [$field => null])
+        ->assertUnprocessable()->assertJsonValidationErrors($field);
+
+    expect($campus->fresh()->{$field})->toBe($original)
+        ->and(Activity::count())->toBe($activityCount);
+})->with([
+    'name', 'cnpj', 'phone', 'legal_representative_name',
+    'legal_representative_position', 'insurance_company_name', 'insurance_policy_number',
+]);
+
+test('campus registration keeps postal code optional and rejects duplicate cnpj', function () {
+    $user = User::factory()->create();
+    systemAdministratorFor($user);
+    Campus::factory()->create(['cnpj' => '04252011000110']);
+    $payload = campusManagementInput(City::factory()->create());
+    unset($payload['address']['zip_code']);
+
+    $this->actingAs($user)->postJson(route('campuses.store'), $payload)
+        ->assertUnprocessable()->assertJsonValidationErrors('cnpj');
+
+    $payload['cnpj'] = '11222333000181';
+    $payload['phone'] = '(55) 3333-4444';
+    $this->postJson(route('campuses.store'), $payload)->assertRedirect();
+
+    expect(Campus::count())->toBe(2)
+        ->and(Campus::query()->latest('id')->first()->address->zip_code)->toBeNull();
+});
+
+test('campus registration rejects duplicate phone', function () {
+    $user = User::factory()->create();
+    systemAdministratorFor($user);
+    $existing = Campus::factory()->create([
+        'cnpj' => '04252011000110',
+        'phone' => '55999999999',
+    ]);
+    $city = City::factory()->create();
+    $payload = campusManagementInput($city);
+    $payload['cnpj'] = '11222333000181';
+    $payload['phone'] = $existing->phone;
+
+    $this->actingAs($user)->postJson(route('campuses.store'), $payload)
+        ->assertUnprocessable()->assertJsonValidationErrors('phone');
+
+    expect(Campus::count())->toBe(1);
+});
+
+test('campus registration rejects malformed city identifiers as validation errors', function (string $identifier) {
+    $user = User::factory()->create();
+    systemAdministratorFor($user);
+    $payload = campusManagementInput(City::factory()->create());
+    $payload['address']['city_id'] = $identifier;
+    $addressCount = Address::count();
+
+    $this->actingAs($user)->postJson(route('campuses.store'), $payload)
+        ->assertUnprocessable()->assertJsonValidationErrors('address.city_id');
+
+    expect(Campus::count())->toBe(0)
+        ->and(Address::count())->toBe($addressCount);
+})->with(['invalid', '9223372036854775808']);
+
 test('system administrators can create a campus with its own address and active affiliation authorship', function () {
     $user = User::factory()->create();
     $affiliation = systemAdministratorFor($user);
@@ -53,12 +134,12 @@ test('system administrators can create a campus with its own address and active 
     $payload = campusManagementInput($city);
     $addressCount = Address::count();
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->postJson(route('campuses.store'), $payload)
-        ->assertRedirect(route('dashboard'))
         ->assertSessionHas('status', 'Campus criado com sucesso.');
 
     $campus = Campus::query()->sole();
+    $response->assertRedirect(route('campuses.show', $campus));
     $address = $campus->address;
     $activity = Activity::forSubject($campus)->where('event', 'created')->sole();
     $addressActivity = Activity::forSubject($address)->where('event', 'created')->sole();
@@ -128,8 +209,10 @@ test('the active affiliation determines campus permissions when one account has 
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['name']);
 
+    $payload['cnpj'] = '11222333000181';
+    $payload['phone'] = '(55) 3333-4444';
     $this->withSession(['active_affiliation_id' => $systemAdministrator->id]);
-    $this->postJson(route('campuses.store'), $payload)->assertRedirect(route('dashboard'));
+    $this->postJson(route('campuses.store'), $payload)->assertRedirect(route('campuses.show', Campus::query()->latest('id')->first()));
 
     expect(Campus::count())->toBe(2);
 });
@@ -151,7 +234,7 @@ test('an invalid or deactivated affiliation cannot authorize campus mutations', 
         'active_affiliation_needs_choice' => false,
     ])
         ->putJson(route('campuses.update', $campus), ['phone' => '(55) 98888-7777'])
-        ->assertRedirect(route('affiliations.select'));
+        ->assertForbidden();
 
     expect($campus->fresh()->phone)->not->toBe('55988887777');
 });
@@ -179,9 +262,9 @@ test('campus administrators can edit only phone representative and insurance fie
         ->and($campus->fresh()->address_id)->toBe($addressId)
         ->and(Activity::forSubject($campus)->where('event', 'updated')->sole()->causer->is($affiliation))->toBeTrue();
 
-    $this->putJson(route('campuses.update', $campus), ['email' => 'forbidden@example.test'])
+    $this->putJson(route('campuses.update', $campus), ['name' => 'Nome não permitido'])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['email']);
+        ->assertJsonValidationErrors(['name']);
 
     $this->putJson(route('campuses.update', $otherCampus), ['phone' => '(55) 98888-7777'])
         ->assertForbidden();
@@ -190,7 +273,7 @@ test('campus administrators can edit only phone representative and insurance fie
     $this->patchJson(route('campuses.reactivate', $campus))
         ->assertForbidden();
 
-    expect($campus->fresh()->email)->not->toBe('forbidden@example.test');
+    expect($campus->fresh()->name)->not->toBe('Nome não permitido');
 });
 
 test('system administrators can update campus fields and the existing owned address in one audited transaction', function () {
@@ -203,7 +286,7 @@ test('system administrators can update campus fields and the existing owned addr
 
     $this->actingAs($user)
         ->putJson(route('campuses.update', $campus), $payload)
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('campuses.show', $campus));
 
     $campusActivity = Activity::forSubject($campus)->where('event', 'updated')->sole();
     $addressActivity = Activity::forSubject($address)->where('event', 'updated')->sole();
@@ -241,7 +324,7 @@ test('campus address updates reject references from other owners and historical 
         ->assertJsonValidationErrors(['address']);
 
     expect($campus->address->fresh()->street)->toBe($originalStreet)
-        ->and(Activity::forSubject($campus->address)->where('event', 'updated'))->toHaveCount(0);
+        ->and(Activity::forSubject($campus->address)->where('event', 'updated')->count())->toBe(0);
 });
 
 test('address and campus updates roll back together if the campus write fails', function () {
@@ -250,8 +333,8 @@ test('address and campus updates roll back together if the campus write fails', 
     $campus = Campus::factory()->create(['name' => 'Nome Original']);
     $address = $campus->address;
     $oldStreet = $address->street;
-    $activityCount = Activity::count();
     $payload = campusManagementInput(City::factory()->create());
+    $activityCount = Activity::count();
     Campus::updating(function (Campus $campus): never {
         throw new RuntimeException('Falha simulada ao atualizar o campus.');
     });
@@ -270,17 +353,20 @@ test('campus visibility is scoped to the active affiliation and includes inactiv
     $systemUser = User::factory()->create();
     $systemAffiliation = systemAdministratorFor($systemUser);
     $campusUser = User::factory()->create();
-    $ownCampus = Campus::factory()->deactivated()->create();
+    $ownCampus = Campus::factory()->create();
     $otherCampus = Campus::factory()->deactivated()->create();
     $campusAffiliation = campusAdministratorFor($campusUser, $ownCampus);
+    $ownCampus->deactivate();
 
     $this->actingAs($systemUser)->withSession(['active_affiliation_id' => $systemAffiliation->id]);
+    $this->get(route('dashboard'))->assertOk();
 
     expect(Gate::allows('viewAny', Campus::class))->toBeTrue()
         ->and(Campus::query()->visibleTo($systemAffiliation)->pluck('id')->all())
         ->toEqualCanonicalizing([$ownCampus->id, $otherCampus->id]);
 
     $this->actingAs($campusUser)->withSession(['active_affiliation_id' => $campusAffiliation->id]);
+    $this->get(route('dashboard'))->assertOk();
 
     expect(Gate::allows('viewAny', Campus::class))->toBeTrue()
         ->and(Gate::allows('view', $ownCampus))->toBeTrue()
@@ -328,12 +414,13 @@ test('system administrator deactivation audits the transition without recording 
     $affiliation = systemAdministratorFor($user);
     $campus = Campus::factory()->create();
     $campusAffiliation = campusAdministratorFor(User::factory()->create(), $campus);
-    $campusAffiliation->update(['last_used_at' => now()->subDay()]);
+    $campusAffiliation->last_used_at = now()->subDay();
+    $campusAffiliation->save();
     $lastUsedAt = $campusAffiliation->fresh()->last_used_at;
 
     $this->actingAs($user)
         ->patchJson(route('campuses.deactivate', $campus), ['current_password' => $plainPassword])
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('campuses.show', $campus));
 
     $activity = Activity::forSubject($campus)->where('event', 'updated')->sole();
     $campusAffiliation = $campusAffiliation->fresh();
@@ -359,13 +446,13 @@ test('deactivation is idempotent and inactive campus cannot be edited until reac
 
     $this->actingAs($user)
         ->patchJson(route('campuses.deactivate', $campus), ['current_password' => $plainPassword])
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('campuses.show', $campus));
 
     $deactivatedAt = $campus->fresh()->deactivated_at;
     $activityCount = Activity::count();
 
     $this->patchJson(route('campuses.deactivate', $campus), ['current_password' => $plainPassword])
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('campuses.show', $campus));
     $this->putJson(route('campuses.update', $campus), ['name' => 'Não deve salvar'])
         ->assertForbidden();
 
@@ -382,7 +469,7 @@ test('system administrator can reactivate without password and the model lifecyc
 
     $this->actingAs($user)
         ->patchJson(route('campuses.reactivate', $campus))
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('campuses.show', $campus));
 
     $activity = Activity::forSubject($campus)->where('event', 'updated')->sole();
 

@@ -22,12 +22,11 @@ class CampusFactory extends Factory
             'name' => fake()->company().' - '.fake()->city(),
             'cnpj' => '04.252.011/0001-10',
             'phone' => '(55) 99999-9999',
-            'email' => fake()->safeEmail(),
             'address_id' => Address::factory(),
             'legal_representative_name' => fake()->name(),
             'legal_representative_position' => 'Diretor(a) Geral',
-            'insurance_company_name' => null,
-            'insurance_policy_number' => null,
+            'insurance_company_name' => fake()->company(),
+            'insurance_policy_number' => fake()->bothify('APOL-####??'),
             'deactivated_at' => null,
         ];
     }

@@ -25,19 +25,18 @@ class UpdateCampusRequest extends CampusFormRequest
         $campus = $this->route('campus');
         $canEditInstitutionalFields = $this->user()?->can('updateInstitutionalFields', $campus) ?? false;
         $rules = [
-            'phone' => ['sometimes', 'nullable', 'string', 'max:255', $this->phoneRule()],
-            'legal_representative_name' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'legal_representative_position' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'insurance_company_name' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'insurance_policy_number' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'phone' => ['sometimes', 'required', 'string', 'max:255', $this->phoneRule(), ...$this->uniqueCampusValueWhenChanged('phone', $campus)],
+            'legal_representative_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'legal_representative_position' => ['sometimes', 'required', 'string', 'max:255'],
+            'insurance_company_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'insurance_policy_number' => ['sometimes', 'required', 'string', 'max:255'],
         ];
 
         if ($canEditInstitutionalFields) {
             $rules = [
                 'name' => ['sometimes', 'required', 'string', 'max:255'],
-                'cnpj' => ['sometimes', 'nullable', 'string', 'max:18', new Cnpj],
+                'cnpj' => ['sometimes', 'required', 'string', 'size:14', new Cnpj, ...$this->uniqueCampusValueWhenChanged('cnpj', $campus)],
                 ...$rules,
-                'email' => ['sometimes', 'nullable', 'string', 'email', 'max:254'],
                 'address' => ['sometimes', 'array:city_id,street,number,neighborhood,zip_code', 'min:1'],
                 ...$this->addressRules(partial: true),
             ];
@@ -57,7 +56,7 @@ class UpdateCampusRequest extends CampusFormRequest
         if ($this->user()?->can('updateInstitutionalFields', $campus)) {
             $allowedKeys = [
                 ...$allowedKeys,
-                'name', 'cnpj', 'email', 'address',
+                'name', 'cnpj', 'address',
             ];
         }
 

@@ -18,7 +18,6 @@ test('creates the campuses schema with exact PostgreSQL types and constraints', 
         'name',
         'cnpj',
         'phone',
-        'email',
         'address_id',
         'legal_representative_name',
         'legal_representative_position',
@@ -33,14 +32,13 @@ test('creates the campuses schema with exact PostgreSQL types and constraints', 
     foreach ([
         'id' => ['bigint', false],
         'name' => ['character varying(255)', false],
-        'cnpj' => ['character(14)', true],
-        'phone' => ['character varying(255)', true],
-        'email' => ['character varying(255)', true],
+        'cnpj' => ['character(14)', false],
+        'phone' => ['character varying(255)', false],
         'address_id' => ['bigint', false],
-        'legal_representative_name' => ['character varying(255)', true],
-        'legal_representative_position' => ['character varying(255)', true],
-        'insurance_company_name' => ['character varying(255)', true],
-        'insurance_policy_number' => ['character varying(255)', true],
+        'legal_representative_name' => ['character varying(255)', false],
+        'legal_representative_position' => ['character varying(255)', false],
+        'insurance_company_name' => ['character varying(255)', false],
+        'insurance_policy_number' => ['character varying(255)', false],
         'deactivated_at' => ['timestamp(0) without time zone', true],
         'deleted_at' => ['timestamp(0) without time zone', true],
         'created_at' => ['timestamp(0) without time zone', true],
@@ -143,33 +141,17 @@ test('creates campuses through factories, casts Brazilian contact data, and expo
         ->and($campus->created_at->micro)->toBe(0);
 });
 
-test('keeps insurance and legal representative data nullable without affiliation foreign keys', function () {
-    $campus = Campus::factory()->create([
-        'cnpj' => null,
-        'phone' => null,
-        'email' => '   ',
-        'legal_representative_name' => '   ',
-        'legal_representative_position' => '   ',
-    ]);
+test('requires complete institutional data without affiliation foreign keys', function () {
+    $campus = Campus::factory()->create();
 
-    expect($campus->fresh()->only([
-        'cnpj',
-        'phone',
-        'email',
-        'legal_representative_name',
-        'legal_representative_position',
-        'insurance_company_name',
-        'insurance_policy_number',
-    ]))->toBe([
-        'cnpj' => null,
-        'phone' => null,
-        'email' => null,
-        'legal_representative_name' => null,
-        'legal_representative_position' => null,
-        'insurance_company_name' => null,
-        'insurance_policy_number' => null,
-    ])
-        ->and(Schema::getForeignKeys('campuses'))->toHaveCount(1);
+    foreach ([
+        'cnpj', 'phone', 'legal_representative_name',
+        'legal_representative_position', 'insurance_company_name', 'insurance_policy_number',
+    ] as $field) {
+        expect($campus->{$field})->toBeString()->not->toBeEmpty();
+    }
+
+    expect(Schema::getForeignKeys('campuses'))->toHaveCount(1);
 });
 
 test('accepts an insurance policy number beyond the previous field limit', function () {
@@ -201,10 +183,21 @@ test('validates all campus fields before persisting', function (string $field, m
         ->and(Campus::count())->toBe(0);
 })->with([
     'missing name' => ['name', null],
+    'missing cnpj' => ['cnpj', null],
+    'blank cnpj' => ['cnpj', '   '],
+    'missing phone' => ['phone', null],
+    'blank phone' => ['phone', '   '],
+    'missing legal_representative_name' => ['legal_representative_name', null],
+    'blank legal_representative_name' => ['legal_representative_name', '   '],
+    'missing legal_representative_position' => ['legal_representative_position', null],
+    'blank legal_representative_position' => ['legal_representative_position', '   '],
+    'missing insurance_company_name' => ['insurance_company_name', null],
+    'blank insurance_company_name' => ['insurance_company_name', '   '],
+    'missing insurance_policy_number' => ['insurance_policy_number', null],
+    'blank insurance_policy_number' => ['insurance_policy_number', '   '],
     'blank name' => ['name', '   '],
     'numeric name' => ['name', 123],
     'long name' => ['name', str_repeat('á', 256)],
-    'invalid email' => ['email', 'campus.example.test'],
     'missing address' => ['address_id', null],
     'invalid address identifier' => ['address_id', 'abc'],
     'nonexistent address' => ['address_id', PHP_INT_MAX],

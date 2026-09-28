@@ -17,20 +17,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @property int $id
  * @property string $name
- * @property string|null $cnpj
- * @property string|null $phone
- * @property string|null $email
+ * @property string $cnpj
+ * @property string $phone
  * @property int $address_id
- * @property string|null $legal_representative_name
- * @property string|null $legal_representative_position
- * @property string|null $insurance_company_name
- * @property string|null $insurance_policy_number
+ * @property string $legal_representative_name
+ * @property string $legal_representative_position
+ * @property string $insurance_company_name
+ * @property string $insurance_policy_number
  * @property Carbon|null $deactivated_at
  * @property Carbon|null $deleted_at
  * @property Carbon|null $created_at
@@ -41,7 +41,6 @@ use Spatie\Activitylog\Support\LogOptions;
     'name',
     'cnpj',
     'phone',
-    'email',
     'address_id',
     'legal_representative_name',
     'legal_representative_position',
@@ -57,6 +56,7 @@ class Campus extends Model
     use HasFactory;
 
     use LogsActivity;
+    use Searchable;
     use SoftDeletes;
 
     /**
@@ -68,13 +68,22 @@ class Campus extends Model
             'name' => 'string',
             'cnpj' => CnpjCast::class,
             'phone' => PhoneCast::class,
-            'email' => 'string',
             'address_id' => 'integer',
             'legal_representative_name' => 'string',
             'legal_representative_position' => 'string',
             'insurance_company_name' => 'string',
             'insurance_policy_number' => 'string',
             'deactivated_at' => 'datetime',
+        ];
+    }
+
+    /** @return array{id: int, name: string, deactivated_at: string|null} */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->getKey(),
+            'name' => $this->name,
+            'deactivated_at' => $this->deactivated_at?->toIso8601String(),
         ];
     }
 
@@ -100,6 +109,14 @@ class Campus extends Model
     public function documentTemplates(): HasMany
     {
         return $this->hasMany(DocumentTemplate::class);
+    }
+
+    public function hasLinkedRecords(): bool
+    {
+        return $this->affiliations()->exists()
+            || $this->courses()->exists()
+            || $this->documentTemplates()->exists()
+            || $this->address->hasReferencesOutsideCampus($this);
     }
 
     /**
@@ -195,7 +212,7 @@ class Campus extends Model
                 }
             }
 
-            $campus->nullifyBlankOptionalCampusValues();
+            $campus->normalizeBlankCampusValues();
 
             Validator::make($campus->getAttributes(), $campus->campusRules())->validate();
         });

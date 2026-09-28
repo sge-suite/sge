@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Campus;
+use App\Models\City;
+
 return [
 
     /*
@@ -16,7 +19,7 @@ return [
     |
     */
 
-    'driver' => env('SCOUT_DRIVER', 'collection'),
+    'driver' => env('SCOUT_DRIVER', 'meilisearch'),
 
     /*
     |--------------------------------------------------------------------------
@@ -42,7 +45,7 @@ return [
     |
     */
 
-    'queue' => env('SCOUT_QUEUE', false),
+    'queue' => env('SCOUT_QUEUE', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -55,7 +58,7 @@ return [
     |
     */
 
-    'after_commit' => false,
+    'after_commit' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -140,9 +143,16 @@ return [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
         'index-settings' => [
-            // 'users' => [
-            //     'filterableAttributes'=> ['id', 'name', 'email'],
-            // ],
+            Campus::class => [
+                'searchableAttributes' => ['name'],
+                'filterableAttributes' => ['deactivated_at'],
+                'sortableAttributes' => ['name', 'id'],
+            ],
+            City::class => [
+                'searchableAttributes' => ['name', 'ibge_code'],
+                'filterableAttributes' => ['state'],
+                'sortableAttributes' => ['name'],
+            ],
         ],
     ],
 

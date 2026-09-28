@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -33,6 +34,18 @@ class City extends Model
     use HasFactory;
 
     use LogsActivity;
+    use Searchable;
+
+    /** @return array{id: int, name: string, state: string, ibge_code: string} */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->getKey(),
+            'name' => $this->name,
+            'state' => $this->state->value,
+            'ibge_code' => $this->ibge_code,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

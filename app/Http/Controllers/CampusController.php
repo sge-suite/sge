@@ -19,15 +19,15 @@ class CampusController extends Controller
     {
         $validated = $request->validated();
 
-        DB::transaction(function () use ($validated): void {
+        $campus = DB::transaction(function () use ($validated): Campus {
             Gate::authorize('create', Campus::class);
             $address = Address::create($validated['address']);
             unset($validated['address']);
 
-            Campus::create([...$validated, 'address_id' => $address->getKey()]);
+            return Campus::create([...$validated, 'address_id' => $address->getKey()]);
         });
 
-        return redirect()->route('dashboard')->with('status', 'Campus criado com sucesso.');
+        return redirect()->route('campuses.show', $campus)->with('status', 'Campus criado com sucesso.');
     }
 
     public function update(UpdateCampusRequest $request, Campus $campus): RedirectResponse
@@ -57,7 +57,11 @@ class CampusController extends Controller
             $campus->update($validated);
         });
 
-        return redirect()->route('dashboard')->with('status', 'Campus atualizado com sucesso.');
+        $destination = Gate::allows('viewAdministration', Campus::class)
+            ? route('campuses.show', $campus)
+            : route('dashboard');
+
+        return redirect($destination)->with('status', 'Campus atualizado com sucesso.');
     }
 
     public function deactivate(DeactivateCampusRequest $request, Campus $campus): RedirectResponse
@@ -68,7 +72,7 @@ class CampusController extends Controller
             $campus->deactivate();
         });
 
-        return redirect()->route('dashboard')->with('status', 'Campus desativado com sucesso.');
+        return redirect()->route('campuses.show', $campus)->with('status', 'Campus desativado com sucesso.');
     }
 
     public function reactivate(ReactivateCampusRequest $request, Campus $campus): RedirectResponse
@@ -79,6 +83,6 @@ class CampusController extends Controller
             $campus->reactivate();
         });
 
-        return redirect()->route('dashboard')->with('status', 'Campus reativado com sucesso.');
+        return redirect()->route('campuses.show', $campus)->with('status', 'Campus reativado com sucesso.');
     }
 }

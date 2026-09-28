@@ -15,24 +15,22 @@ trait CampusValidationRules
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'cnpj' => ['nullable', 'string', 'size:14'],
-            'phone' => ['nullable', 'string', 'max:255'],
-            'email' => ['nullable', 'string', 'email', 'max:255'],
+            'cnpj' => ['required', 'string', 'size:14'],
+            'phone' => ['required', 'string', 'max:255'],
             'address_id' => ['bail', 'required', 'integer', Rule::exists(Address::class, 'id')],
-            'legal_representative_name' => ['nullable', 'string', 'max:255'],
-            'legal_representative_position' => ['nullable', 'string', 'max:255'],
-            'insurance_company_name' => ['nullable', 'string', 'max:255'],
-            'insurance_policy_number' => ['nullable', 'string', 'max:255'],
+            'legal_representative_name' => ['required', 'string', 'max:255'],
+            'legal_representative_position' => ['required', 'string', 'max:255'],
+            'insurance_company_name' => ['required', 'string', 'max:255'],
+            'insurance_policy_number' => ['required', 'string', 'max:255'],
             'deactivated_at' => ['nullable', 'date'],
         ];
     }
 
-    protected function nullifyBlankOptionalCampusValues(): void
+    protected function normalizeBlankCampusValues(): void
     {
         foreach ([
             'cnpj',
             'phone',
-            'email',
             'legal_representative_name',
             'legal_representative_position',
             'insurance_company_name',

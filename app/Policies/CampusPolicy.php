@@ -12,6 +12,11 @@ class CampusPolicy
 {
     public function __construct(private ActiveAffiliationContext $context) {}
 
+    public function viewAdministration(User $user): bool
+    {
+        return $this->activeAffiliation($user)?->type === AffiliationType::SystemAdministrator;
+    }
+
     public function viewAny(User $user): bool
     {
         $affiliation = $this->activeAffiliation($user);
@@ -63,6 +68,12 @@ class CampusPolicy
             && $this->activeAffiliation($user)?->type === AffiliationType::SystemAdministrator;
     }
 
+    public function delete(User $user, Campus $campus): bool
+    {
+        return ! $campus->trashed()
+            && $this->activeAffiliation($user)?->type === AffiliationType::SystemAdministrator;
+    }
+
     public function reactivate(User $user, Campus $campus): bool
     {
         return ! $campus->trashed()
@@ -71,6 +82,6 @@ class CampusPolicy
 
     private function activeAffiliation(User $user): ?Affiliation
     {
-        return $this->context->currentFor($user, request()->session());
+        return $this->context->currentFor($user, app('session.store'));
     }
 }

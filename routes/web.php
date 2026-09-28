@@ -3,6 +3,7 @@
 use App\Http\Controllers\AffiliationSelectionController;
 use App\Http\Controllers\CampusController;
 use App\Http\Middleware\RequireActiveAffiliation;
+use App\Models\Campus;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
@@ -12,6 +13,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('affiliations/select', [AffiliationSelectionController::class, 'store'])->name('affiliations.store');
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
+        Route::middleware('can:viewAdministration,'.Campus::class)->group(function (): void {
+            Route::livewire('campuses', 'pages::campuses.index')->name('campuses.index');
+            Route::livewire('campuses/create', 'pages::campuses.create')->name('campuses.create');
+            Route::livewire('campuses/{campus}/edit', 'pages::campuses.edit')->name('campuses.edit');
+            Route::livewire('campuses/{campus}', 'pages::campuses.show')->name('campuses.show');
+        });
+
         Route::post('campuses', [CampusController::class, 'store'])->name('campuses.store');
         Route::put('campuses/{campus}', [CampusController::class, 'update'])->name('campuses.update');
         Route::patch('campuses/{campus}/deactivate', [CampusController::class, 'deactivate'])->name('campuses.deactivate');
