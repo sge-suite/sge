@@ -9,7 +9,7 @@
 @php($selectId = $attributes->get('id') ?? 'select-'.md5($name.$label.$attributes->wire('model')->value()))
 
 <flux:field>
-    <flux:label :for="$selectId" :required="$required">{{ $label }}</flux:label>
+    <flux:label :for="$selectId" :required="$required" :class="$disabled ? '' : 'opacity-100!'">{{ $label }}</flux:label>
     <div
         {{ $attributes->whereStartsWith(['wire:model', 'x-model']) }}
         {{ $attributes->only(['wire:key', 'class'])->class('relative') }}

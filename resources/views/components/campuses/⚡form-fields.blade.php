@@ -6,6 +6,7 @@ use App\Helpers\DigitsHelper;
 use App\Models\Campus;
 use App\Models\City;
 use App\Support\BrasilApiCompanyLookup;
+use Flux\Flux;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use LaravelLegends\PtBrValidator\Rules\Cnpj;
@@ -33,7 +34,7 @@ new class extends Component
     #[Locked]
     public int $citySelectionVersion = 0;
 
-    public string $lookupMessage = '';
+    public string $cityLookupMessage = '';
 
     public function boot(): void
     {
@@ -65,7 +66,7 @@ new class extends Component
 
     public function lookupCnpj(BrasilApiCompanyLookup $lookup): void
     {
-        $this->lookupMessage = '';
+        $this->cityLookupMessage = '';
         $this->pendingCompanyLookup = [];
         $this->showLookupPreview = false;
         $this->selectedCompanyName = 'legal_name';
@@ -180,10 +181,11 @@ new class extends Component
 
         $this->selectedCityId = $this->pendingCompanyLookup['address']['city_id'];
         $this->citySelectionVersion++;
-        $this->lookupMessage = 'Dados aplicados ao formulário. Confira as informações antes de salvar.';
-        if ($this->pendingCompanyLookup['address']['city_id'] === null) {
-            $this->lookupMessage .= ' A cidade não foi identificada no catálogo; selecione a UF e a cidade manualmente.';
-        }
+        $this->cityLookupMessage = $this->pendingCompanyLookup['address']['city_id'] === null
+            ? 'Cidade não encontrada no catálogo. Selecione a UF e busque a cidade.'
+            : '';
+
+        Flux::toast(variant: 'success', text: 'Dados aplicados ao formulário. Confira as informações antes de salvar.');
 
         $this->cancelCompanyLookup();
     }
@@ -208,67 +210,65 @@ new class extends Component
     }
 }; ?>
 
-<div class="space-y-8">
-    @if ($lookupMessage !== '')
-        <flux:callout icon="information-circle" role="status">{{ $lookupMessage }}</flux:callout>
-    @endif
-
-    <section aria-labelledby="campus-registration-heading">
-        <flux:heading id="campus-registration-heading" size="lg" level="2">Dados do campus</flux:heading>
-        <flux:text class="mt-1">Informe a identificação e o telefone institucional.</flux:text>
-        <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-            <div class="sm:col-span-2">
-                <flux:input name="name" error:name="name" label="Nome do campus" wire:model="values.name" :value="$values['name']" maxlength="255" required autocomplete="organization" />
-            </div>
-            <div class="sm:col-span-2 grid items-start gap-x-5 gap-y-4 sm:grid-cols-2">
-                <div>
-                    <flux:input name="cnpj" error:name="cnpj" label="CNPJ" wire:model="values.cnpj" :value="$values['cnpj']" maxlength="18" placeholder="00.000.000/0000-00" :invalid="$errors->has('values.cnpj') || $errors->has('cnpj')" required />
-                    <flux:error name="values.cnpj" />
+<div>
+    <div class="grid gap-8 xl:grid-cols-2 xl:items-start xl:gap-x-12">
+        <section class="min-w-0 xl:col-start-1 xl:row-start-1" aria-labelledby="campus-registration-heading">
+            <flux:heading id="campus-registration-heading" size="lg" level="2">Dados do campus</flux:heading>
+            <flux:text class="mt-1">Informe a identificação e o telefone institucional.</flux:text>
+            <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                    <flux:input name="name" error:name="name" label="Nome do campus" wire:model="values.name" :value="$values['name']" maxlength="255" required autocomplete="organization" />
                 </div>
-                <flux:input name="phone" error:name="phone" label="Telefone" wire:model="values.phone" :value="$values['phone']" maxlength="15" type="tel" autocomplete="tel" placeholder="(55) 3333-3333" required />
-                <div class="sm:col-span-2 flex flex-col items-start gap-2">
-                    <flux:text size="sm">Busque na BrasilAPI para preencher o nome, o telefone e o endereço do campus. Confira os dados antes de salvar.</flux:text>
-                    <flux:button type="button" size="sm" icon="magnifying-glass" wire:click="lookupCnpj" wire:loading.attr="disabled" wire:target="lookupCnpj">
-                        Buscar dados na BrasilAPI
-                    </flux:button>
+                <div class="sm:col-span-2 grid items-start gap-x-5 gap-y-4 sm:grid-cols-2">
+                    <div>
+                        <flux:input name="cnpj" error:name="cnpj" label="CNPJ" wire:model="values.cnpj" :value="$values['cnpj']" maxlength="18" placeholder="00.000.000/0000-00" :invalid="$errors->has('values.cnpj') || $errors->has('cnpj')" required />
+                        <flux:error name="values.cnpj" />
+                    </div>
+                    <flux:input name="phone" error:name="phone" label="Telefone" wire:model="values.phone" :value="$values['phone']" maxlength="15" type="tel" autocomplete="tel" placeholder="(55) 3333-3333" required />
+                    <div class="sm:col-span-2 flex flex-col items-start gap-2">
+                        <flux:text size="sm">Busque na BrasilAPI para preencher o nome, o telefone e o endereço do campus. Confira os dados antes de salvar.</flux:text>
+                        <flux:button type="button" size="sm" icon="magnifying-glass" wire:click="lookupCnpj" wire:loading.attr="disabled" wire:target="lookupCnpj">
+                            Buscar dados na BrasilAPI
+                        </flux:button>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <flux:separator />
+        <flux:separator class="xl:col-start-1 xl:row-start-2" />
 
-    <section aria-labelledby="campus-address-heading">
-        <flux:heading id="campus-address-heading" size="lg" level="2">Endereço</flux:heading>
-        <flux:text class="mt-1">Selecione a UF e digite pelo menos 2 caracteres para buscar a cidade.</flux:text>
-        <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-            <livewire:cities.select :selected-city-id="$selectedCityId" :key="'campus-city-'.$citySelectionVersion" :city-error="$errors->first('address.city_id')" />
-            <flux:input name="address[street]" error:name="address.street" label="Logradouro" wire:model="values.address.street" :value="$values['address']['street']" :invalid="$errors->has('address.street')" maxlength="255" autocomplete="address-line1" required />
-            <flux:input name="address[number]" error:name="address.number" label="Número" wire:model="values.address.number" :value="$values['address']['number']" :invalid="$errors->has('address.number')" maxlength="255" required />
-            <flux:input name="address[neighborhood]" error:name="address.neighborhood" label="Bairro" wire:model="values.address.neighborhood" :value="$values['address']['neighborhood']" :invalid="$errors->has('address.neighborhood')" maxlength="255" required />
-            <flux:input name="address[zip_code]" error:name="address.zip_code" label="CEP (opcional)" wire:model="values.address.zip_code" :value="$values['address']['zip_code']" :invalid="$errors->has('address.zip_code')" maxlength="9" autocomplete="postal-code" />
-        </div>
-    </section>
+        <section class="min-w-0 xl:col-start-2 xl:row-span-5 xl:row-start-1" aria-labelledby="campus-address-heading">
+            <flux:heading id="campus-address-heading" size="lg" level="2">Endereço</flux:heading>
+            <flux:text class="mt-1" role="status">{{ $cityLookupMessage !== '' ? $cityLookupMessage : 'Selecione a UF e digite pelo menos 2 caracteres para buscar a cidade.' }}</flux:text>
+            <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
+                <livewire:cities.select :selected-city-id="$selectedCityId" :key="'campus-city-'.$citySelectionVersion" :city-error="$errors->first('address.city_id')" />
+                <flux:input name="address[street]" error:name="address.street" label="Logradouro" wire:model="values.address.street" :value="$values['address']['street']" :invalid="$errors->has('address.street')" maxlength="255" autocomplete="address-line1" required />
+                <flux:input name="address[number]" error:name="address.number" label="Número" wire:model="values.address.number" :value="$values['address']['number']" :invalid="$errors->has('address.number')" maxlength="255" required />
+                <flux:input name="address[neighborhood]" error:name="address.neighborhood" label="Bairro" wire:model="values.address.neighborhood" :value="$values['address']['neighborhood']" :invalid="$errors->has('address.neighborhood')" maxlength="255" required />
+                <flux:input name="address[zip_code]" error:name="address.zip_code" label="CEP (opcional)" wire:model="values.address.zip_code" :value="$values['address']['zip_code']" :invalid="$errors->has('address.zip_code')" maxlength="9" autocomplete="postal-code" />
+            </div>
+        </section>
 
-    <flux:separator />
+        <flux:separator class="xl:hidden" />
 
-    <section aria-labelledby="campus-representative-heading">
-        <flux:heading id="campus-representative-heading" size="lg" level="2">Representante legal</flux:heading>
-        <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-            <flux:input name="legal_representative_name" error:name="legal_representative_name" label="Nome" wire:model="values.legal_representative_name" :value="$values['legal_representative_name']" maxlength="255" required />
-            <flux:input name="legal_representative_position" error:name="legal_representative_position" label="Cargo" wire:model="values.legal_representative_position" :value="$values['legal_representative_position']" maxlength="255" required />
-        </div>
-    </section>
+        <section class="min-w-0 xl:col-start-1 xl:row-start-3" aria-labelledby="campus-representative-heading">
+            <flux:heading id="campus-representative-heading" size="lg" level="2">Representante legal</flux:heading>
+            <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
+                <flux:input name="legal_representative_name" error:name="legal_representative_name" label="Nome" wire:model="values.legal_representative_name" :value="$values['legal_representative_name']" maxlength="255" required />
+                <flux:input name="legal_representative_position" error:name="legal_representative_position" label="Cargo" wire:model="values.legal_representative_position" :value="$values['legal_representative_position']" maxlength="255" required />
+            </div>
+        </section>
 
-    <flux:separator />
+        <flux:separator class="xl:col-start-1 xl:row-start-4" />
 
-    <section aria-labelledby="campus-insurance-heading">
-        <flux:heading id="campus-insurance-heading" size="lg" level="2">Seguro</flux:heading>
-        <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-            <flux:input name="insurance_company_name" error:name="insurance_company_name" label="Seguradora" wire:model="values.insurance_company_name" :value="$values['insurance_company_name']" maxlength="255" required />
-            <flux:input name="insurance_policy_number" error:name="insurance_policy_number" label="Número da apólice" wire:model="values.insurance_policy_number" :value="$values['insurance_policy_number']" maxlength="255" required />
-        </div>
-    </section>
+        <section class="min-w-0 xl:col-start-1 xl:row-start-5" aria-labelledby="campus-insurance-heading">
+            <flux:heading id="campus-insurance-heading" size="lg" level="2">Seguro</flux:heading>
+            <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
+                <flux:input name="insurance_company_name" error:name="insurance_company_name" label="Seguradora" wire:model="values.insurance_company_name" :value="$values['insurance_company_name']" maxlength="255" required />
+                <flux:input name="insurance_policy_number" error:name="insurance_policy_number" label="Número da apólice" wire:model="values.insurance_policy_number" :value="$values['insurance_policy_number']" maxlength="255" required />
+            </div>
+        </section>
+    </div>
 
     <flux:modal
         name="campus-cnpj-preview"
