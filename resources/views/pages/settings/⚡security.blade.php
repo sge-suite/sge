@@ -123,6 +123,15 @@ new #[Title('Segurança')] class extends Component {
                         passwordrules="{{ \Illuminate\Validation\Rules\Password::min(8)->max(64)->letters()->mixedCase()->numbers()->symbols()->toPasswordRulesString() }}"
                         viewable
                     />
+                    <flux:input
+                        wire:model="password_confirmation"
+                        label="Confirmar nova senha"
+                        type="password"
+                        required
+                        autocomplete="new-password"
+                        passwordrules="{{ \Illuminate\Validation\Rules\Password::min(8)->max(64)->letters()->mixedCase()->numbers()->symbols()->toPasswordRulesString() }}"
+                        viewable
+                    />
                     <div wire:key="password-rules-{{ $errors->has('password') ? 'invalid' : 'ready' }}">
                         <x-accordion title="Regras para senha" :open="$errors->has('password')">
                             <p class="text-sm font-medium text-zinc-700 dark:text-zinc-200">A senha deve:</p>
@@ -135,15 +144,6 @@ new #[Title('Segurança')] class extends Component {
                             </ul>
                         </x-accordion>
                     </div>
-                    <flux:input
-                        wire:model="password_confirmation"
-                        label="Confirmar nova senha"
-                        type="password"
-                        required
-                        autocomplete="new-password"
-                        passwordrules="{{ \Illuminate\Validation\Rules\Password::min(8)->max(64)->letters()->mixedCase()->numbers()->symbols()->toPasswordRulesString() }}"
-                        viewable
-                    />
 
                     <flux:button variant="primary" type="submit" data-test="update-password-button">
                         Alterar senha
