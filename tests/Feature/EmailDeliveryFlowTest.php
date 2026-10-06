@@ -1,11 +1,13 @@
 <?php
 
 use App\Actions\RequestEmailDelivery;
+use App\Enums\AffiliationType;
 use App\Enums\EmailDeliveryAttemptStatus;
 use App\Enums\EmailMessagePurpose;
 use App\Jobs\SendEmailDelivery;
 use App\Mail\DeliveryMail;
 use App\Models\Affiliation;
+use App\Models\Campus;
 use App\Models\EmailDeliveryAttempt;
 use App\Models\EmailMessage;
 use App\Models\User;
@@ -51,24 +53,44 @@ test('reserves one account creation invitation and renders its template without 
         ->assertSeeInText($firstAffiliation->type->label());
 });
 
-test('renders a login notice for each newly created affiliation without persisting its body', function () {
+test('snapshots the new affiliation details into each login notice', function () {
     Bus::fake();
     $user = User::factory()->create();
+    $campus = Campus::factory()->create(['name' => 'INSTITUTO FEDERAL FARROUPILHA - CAMPUS SANTO AUGUSTO']);
+    $affiliation = Affiliation::factory()->for($user)->create([
+        'type' => AffiliationType::CampusAdministrator,
+        'campus_id' => $campus->id,
+        'course_id' => null,
+        'registration_number' => 'CA-2026-117',
+    ]);
     $requester = Affiliation::factory()->global()->create();
     $key = (string) Str::uuid();
 
     $attempt = app(CauserResolver::class)->withCauser(
         $requester,
-        fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->affiliationCreated($user->email, $key),
+        fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->affiliationCreated($user->email, $affiliation, $key),
     );
+    $again = app(RequestEmailDelivery::class)->affiliationCreated($user->email, $affiliation, $key);
 
     expect($attempt->purpose)->toBe(EmailMessagePurpose::NewAffiliation)
-        ->and($attempt->email_message_id)->toBeNull()
-        ->and(EmailMessage::query()->exists())->toBeFalse();
+        ->and($attempt->email_message_id)->not->toBeNull()
+        ->and($again->is($attempt))->toBeTrue()
+        ->and(EmailMessage::query()->count())->toBe(1)
+        ->and($attempt->emailMessage->content_text)->toContain($affiliation->type->label(), $campus->name, $affiliation->registration_number);
+
+    $differentAffiliation = Affiliation::factory()->global()->for($user)->create();
+    expect(fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->affiliationCreated($user->email, $differentAffiliation, $key))
+        ->toThrow(ValidationException::class);
 
     (new DeliveryMail($attempt))->assertSeeInHtml('Novo vínculo criado')
+        ->assertSeeInHtml($affiliation->type->label())
+        ->assertSeeInHtml($campus->name)
+        ->assertSeeInHtml($affiliation->registration_number)
         ->assertSeeInHtml(route('login'))
         ->assertSeeInText('Novo vínculo criado')
+        ->assertSeeInText($affiliation->type->label())
+        ->assertSeeInText($campus->name)
+        ->assertSeeInText($affiliation->registration_number)
         ->assertSeeInText(route('login'))
         ->assertDontSeeInHtml(route('password.request'));
 });

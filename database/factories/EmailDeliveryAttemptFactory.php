@@ -38,7 +38,7 @@ class EmailDeliveryAttemptFactory extends Factory
     public function newAffiliation(User $recipient): static
     {
         return $this->state(fn (): array => [
-            'email_message_id' => null,
+            'email_message_id' => EmailMessage::factory()->newAffiliation(),
             'purpose' => EmailMessagePurpose::NewAffiliation,
             'recipient_email' => $recipient->email,
         ]);

@@ -47,11 +47,15 @@ test('stores immutable notification content without duplicating recipient or act
     expect(fn () => $message->delete())->toThrow(ValidationException::class);
 });
 
-test('rejects contentless messages and invitation snapshots', function () {
+test('rejects contentless messages and stores a new affiliation snapshot', function () {
     expect(fn () => EmailMessage::factory()->create(['content_text' => null, 'content_html' => null]))
         ->toThrow(ValidationException::class);
-    expect(fn () => EmailMessage::factory()->create(['purpose' => EmailMessagePurpose::NewAffiliation]))
-        ->toThrow(ValidationException::class);
+
+    $message = EmailMessage::factory()->newAffiliation()->create();
+
+    expect($message->purpose)->toBe(EmailMessagePurpose::NewAffiliation)
+        ->and($message->notification_id)->toBeNull()
+        ->and($message->content_text)->toContain('Administrador do Sistema', 'Escopo global', 'ADM-001');
 });
 
 test('stores an immutable account email change without an internal notification', function () {

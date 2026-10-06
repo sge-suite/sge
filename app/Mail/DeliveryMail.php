@@ -18,7 +18,7 @@ class DeliveryMail extends Mailable
             EmailMessagePurpose::Notification => $this->notificationContent(),
             EmailMessagePurpose::AccountCreated => $this->accountCreatedContent(),
             EmailMessagePurpose::NewAffiliation => $this->affiliationCreatedContent(),
-            EmailMessagePurpose::AccountEmailChanged => $this->accountEmailChangedContent(),
+            EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange => $this->accountEmailChangedContent(),
             default => throw new LogicException('Finalidade de e-mail inválida.'),
         };
     }
@@ -50,10 +50,21 @@ class DeliveryMail extends Mailable
 
     private function affiliationCreatedContent(): static
     {
-        return $this->subject('Novo vínculo criado no Sistema de Gestão de Estágios')
-            ->markdown('emails.affiliation-created', [
-                'loginUrl' => route('login'),
-            ]);
+        $message = $this->attempt->emailMessage;
+
+        if ($message === null) {
+            return $this->subject('Novo vínculo criado no Sistema de Gestão de Estágios')
+                ->markdown('emails.affiliation-created', [
+                    'affiliationName' => 'Vínculo administrativo',
+                    'campusName' => 'Não informado',
+                    'registrationNumber' => 'Não informado',
+                    'loginUrl' => route('login'),
+                ]);
+        }
+
+        return $this->subject($message->subject)
+            ->html($message->content_html)
+            ->text('emails.delivery-text', ['body' => $message->content_text]);
     }
 
     private function accountEmailChangedContent(): static

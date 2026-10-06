@@ -38,4 +38,16 @@ class EmailMessageFactory extends Factory
             'notification_id' => $notification->id,
         ]);
     }
+
+    public function newAffiliation(): static
+    {
+        return $this->state(fn (): array => [
+            'purpose' => EmailMessagePurpose::NewAffiliation,
+            'subject' => 'Novo vínculo criado no Sistema de Gestão de Estágios',
+            'content_text' => 'Tipo: Administrador do Sistema. Campus: Escopo global. Registro institucional: ADM-001.',
+            'content_html' => '<p>Tipo: Administrador do Sistema. Campus: Escopo global. Registro institucional: ADM-001.</p>',
+            'template_key' => 'administrative.affiliation-created',
+            'template_version' => '1',
+        ]);
+    }
 }

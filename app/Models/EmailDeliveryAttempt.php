@@ -98,11 +98,13 @@ class EmailDeliveryAttempt extends Model
             if (! $attempt->exists) {
                 $requiresMessage = in_array($attempt->purpose, [
                     EmailMessagePurpose::Notification,
+                    EmailMessagePurpose::NewAffiliation,
                     EmailMessagePurpose::AccountEmailChanged,
+                    EmailMessagePurpose::AdministrativeChange,
                 ], true);
 
                 if ($requiresMessage !== ($attempt->email_message_id !== null)) {
-                    throw ValidationException::withMessages(['email_message_id' => 'Notificações e avisos de alteração de e-mail exigem conteúdo; avisos de conta e vínculo não armazenam conteúdo.']);
+                    throw ValidationException::withMessages(['email_message_id' => 'O conteúdo da tentativa não corresponde à finalidade do envio.']);
                 }
 
                 if ($attempt->email_message_id !== null) {

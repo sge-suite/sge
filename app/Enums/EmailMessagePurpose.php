@@ -8,6 +8,7 @@ enum EmailMessagePurpose: string
     case AccountCreated = 'account_created';
     case NewAffiliation = 'new_affiliation';
     case AccountEmailChanged = 'account_email_changed';
+    case AdministrativeChange = 'administrative_change';
 
     /**
      * Obter o rótulo da finalidade da mensagem de e-mail em português.
@@ -19,6 +20,7 @@ enum EmailMessagePurpose: string
             self::AccountCreated => 'Conta criada',
             self::NewAffiliation => 'Novo vínculo',
             self::AccountEmailChanged => 'Alteração de e-mail da conta',
+            self::AdministrativeChange => 'Alteração administrativa',
         };
     }
 

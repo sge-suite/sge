@@ -11,18 +11,21 @@ test('defines email message purpose cases, values, labels and options', function
         EmailMessagePurpose::AccountCreated,
         EmailMessagePurpose::NewAffiliation,
         EmailMessagePurpose::AccountEmailChanged,
+        EmailMessagePurpose::AdministrativeChange,
     ])
         ->and(EmailMessagePurpose::values())->toBe([
             'notification',
             'account_created',
             'new_affiliation',
             'account_email_changed',
+            'administrative_change',
         ])
         ->and(EmailMessagePurpose::options())->toBe([
             'notification' => 'Notificação operacional',
             'account_created' => 'Conta criada',
             'new_affiliation' => 'Novo vínculo',
             'account_email_changed' => 'Alteração de e-mail da conta',
+            'administrative_change' => 'Alteração administrativa',
         ])
         ->and(EmailMessagePurpose::Notification->label())->toBe('Notificação operacional')
         ->and(EmailMessagePurpose::AccountCreated->label())->toBe('Conta criada')

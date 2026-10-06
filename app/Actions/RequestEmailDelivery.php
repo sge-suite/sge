@@ -53,9 +53,42 @@ class RequestEmailDelivery
         return $this->withoutContent(EmailMessagePurpose::AccountCreated, $recipientEmail, $deliveryKey);
     }
 
-    public function affiliationCreated(string $recipientEmail, string $deliveryKey): EmailDeliveryAttempt
+    public function affiliationCreated(string $recipientEmail, Affiliation $affiliation, string $deliveryKey): EmailDeliveryAttempt
     {
-        return $this->withoutContent(EmailMessagePurpose::NewAffiliation, $recipientEmail, $deliveryKey);
+        $this->validateKey($deliveryKey);
+        $affiliation->loadMissing('campus');
+
+        $subject = 'Novo vínculo criado no Sistema de Gestão de Estágios';
+        $data = [
+            'affiliationName' => $affiliation->type->label(),
+            'campusName' => $affiliation->campus?->name ?? 'Escopo global',
+            'registrationNumber' => $affiliation->registration_number,
+            'loginUrl' => route('login'),
+        ];
+        $markdown = app(Markdown::class);
+        $contentHtml = (string) $markdown->render('emails.affiliation-created', $data);
+        $contentText = (string) $markdown->renderText('emails.affiliation-created', $data);
+
+        return DB::transaction(function () use ($deliveryKey, $recipientEmail, $subject, $contentHtml, $contentText): EmailDeliveryAttempt {
+            $message = EmailMessage::query()->firstOrCreate(
+                ['idempotency_key' => $deliveryKey],
+                [
+                    'purpose' => EmailMessagePurpose::NewAffiliation,
+                    'subject' => $subject,
+                    'content_text' => $contentText,
+                    'content_html' => $contentHtml,
+                    'template_key' => 'administrative.affiliation-created',
+                    'template_version' => '1',
+                ],
+            );
+
+            if ($message->purpose !== EmailMessagePurpose::NewAffiliation || $message->subject !== $subject ||
+                $message->content_text !== $contentText || $message->content_html !== $contentHtml) {
+                throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
+            }
+
+            return $this->reserve($deliveryKey, EmailMessagePurpose::NewAffiliation, $recipientEmail, $message);
+        });
     }
 
     public function accountEmailChanged(string $recipientEmail, string $previousEmail, string $newEmail, string $deliveryKey): EmailDeliveryAttempt
@@ -95,6 +128,27 @@ class RequestEmailDelivery
             }
 
             return $this->reserve($deliveryKey, EmailMessagePurpose::AccountEmailChanged, $recipientEmail, $message);
+        });
+    }
+
+    public function administrativeChange(string $recipientEmail, string $subject, string $body, string $deliveryKey): EmailDeliveryAttempt
+    {
+        $this->validateKey($deliveryKey);
+        $markdown = app(Markdown::class);
+        $data = ['messageSubject' => $subject, 'body' => $body, 'dashboardUrl' => route('login')];
+        $contentHtml = (string) $markdown->render('emails.notification', $data);
+        $contentText = (string) $markdown->renderText('emails.notification', $data);
+
+        return DB::transaction(function () use ($deliveryKey, $recipientEmail, $subject, $contentHtml, $contentText): EmailDeliveryAttempt {
+            $message = EmailMessage::query()->firstOrCreate(['idempotency_key' => $deliveryKey], [
+                'purpose' => EmailMessagePurpose::AdministrativeChange,
+                'subject' => $subject, 'content_text' => $contentText, 'content_html' => $contentHtml,
+            ]);
+            if ($message->purpose !== EmailMessagePurpose::AdministrativeChange || $message->subject !== $subject || $message->content_text !== $contentText || $message->content_html !== $contentHtml) {
+                throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
+            }
+
+            return $this->reserve($deliveryKey, EmailMessagePurpose::AdministrativeChange, $recipientEmail, $message);
         });
     }
 

@@ -99,6 +99,9 @@ test('rejects attempts with missing content, mismatched recipients and inactive 
         'purpose' => EmailMessagePurpose::Notification,
     ]))->toThrow(ValidationException::class);
     expect(fn () => EmailDeliveryAttempt::factory()->newAffiliation($recipient)->create([
+        'email_message_id' => null,
+    ]))->toThrow(ValidationException::class);
+    expect(fn () => EmailDeliveryAttempt::factory()->newAffiliation($recipient)->create([
         'requested_by_affiliation_id' => $inactiveAffiliation->id,
     ]))->toThrow(ValidationException::class);
     expect(fn () => app(CauserResolver::class)->withCauser(
