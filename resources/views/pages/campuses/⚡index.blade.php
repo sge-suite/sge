@@ -78,7 +78,7 @@ new #[Title('Campi')] class extends Component
     }
 }; ?>
 
-<div class="mx-auto w-full max-w-7xl space-y-8">
+<div class="w-full space-y-8">
     @if (session('status'))
         <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
@@ -91,7 +91,7 @@ new #[Title('Campi')] class extends Component
     </div>
 
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <flux:input wire:model.live.debounce.300ms="search" label="Buscar campus" placeholder="Nome do campus" icon="magnifying-glass" maxlength="255" type="search" class="sm:max-w-md" />
+        <flux:input wire:model.live.debounce.300ms="search" label="Buscar campus" placeholder="Nome do campus" icon="magnifying-glass" maxlength="255" type="search" class="min-w-0 sm:flex-1" />
         <div class="sm:w-48">
             <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']"
                 :option-icons="['all' => 'building-office-2', 'active' => 'check-circle', 'inactive' => 'no-symbol']" />

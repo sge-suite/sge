@@ -37,14 +37,14 @@ test('system administrator can navigate campus pages without mutating data', fun
     $count = Activity::count();
 
     $this->actingAs($user)->get(route('dashboard'))->assertOk()->assertSee('href="'.route('campuses.index').'"', false)->assertDontSee('Administração do sistema');
-    $this->get(route('campuses.index'))->assertOk()->assertSee('Campus Santa Rosa');
-    $this->get(route('campuses.create'))->assertOk()->assertSee('Cadastrar campus')->assertDontSee('E-mail institucional')
+    $this->get(route('campuses.index'))->assertOk()->assertSee('Campus Santa Rosa')->assertSee('class="w-full space-y-8"', false);
+    $this->get(route('campuses.create'))->assertOk()->assertSee('Cadastrar campus')->assertSee('class="w-full space-y-8"', false)->assertDontSee('E-mail institucional')
         ->assertDontSee('name="email"', false)->assertSee('name="address[city_id]"', false)
         ->assertSee('novalidate', false)->assertSee('scroll-fade-y', false)->assertSee('sm:grid-cols-2', false)
         ->assertSee('x-bind:disabled="!open"', false)
         ->assertSeeHtmlInOrder(['scroll-fade-y', 'Nome que será usado no campus', 'Alterações previstas', 'wire:click="cancelCompanyLookup"']);
-    $this->get(route('campuses.show', $campus))->assertOk()->assertSee('Campus Santa Rosa')->assertSee('Editar campus');
-    $this->get(route('campuses.edit', $campus))->assertOk()->assertSee('Salvar alterações')->assertSee('value="Campus Santa Rosa"', false);
+    $this->get(route('campuses.show', $campus))->assertOk()->assertSee('Campus Santa Rosa')->assertSee('Editar campus')->assertSee('Voltar')->assertSee('class="w-full space-y-8"', false);
+    $this->get(route('campuses.edit', $campus))->assertOk()->assertSee('Salvar alterações')->assertSee('value="Campus Santa Rosa"', false)->assertSee('class="w-full space-y-8"', false);
 
     expect(Activity::count())->toBe($count);
 });

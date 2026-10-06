@@ -144,7 +144,7 @@ new #[Title('Detalhes do campus')] class extends Component
     }
 }; ?>
 
-<div class="mx-auto w-full max-w-5xl space-y-8">
+<div class="w-full space-y-8">
     @php($campus = $this->campus)
     <flux:breadcrumbs>
         <flux:breadcrumbs.item :href="route('campuses.index')" wire:navigate>Campi</flux:breadcrumbs.item>
@@ -159,9 +159,12 @@ new #[Title('Detalhes do campus')] class extends Component
             </div>
             <flux:text class="mt-2">{{ $campus->address->city->name }} · {{ $campus->address->city->state->label() }}</flux:text>
         </div>
-        @if ($campus->deactivated_at === null)
-            <flux:button icon="pencil-square" :href="route('campuses.edit', $campus)" wire:navigate>Editar campus</flux:button>
-        @endif
+        <div class="flex flex-wrap items-center gap-3">
+            <flux:button variant="outline" icon="arrow-left" :href="route('campuses.index')" wire:navigate>Voltar</flux:button>
+            @if ($campus->deactivated_at === null)
+                <flux:button icon="pencil-square" :href="route('campuses.edit', $campus)" wire:navigate>Editar campus</flux:button>
+            @endif
+        </div>
     </div>
 
     @if (session('status'))
