@@ -8,6 +8,7 @@ use App\Casts\PhoneCast;
 use App\Enums\PartyDocumentType;
 use Database\Factories\GrantingPartyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,11 +16,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 #[Fillable([
-    'document_type', 'document_number', 'name', 'address_id',
+    'campus_id', 'document_type', 'document_number', 'name', 'address_id',
     'representative_name', 'representative_role', 'phone', 'email',
     'field_of_activity', 'professional_council', 'council_registration_number',
     'credentialing_process_number',
@@ -36,6 +38,7 @@ class GrantingParty extends Model
     protected function casts(): array
     {
         return [
+            'campus_id' => 'integer',
             'document_type' => PartyDocumentType::class,
             'document_number' => 'string',
             'name' => 'string',
@@ -57,6 +60,18 @@ class GrantingParty extends Model
         return $this->belongsTo(Address::class);
     }
 
+    /** @return BelongsTo<Campus, $this> */
+    public function campus(): BelongsTo
+    {
+        return $this->belongsTo(Campus::class);
+    }
+
+    /** @param Builder<GrantingParty> $query */
+    public function scopeForCampus(Builder $query, Campus|int $campus): Builder
+    {
+        return $query->where('campus_id', $campus instanceof Campus ? $campus->getKey() : $campus);
+    }
+
     /** @return HasMany<GrantingPartyRegistrationRequest, $this> */
     public function grantingPartyRegistrationRequests(): HasMany
     {
@@ -71,6 +86,12 @@ class GrantingParty extends Model
     protected static function booted(): void
     {
         static::saving(function (self $party): void {
+            if ($party->exists && $party->isDirty('campus_id')) {
+                throw ValidationException::withMessages([
+                    'campus_id' => 'O campus de uma parte concedente não pode ser alterado depois do cadastro.',
+                ]);
+            }
+
             foreach ([
                 'phone', 'email', 'professional_council', 'council_registration_number',
                 'credentialing_process_number',
@@ -81,6 +102,7 @@ class GrantingParty extends Model
             }
 
             Validator::make($party->getAttributes(), [
+                'campus_id' => ['required', 'integer', Rule::exists(Campus::class, 'id')],
                 'document_type' => ['required', Rule::in(PartyDocumentType::values())],
             ])->validate();
 
@@ -92,6 +114,7 @@ class GrantingParty extends Model
             }
 
             Validator::make($party->getAttributes(), [
+                'campus_id' => ['required', 'integer', Rule::exists(Campus::class, 'id')],
                 'document_type' => ['required', Rule::in(PartyDocumentType::values())],
                 'document_number' => ['required', 'string', 'max:14'],
                 'name' => ['required', 'string', 'max:255'],

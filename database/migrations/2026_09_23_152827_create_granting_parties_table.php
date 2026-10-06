@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('granting_parties', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('campus_id')->constrained()->restrictOnDelete();
+            $table->index('campus_id');
             $table->string('document_type');
             $table->string('document_number');
             $table->string('name');

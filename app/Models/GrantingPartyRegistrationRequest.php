@@ -22,7 +22,7 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 #[Fillable([
-    'document_type', 'document_number', 'name', 'street', 'number', 'neighborhood',
+    'campus_id', 'document_type', 'document_number', 'name', 'street', 'number', 'neighborhood',
     'city', 'uf', 'zip_code', 'representative_name', 'representative_role',
     'phone', 'email', 'field_of_activity', 'professional_council',
     'council_registration_number', 'credentialing_process_number', 'status',
@@ -45,6 +45,7 @@ class GrantingPartyRegistrationRequest extends Model
     protected function casts(): array
     {
         return [
+            'campus_id' => 'integer',
             'document_type' => PartyDocumentType::class,
             'uf' => BrazilianState::class,
             'phone' => PhoneCast::class,
@@ -60,9 +61,21 @@ class GrantingPartyRegistrationRequest extends Model
         return $this->belongsTo(GrantingParty::class);
     }
 
+    /** @return BelongsTo<Campus, $this> */
+    public function campus(): BelongsTo
+    {
+        return $this->belongsTo(Campus::class);
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $registrationRequest): void {
+            if ($registrationRequest->exists && $registrationRequest->isDirty('campus_id')) {
+                throw ValidationException::withMessages([
+                    'campus_id' => 'O campus de uma solicitação não pode ser alterado depois do cadastro.',
+                ]);
+            }
+
             foreach ([
                 'document_number', 'name', 'street', 'number', 'neighborhood',
                 'city', 'zip_code', 'representative_name', 'representative_role',
@@ -89,6 +102,7 @@ class GrantingPartyRegistrationRequest extends Model
             $requiredWhenSubmitted = $isDraft ? 'nullable' : 'required';
 
             Validator::make($attributes, [
+                'campus_id' => ['required', 'integer', Rule::exists(Campus::class, 'id')],
                 'document_type' => [$requiredWhenSubmitted, 'required_with:document_number', Rule::in(PartyDocumentType::values())],
                 'status' => ['required', Rule::enum(RegistrationRequestStatus::class)],
             ])->validate();
@@ -105,6 +119,7 @@ class GrantingPartyRegistrationRequest extends Model
             }
 
             Validator::make($registrationRequest->getAttributes(), [
+                'campus_id' => ['required', 'integer', Rule::exists(Campus::class, 'id')],
                 'document_type' => [$requiredWhenSubmitted, Rule::in(PartyDocumentType::values())],
                 'document_number' => [$requiredWhenSubmitted, 'string'],
                 'name' => [$requiredWhenSubmitted, 'string', 'max:255'],
@@ -128,7 +143,7 @@ class GrantingPartyRegistrationRequest extends Model
                     Rule::requiredIf($isApproved),
                     'nullable',
                     'integer',
-                    Rule::exists(GrantingParty::class, 'id'),
+                    Rule::exists(GrantingParty::class, 'id')->where('campus_id', $attributes['campus_id'] ?? null),
                 ],
                 'reviewed_at' => ['nullable', 'date'],
                 'decision_reason' => [

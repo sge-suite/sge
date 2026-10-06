@@ -3,6 +3,7 @@
 use App\Enums\BrazilianState;
 use App\Enums\PartyDocumentType;
 use App\Enums\RegistrationRequestStatus;
+use App\Models\Campus;
 use App\Models\GrantingParty;
 use App\Models\GrantingPartyRegistrationRequest;
 use Illuminate\Database\QueryException;
@@ -16,7 +17,7 @@ test('creates the granting party registration request schema with PostgreSQL typ
     $columns = collect(Schema::getColumns('granting_party_registration_requests'))->keyBy('name');
 
     expect($columns->keys()->all())->toBe([
-        'id', 'document_type', 'document_number', 'name', 'street', 'number',
+        'id', 'campus_id', 'document_type', 'document_number', 'name', 'street', 'number',
         'neighborhood', 'city', 'uf', 'zip_code', 'representative_name',
         'representative_role', 'phone', 'email', 'field_of_activity',
         'professional_council', 'council_registration_number',
@@ -26,6 +27,7 @@ test('creates the granting party registration request schema with PostgreSQL typ
 
     foreach ([
         'id' => ['bigint', false],
+        'campus_id' => ['bigint', false],
         'document_type' => ['character varying(255)', true],
         'document_number' => ['character varying(255)', true],
         'name' => ['character varying(255)', true],
@@ -56,9 +58,13 @@ test('creates the granting party registration request schema with PostgreSQL typ
     $indexes = collect(Schema::getIndexes('granting_party_registration_requests'));
     $foreignKeys = collect(Schema::getForeignKeys('granting_party_registration_requests'));
 
-    expect($indexes)->toHaveCount(1)
-        ->and($indexes->first())->toMatchArray(['columns' => ['id'], 'primary' => true, 'unique' => true])
-        ->and($foreignKeys)->toHaveCount(1)
+    expect($indexes)->toHaveCount(2)
+        ->and($indexes->firstWhere('primary', true))->toMatchArray(['columns' => ['id'], 'primary' => true, 'unique' => true])
+        ->and($indexes->firstWhere('columns', ['campus_id']))->toMatchArray(['unique' => false])
+        ->and($foreignKeys)->toHaveCount(2)
+        ->and($foreignKeys->firstWhere('columns', ['campus_id']))->toMatchArray([
+            'foreign_table' => 'campuses', 'foreign_columns' => ['id'], 'on_delete' => 'restrict',
+        ])
         ->and($foreignKeys->firstWhere('columns', ['granting_party_id']))->toMatchArray([
             'foreign_table' => 'granting_parties', 'foreign_columns' => ['id'], 'on_delete' => 'restrict',
         ])
@@ -167,6 +173,11 @@ test('requires all cadastro fields in every non-draft status', function () {
     }
 });
 
+test('requires a campus even while the registration request is a draft', function () {
+    expect(fn () => GrantingPartyRegistrationRequest::factory()->create(['campus_id' => null]))
+        ->toThrow(ValidationException::class);
+});
+
 test('requires each non-draft cadastro field', function (string $field) {
     expect(fn () => GrantingPartyRegistrationRequest::factory()->create([
         'status' => RegistrationRequestStatus::Submitted,
@@ -224,7 +235,9 @@ test('persists each non-draft status with its decision fields', function (Regist
     $attributes = ['status' => $status];
 
     if ($status === RegistrationRequestStatus::Approved) {
-        $attributes['granting_party_id'] = GrantingParty::factory()->create()->id;
+        $campus = Campus::factory()->create();
+        $attributes['campus_id'] = $campus->id;
+        $attributes['granting_party_id'] = GrantingParty::factory()->for($campus)->create()->id;
     }
 
     if (in_array($status, [RegistrationRequestStatus::Rejected, RegistrationRequestStatus::Cancelled], true)) {
@@ -249,8 +262,10 @@ test('requires a granting party for approval and exposes both relationships', fu
         'status' => RegistrationRequestStatus::Approved,
     ]))->toThrow(ValidationException::class);
 
-    $party = GrantingParty::factory()->create();
+    $campus = Campus::factory()->create();
+    $party = GrantingParty::factory()->for($campus)->create();
     $request = GrantingPartyRegistrationRequest::factory()->create([
+        'campus_id' => $campus->id,
         'status' => RegistrationRequestStatus::Approved,
         'granting_party_id' => $party->id,
     ])->fresh();
@@ -266,6 +281,7 @@ test('rejects a nonexistent resulting granting party in the Model and foreign ke
     ]))->toThrow(ValidationException::class);
 
     expect(fn () => DB::table('granting_party_registration_requests')->insert([
+        'campus_id' => Campus::factory()->create()->id,
         'status' => RegistrationRequestStatus::Draft->value,
         'granting_party_id' => 999999,
     ]))->toThrow(QueryException::class);
@@ -301,16 +317,19 @@ test('preserves optional details and trims the reason', function () {
 });
 
 test('allows distinct units with the same CNPJ', function () {
-    $first = GrantingPartyRegistrationRequest::factory()->create(['name' => 'Unidade A']);
-    $second = GrantingPartyRegistrationRequest::factory()->create(['name' => 'Unidade B']);
+    $campus = Campus::factory()->create();
+    $first = GrantingPartyRegistrationRequest::factory()->for($campus)->create(['name' => 'Unidade A']);
+    $second = GrantingPartyRegistrationRequest::factory()->for($campus)->create(['name' => 'Unidade B']);
 
     expect($first->document_number)->toBe($second->document_number)
         ->and($first->id)->not->toBe($second->id);
 });
 
 test('restricts physical deletion of the resulting granting party and request', function () {
-    $party = GrantingParty::factory()->create();
+    $campus = Campus::factory()->create();
+    $party = GrantingParty::factory()->for($campus)->create();
     $request = GrantingPartyRegistrationRequest::factory()->create([
+        'campus_id' => $campus->id,
         'status' => RegistrationRequestStatus::Approved,
         'granting_party_id' => $party->id,
         'reviewed_at' => now(),
@@ -321,4 +340,25 @@ test('restricts physical deletion of the resulting granting party and request', 
 
     expect(fn () => $request->delete())->toThrow(ValidationException::class);
     $this->assertModelExists($request);
+});
+
+test('rejects approving a request with a granting party from another campus', function () {
+    $requestCampus = Campus::factory()->create();
+    $otherCampusParty = GrantingParty::factory()->create();
+
+    expect(fn () => GrantingPartyRegistrationRequest::factory()->create([
+        'campus_id' => $requestCampus->id,
+        'status' => RegistrationRequestStatus::Approved,
+        'granting_party_id' => $otherCampusParty->id,
+    ]))->toThrow(ValidationException::class);
+});
+
+test('does not allow transferring a registration request to another campus', function () {
+    $request = GrantingPartyRegistrationRequest::factory()->create();
+    $otherCampus = Campus::factory()->create();
+
+    expect(fn () => $request->update(['campus_id' => $otherCampus->id]))
+        ->toThrow(ValidationException::class);
+
+    expect($request->fresh()->campus_id)->not->toBe($otherCampus->id);
 });

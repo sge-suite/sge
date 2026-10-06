@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('granting_party_registration_requests', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('campus_id')->constrained()->restrictOnDelete();
+            $table->index('campus_id');
             $table->string('document_type')->nullable();
             $table->string('document_number')->nullable();
             $table->string('name')->nullable();

@@ -9,6 +9,7 @@ use App\Enums\AffiliationType;
 use Database\Factories\CampusFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,6 +37,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Address $address
+ * @property-read Collection<int, GrantingParty> $grantingParties
+ * @property-read Collection<int, GrantingPartyRegistrationRequest> $grantingPartyRegistrationRequests
  */
 #[Fillable([
     'name',
@@ -111,11 +114,25 @@ class Campus extends Model
         return $this->hasMany(DocumentTemplate::class);
     }
 
+    /** @return HasMany<GrantingParty, $this> */
+    public function grantingParties(): HasMany
+    {
+        return $this->hasMany(GrantingParty::class);
+    }
+
+    /** @return HasMany<GrantingPartyRegistrationRequest, $this> */
+    public function grantingPartyRegistrationRequests(): HasMany
+    {
+        return $this->hasMany(GrantingPartyRegistrationRequest::class);
+    }
+
     public function hasLinkedRecords(): bool
     {
         return $this->affiliations()->exists()
             || $this->courses()->exists()
             || $this->documentTemplates()->exists()
+            || $this->grantingParties()->withTrashed()->exists()
+            || $this->grantingPartyRegistrationRequests()->exists()
             || $this->address->hasReferencesOutsideCampus($this);
     }
 

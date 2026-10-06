@@ -36,7 +36,9 @@ class InternshipFactory extends Factory
             'internship_type_id' => fn (array $attributes): int => InternshipType::factory()->create([
                 'course_id' => $attributes['course_id'],
             ])->id,
-            'granting_party_id' => GrantingParty::factory(),
+            'granting_party_id' => fn (array $attributes): int => GrantingParty::factory()->create([
+                'campus_id' => Course::findOrFail($attributes['course_id'])->campus_id,
+            ])->id,
             'workplace_address_id' => Address::factory(),
             'student_snapshot' => ['name' => fake()->name(), 'student_year_semester' => '2026/2'],
             'internship_type_snapshot' => ['rules' => ['required_hours' => 300, 'max_daily_hours' => 6, 'max_weekly_hours' => 30]],

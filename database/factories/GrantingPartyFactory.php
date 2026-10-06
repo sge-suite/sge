@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\PartyDocumentType;
 use App\Models\Address;
+use App\Models\Campus;
 use App\Models\GrantingParty;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,6 +21,7 @@ class GrantingPartyFactory extends Factory
     public function definition(): array
     {
         return [
+            'campus_id' => Campus::factory(),
             'document_type' => PartyDocumentType::CNPJ,
             'document_number' => '04.252.011/0001-10',
             'name' => fake()->company(),

@@ -3,7 +3,9 @@
 use App\Enums\AffiliationType;
 use App\Enums\InternshipStatus;
 use App\Models\Affiliation;
+use App\Models\Campus;
 use App\Models\Course;
+use App\Models\GrantingParty;
 use App\Models\Internship;
 use App\Models\InternshipType;
 use Illuminate\Database\QueryException;
@@ -82,6 +84,14 @@ test('restricts deletion of referenced records through all internship foreign ke
         expect(fn () => DB::transaction(fn () => DB::table($table)->where('id', $id)->delete()))
             ->toThrow(QueryException::class);
     }
+});
+
+test('rejects a granting party from a different campus', function () {
+    $internship = Internship::factory()->create();
+    $otherParty = GrantingParty::factory()->for(Campus::factory()->create())->create();
+
+    expect(fn () => $internship->update(['granting_party_id' => $otherParty->id]))
+        ->toThrow(ValidationException::class);
 });
 
 test('rolls back and reapplies the internships migration', function () {

@@ -277,6 +277,13 @@ class Internship extends Model
             ]);
 
             $validator->after(function (LaravelValidator $validator) use ($internship): void {
+                $course = Course::find($internship->course_id);
+                $grantingParty = GrantingParty::find($internship->granting_party_id);
+
+                if ($course && $grantingParty && $grantingParty->campus_id !== $course->campus_id) {
+                    $validator->errors()->add('granting_party_id', 'A parte concedente deve pertencer ao campus do estágio.');
+                }
+
                 $hours = $internship->weekly_hours;
                 $days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 

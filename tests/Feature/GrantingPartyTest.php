@@ -2,6 +2,7 @@
 
 use App\Enums\PartyDocumentType;
 use App\Models\Address;
+use App\Models\Campus;
 use App\Models\GrantingParty;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -15,7 +16,7 @@ test('creates the granting parties schema with the contracted PostgreSQL types',
     $columns = collect(Schema::getColumns('granting_parties'))->keyBy('name');
 
     expect($columns->keys()->all())->toBe([
-        'id', 'document_type', 'document_number', 'name', 'address_id',
+        'id', 'campus_id', 'document_type', 'document_number', 'name', 'address_id',
         'representative_name', 'representative_role', 'phone', 'email',
         'field_of_activity', 'professional_council', 'council_registration_number',
         'credentialing_process_number', 'created_at', 'updated_at', 'deleted_at',
@@ -23,6 +24,7 @@ test('creates the granting parties schema with the contracted PostgreSQL types',
 
     foreach ([
         'id' => ['bigint', false],
+        'campus_id' => ['bigint', false],
         'document_type' => ['character varying(255)', false],
         'document_number' => ['character varying(255)', false],
         'name' => ['character varying(255)', false],
@@ -42,12 +44,20 @@ test('creates the granting parties schema with the contracted PostgreSQL types',
         expect($columns->get($name))->toMatchArray(['type' => $type, 'nullable' => $nullable]);
     }
 
-    expect(Schema::getIndexes('granting_parties'))->toHaveCount(1)
-        ->and(Schema::getIndexes('granting_parties')[0])->toMatchArray([
+    $indexes = collect(Schema::getIndexes('granting_parties'));
+    $foreignKeys = collect(Schema::getForeignKeys('granting_parties'));
+
+    expect($indexes)->toHaveCount(2)
+        ->and($indexes->firstWhere('primary', true))->toMatchArray([
             'columns' => ['id'], 'primary' => true, 'unique' => true,
         ])
-        ->and(Schema::getForeignKeys('granting_parties'))->toHaveCount(1)
-        ->and(Schema::getForeignKeys('granting_parties')[0])->toMatchArray([
+        ->and($indexes->firstWhere('columns', ['campus_id']))->toMatchArray(['unique' => false])
+        ->and($foreignKeys)->toHaveCount(2)
+        ->and($foreignKeys->firstWhere('columns', ['campus_id']))->toMatchArray([
+            'columns' => ['campus_id'], 'foreign_table' => 'campuses',
+            'foreign_columns' => ['id'], 'on_delete' => 'restrict',
+        ])
+        ->and($foreignKeys->firstWhere('columns', ['address_id']))->toMatchArray([
             'columns' => ['address_id'], 'foreign_table' => 'addresses',
             'foreign_columns' => ['id'], 'on_delete' => 'restrict',
         ])
@@ -145,6 +155,7 @@ test('rolls back and reapplies the granting parties migration', function () {
 test('requires identification, address, representative and activity at the database level', function (string $field) {
     $address = Address::factory()->create();
     $attributes = [
+        'campus_id' => Campus::factory()->create()->id,
         'document_type' => 'cnpj',
         'document_number' => '04252011000110',
         'name' => 'Unidade Central',
@@ -164,17 +175,33 @@ test('requires identification, address, representative and activity at the datab
     'representative_name', 'representative_role', 'field_of_activity',
 ]);
 
-test('casts and normalizes both document types and allows distinct units with the same CNPJ', function () {
-    $first = GrantingParty::factory()->cnpj()->unit('Organização - Unidade Centro')->create();
-    $second = GrantingParty::factory()->cnpj()->unit('Organização - Unidade Norte')->create();
-    $person = GrantingParty::factory()->cpf()->create();
+test('casts documents and permits repeated CPF and CNPJ values in campus-specific records', function () {
+    $campus = Campus::factory()->create();
+    $otherCampus = Campus::factory()->create();
+    $first = GrantingParty::factory()->for($campus)->cnpj()->unit('Organização - Unidade Centro')->create();
+    $second = GrantingParty::factory()->for($campus)->cnpj()->unit('Organização - Unidade Norte')->create();
+    $person = GrantingParty::factory()->for($campus)->cpf()->create();
+    $samePersonOtherCampus = GrantingParty::factory()->for($otherCampus)->cpf()->create();
 
     expect($first->fresh()->document_type)->toBe(PartyDocumentType::CNPJ)
         ->and($first->fresh()->document_number)->toBe('04252011000110')
         ->and($second->fresh()->document_number)->toBe($first->fresh()->document_number)
+        ->and($second->fresh()->campus_id)->toBe($campus->id)
         ->and($second->name)->not->toBe($first->name)
         ->and($person->fresh()->document_type)->toBe(PartyDocumentType::CPF)
-        ->and($person->fresh()->document_number)->toBe('52998224725');
+        ->and($person->fresh()->document_number)->toBe('52998224725')
+        ->and($samePersonOtherCampus->fresh()->document_number)->toBe($person->fresh()->document_number)
+        ->and($samePersonOtherCampus->campus_id)->toBe($otherCampus->id);
+});
+
+test('does not allow transferring a granting party to another campus', function () {
+    $party = GrantingParty::factory()->create();
+    $otherCampus = Campus::factory()->create();
+
+    expect(fn () => $party->update(['campus_id' => $otherCampus->id]))
+        ->toThrow(ValidationException::class);
+
+    expect($party->fresh()->campus_id)->not->toBe($otherCampus->id);
 });
 
 test('rejects missing required identification, address, representative and activity', function (string $field, mixed $value) {
@@ -182,6 +209,7 @@ test('rejects missing required identification, address, representative and activ
         ->toThrow(ValidationException::class);
 })->with([
     'missing type' => ['document_type', null],
+    'missing campus' => ['campus_id', null],
     'missing document' => ['document_number', null],
     'blank document' => ['document_number', '   '],
     'missing name' => ['name', null],

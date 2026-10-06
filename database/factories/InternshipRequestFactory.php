@@ -59,7 +59,9 @@ class InternshipRequestFactory extends Factory
             'internship_type_id' => fn (array $attributes): int => InternshipType::factory()->create([
                 'course_id' => $attributes['course_id'],
             ])->id,
-            'granting_party_id' => GrantingParty::factory(),
+            'granting_party_id' => fn (array $attributes): int => GrantingParty::factory()->create([
+                'campus_id' => Affiliation::findOrFail($attributes['affiliation_id'])->campus_id,
+            ])->id,
             'supervisor_affiliation_id' => Affiliation::factory()->supervisor(),
             'student_year_semester' => '2026/2',
             'legal_capacity_declaration' => LegalCapacityDeclaration::Minor,

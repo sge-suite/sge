@@ -212,6 +212,22 @@ class InternshipRequest extends Model
                     $validator->errors()->add('course_id', 'O curso deve pertencer ao vínculo discente.');
                 }
 
+                $grantingParty = $request->granting_party_id === null
+                    ? null
+                    : GrantingParty::find($request->granting_party_id);
+
+                if ($grantingParty && $owner && $grantingParty->campus_id !== $owner->campus_id) {
+                    $validator->errors()->add('granting_party_id', 'A parte concedente deve pertencer ao campus do vínculo discente.');
+                }
+
+                $grantingPartyRequest = $request->granting_party_registration_request_id === null
+                    ? null
+                    : GrantingPartyRegistrationRequest::find($request->granting_party_registration_request_id);
+
+                if ($grantingPartyRequest && $owner && $grantingPartyRequest->campus_id !== $owner->campus_id) {
+                    $validator->errors()->add('granting_party_registration_request_id', 'A solicitação de concedente deve pertencer ao campus do vínculo discente.');
+                }
+
                 $type = InternshipType::find($request->internship_type_id);
                 if ($type && $request->course_id !== null && $type->course_id !== $request->course_id) {
                     $validator->errors()->add('internship_type_id', 'O tipo de estágio deve pertencer ao curso selecionado.');

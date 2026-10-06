@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\BrazilianState;
 use App\Enums\PartyDocumentType;
 use App\Enums\RegistrationRequestStatus;
+use App\Models\Campus;
 use App\Models\GrantingPartyRegistrationRequest;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -21,6 +22,7 @@ class GrantingPartyRegistrationRequestFactory extends Factory
     public function definition(): array
     {
         return [
+            'campus_id' => Campus::factory(),
             'document_type' => PartyDocumentType::CNPJ,
             'document_number' => '04.252.011/0001-10',
             'name' => fake()->company(),

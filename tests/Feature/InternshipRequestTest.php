@@ -4,7 +4,9 @@ use App\Enums\AffiliationType;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\LegalCapacityDeclaration;
 use App\Models\Affiliation;
+use App\Models\Campus;
 use App\Models\Course;
+use App\Models\GrantingParty;
 use App\Models\GrantingPartyRegistrationRequest;
 use App\Models\Internship;
 use App\Models\InternshipRequest;
@@ -123,7 +125,9 @@ test('accepts exactly one reference for each granting party and supervisor path'
         'supervisor_registration_request_id' => null,
     ]))->toThrow(ValidationException::class);
 
-    $partyRequest = GrantingPartyRegistrationRequest::factory()->create();
+    $partyRequest = GrantingPartyRegistrationRequest::factory()->create([
+        'campus_id' => $request->affiliation->campus_id,
+    ]);
     $supervisorRequest = SupervisorRegistrationRequest::factory()->create();
     $existingPartyId = $request->granting_party_id;
     $request->update([
@@ -138,6 +142,21 @@ test('accepts exactly one reference for each granting party and supervisor path'
 
     expect(fn () => $request->update(['granting_party_id' => $existingPartyId]))
         ->toThrow(ValidationException::class);
+});
+
+test('rejects a granting party or pending request from another campus', function () {
+    $request = InternshipRequest::factory()->submitted()->create();
+    $otherCampus = Campus::factory()->create();
+    $otherParty = GrantingParty::factory()->for($otherCampus)->create();
+    $otherPartyRequest = GrantingPartyRegistrationRequest::factory()->for($otherCampus)->create();
+
+    expect(fn () => $request->update(['granting_party_id' => $otherParty->id]))
+        ->toThrow(ValidationException::class);
+
+    expect(fn () => $request->update([
+        'granting_party_id' => null,
+        'granting_party_registration_request_id' => $otherPartyRequest->id,
+    ]))->toThrow(ValidationException::class);
 });
 
 test('requires guardian fields only for a minor and validates the CPF with the existing cast', function () {
