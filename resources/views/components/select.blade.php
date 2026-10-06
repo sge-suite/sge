@@ -8,11 +8,11 @@
 
 @php($selectId = $attributes->get('id') ?? 'select-'.md5($name.$label.$attributes->wire('model')->value()))
 
-<flux:field>
+<flux:field class="w-full min-w-0">
     <flux:label :for="$selectId" :required="$required" :class="$disabled ? '' : 'opacity-100!'">{{ $label }}</flux:label>
     <div
         {{ $attributes->whereStartsWith(['wire:model', 'x-model']) }}
-        {{ $attributes->only(['wire:key', 'class'])->class('relative') }}
+        {{ $attributes->only(['wire:key', 'class'])->class('relative w-full min-w-0') }}
         x-data="{
         value: String(@js((string) $value)),
         query: '',
@@ -20,6 +20,9 @@
         upwards: false,
         activeValue: '',
         missing: false,
+        labelOverflows: false,
+        labelScrollDistance: '0px',
+        labelResizeObserver: null,
         optionsRevision: 0,
         optionsObserver: null,
 
@@ -27,6 +30,7 @@
             this.$watch('value', () => {
                 this.missing = false;
                 this.close(false);
+                this.measureLabel();
             });
             this.$nextTick(() => {
                 this.optionsObserver = new MutationObserver(() => {
@@ -36,6 +40,7 @@
                         this.activeValue = options.find(option => option.dataset.value === String(this.value))?.dataset.value
                             ?? options[0]?.dataset.value ?? '';
                     }
+                    this.measureLabel();
                 });
                 this.optionsObserver.observe(this.$refs.list, {
                     childList: true,
@@ -43,11 +48,35 @@
                     attributes: true,
                     attributeFilter: ['data-value', 'data-label', 'disabled'],
                 });
+
+                this.labelResizeObserver = new ResizeObserver(() => this.measureLabel());
+                this.labelResizeObserver.observe(this.$refs.labelViewport);
+                this.labelResizeObserver.observe(this.$refs.labelText);
+                this.measureLabel();
             });
         },
 
         destroy() {
             this.optionsObserver?.disconnect();
+            this.labelResizeObserver?.disconnect();
+        },
+
+        measureLabel() {
+            this.$nextTick(() => {
+                const viewport = this.$refs.labelViewport;
+                const text = this.$refs.labelText;
+
+                if (!viewport || !text) return;
+
+                const range = document.createRange();
+                range.selectNodeContents(text);
+
+                const textBounds = range.getBoundingClientRect();
+                const distance = Math.ceil(Math.max(0, textBounds.width - viewport.clientWidth));
+
+                this.labelOverflows = distance > 1;
+                this.labelScrollDistance = `-${distance}px`;
+            });
         },
 
         normalize(text) {
@@ -143,13 +172,14 @@
         <button type="button" id="{{ $selectId }}" x-ref="trigger" data-flux-control
             {{ $attributes->whereStartsWith('wire:')->except(['wire:key'])->whereDoesntStartWith('wire:model') }}
             @disabled($disabled) aria-haspopup="listbox" aria-expanded="false" x-bind:aria-expanded="open"
+            x-bind:aria-label="label()" x-bind:title="label()"
             aria-controls="{{ $selectId }}-list" @if($invalid) aria-invalid="true" @endif
             x-bind:aria-invalid="missing || @js((bool) $invalid)" @if($error !== '') aria-describedby="{{ $selectId }}-error" @endif
-            class="select-trigger flex h-10 w-full items-center justify-between gap-3 rounded-lg border bg-white px-3 text-start text-sm shadow-xs outline-hidden transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/10 dark:text-white {{ $invalid ? 'border-red-500 dark:border-red-400' : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10 dark:hover:border-white/20' }}"
+            class="select-trigger flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border bg-white px-3 text-start text-sm shadow-xs outline-hidden transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/10 dark:text-white {{ $invalid ? 'border-red-500 dark:border-red-400' : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10 dark:hover:border-white/20' }}"
             x-bind:class="{ 'text-zinc-400 dark:text-zinc-400': !value, 'border-red-500 ring-2 ring-red-500': missing }"
             x-on:click="open ? close() : show()"
         >
-            <span class="flex min-w-0 items-center gap-2">
+            <span class="flex min-w-0 flex-1 items-center gap-2">
                 @foreach ($optionIcons as $optionValue => $optionIcon)
                     <span x-cloak x-show="String(value) === @js((string) $optionValue)" class="shrink-0">
                         <flux:icon :name="$optionIcon" variant="mini" class="text-zinc-500 dark:text-zinc-300" />
@@ -160,7 +190,19 @@
                         <flux:icon :name="$icon" variant="mini" class="text-zinc-400 dark:text-zinc-400" />
                     </span>
                 @endif
-                <span class="truncate" x-text="label()">{{ $selectedLabel ?: ($options[$value] ?? $placeholder) }}</span>
+                <span
+                    x-ref="labelViewport"
+                    x-bind:class="labelOverflows && !open ? 'select-label-fade' : ''"
+                    class="select-label-viewport block min-w-0 flex-1 overflow-hidden"
+                >
+                    <span
+                        x-ref="labelText"
+                        x-bind:class="labelOverflows && !open ? 'select-label-marquee' : ''"
+                        x-bind:style="'--select-label-distance: ' + labelScrollDistance"
+                        class="block w-max whitespace-nowrap"
+                        x-text="label()"
+                    >{{ $selectedLabel ?: ($options[$value] ?? $placeholder) }}</span>
+                </span>
             </span>
             <flux:icon.chevron-down variant="micro" class="shrink-0 text-zinc-400" />
         </button>
@@ -185,13 +227,13 @@
                         aria-selected="{{ (string) $value === (string) $optionValue ? 'true' : 'false' }}"
                         x-bind:aria-selected="String(value) === @js((string) $optionValue)" x-show="matches(@js($optionLabel))"
                         x-bind:class="{ 'bg-zinc-200 dark:bg-white/15': activeValue === @js((string) $optionValue) }"
-                        class="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-start text-sm text-zinc-800 hover:bg-zinc-200 dark:text-zinc-100 dark:hover:bg-white/15"
+                        class="flex w-full min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-start text-sm text-zinc-800 hover:bg-zinc-200 dark:text-zinc-100 dark:hover:bg-white/15"
                         x-on:mouseenter="activeValue = @js((string) $optionValue)" x-on:click="choose($el)">
-                        <span class="flex min-w-0 items-center gap-2">
+                        <span class="flex min-w-0 flex-1 items-start gap-2">
                             @if (isset($optionIcons[$optionValue]))
                                 <flux:icon :name="$optionIcons[$optionValue]" variant="mini" class="shrink-0 text-zinc-500 dark:text-zinc-300" />
                             @endif
-                            <span class="truncate">{{ $optionLabel }}</span>
+                            <span class="min-w-0 whitespace-normal break-words">{{ $optionLabel }}</span>
                         </span>
                         <span class="shrink-0" x-show="String(value) === @js((string) $optionValue)">
                             <flux:icon.check variant="micro" />

@@ -8,6 +8,13 @@ test('custom select keeps named values required validation accessible options an
         ->assertSee('value="42" selected', false)
         ->assertSee('role="listbox"', false)->assertSee('role="option"', false)
         ->assertSee('aria-haspopup="listbox"', false)->assertSee('aria-selected="true"', false)
+        ->assertSee('select-trigger flex h-10 w-full min-w-0', false)
+        ->assertSee('select-label-viewport block min-w-0 flex-1 overflow-hidden', false)
+        ->assertSee('x-bind:aria-label="label()"', false)
+        ->assertSee('select-label-marquee', false)
+        ->assertSee('select-label-fade', false)
+        ->assertSee("x-bind:style=\"'--select-label-distance: ' + labelScrollDistance\"", false)
+        ->assertSee('whitespace-normal break-words', false)
         ->assertSee('x-model="city"', false)
         ->assertSee('Buscar cidade')->assertSee('Santa Rosa')->assertSee('required', false)
         ->assertSee('dark:bg-white/10', false);

@@ -31,7 +31,14 @@ test('requires a choice for multiple affiliations that were never used', functio
     $second = Affiliation::factory()->for($user)->create();
 
     $this->actingAs($user)->get(route('dashboard'))->assertRedirect(route('affiliations.select'));
-    $this->get(route('affiliations.select'))->assertOk()->assertSee((string) $first->id)->assertSee((string) $second->id);
+    $this->get(route('affiliations.select'))
+        ->assertOk()
+        ->assertSee('Vínculo para acessar')
+        ->assertSee('name="affiliation_id"', false)
+        ->assertSee('aria-haspopup="listbox"', false)
+        ->assertSee((string) $first->id)
+        ->assertSee((string) $second->id)
+        ->assertSee('Continuar');
     $this->assertFalse(session()->has('active_affiliation_id'));
 });
 

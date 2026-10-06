@@ -19,6 +19,33 @@
     outline-color: var(--color-red-500) !important;
 }
 
+.select-label-marquee {
+    animation: select-label-marquee 8s linear infinite alternate;
+}
+
+.select-label-fade {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+}
+
+@keyframes select-label-marquee {
+    0%,
+    15% {
+        transform: translateX(0);
+    }
+
+    85%,
+    100% {
+        transform: translateX(var(--select-label-distance, 0));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .select-label-marquee {
+        animation: none;
+    }
+}
+
 .select-options {
     --select-scrollbar-thumb: var(--color-zinc-300);
     --select-scrollbar-hover: var(--color-zinc-500);
