@@ -2,6 +2,7 @@
 
 use App\Models\Campus;
 use App\Models\City;
+use App\Models\User;
 
 return [
 
@@ -143,6 +144,10 @@ return [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
         'index-settings' => [
+            User::class => [
+                'searchableAttributes' => ['name'],
+                'sortableAttributes' => ['name', 'id'],
+            ],
             Campus::class => [
                 'searchableAttributes' => ['name'],
                 'filterableAttributes' => ['deactivated_at'],

@@ -19,7 +19,7 @@ beforeEach(function () {
         'scout.queue' => false,
     ]);
 
-    foreach ([Campus::class, City::class] as $modelClass) {
+    foreach ([Campus::class, City::class, User::class] as $modelClass) {
         $index = app(Client::class)->index((new $modelClass)->searchableAs());
         $task = $index->updateSettings(config('scout.meilisearch.index-settings.'.$modelClass));
         expect(app(Client::class)->waitForTask($task['taskUid'])['status'])->toBe('succeeded');
@@ -27,7 +27,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    foreach ([Campus::class, City::class] as $modelClass) {
+    foreach ([Campus::class, City::class, User::class] as $modelClass) {
         $task = app(Client::class)->deleteIndex((new $modelClass)->searchableAs());
         app(Client::class)->waitForTask($task['taskUid']);
     }

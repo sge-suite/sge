@@ -108,16 +108,23 @@ test('adds an administrator affiliation and queues notices to the account and af
         ->and(Activity::forSubject($user)->count())->toBe($userActivityCount)
         ->and(Activity::forSubject($affiliation)->where('event', 'created')->sole()->properties->get('actor'))->toBe('terminal');
 
-    $attempts = EmailDeliveryAttempt::query()->orderBy('recipient_email')->get();
+    $attempts = EmailDeliveryAttempt::query()->with('emailMessage')->orderBy('recipient_email')->get();
     expect($attempts)->toHaveCount(2)
         ->and($attempts->pluck('recipient_email')->all())->toBe(['ada@example.test', 'admin@example.test'])
         ->and($attempts->pluck('purpose')->unique()->sole())->toBe(EmailMessagePurpose::NewAffiliation)
-        ->and($attempts->every(fn (EmailDeliveryAttempt $attempt): bool => $attempt->email_message_id === null))->toBeTrue();
+        ->and($attempts->every(fn (EmailDeliveryAttempt $attempt): bool => $attempt->email_message_id !== null))->toBeTrue()
+        ->and(EmailMessage::query()->count())->toBe(2);
 
     foreach ($attempts as $attempt) {
         (new DeliveryMail($attempt))->assertSeeInHtml('Novo vínculo criado')
+            ->assertSeeInHtml('Administrador do Sistema')
+            ->assertSeeInHtml('Escopo global')
+            ->assertSeeInHtml('ADM-007')
             ->assertSeeInHtml(route('login'))
             ->assertSeeInText('Novo vínculo criado')
+            ->assertSeeInText('Administrador do Sistema')
+            ->assertSeeInText('Escopo global')
+            ->assertSeeInText('ADM-007')
             ->assertSeeInText(route('login'));
     }
 
@@ -277,4 +284,15 @@ test('preserves an existing account when affiliation creation fails', function (
         ->and(Affiliation::query()->count())->toBe(0)
         ->and(Activity::query()->count())->toBe($activityCount);
     Bus::assertNothingDispatched();
+});
+
+test('terminal creation rejects active administrative duplicate and identifies the existing affiliation', function () {
+    $user = User::factory()->create(['cpf' => '52998224725']);
+    $existing = Affiliation::factory()->global()->for($user)->create();
+    $activityCount = Activity::count();
+    expectExistingAdminPrompts($this->artisan('admin:create'))
+        ->expectsOutputToContain('Já existe o vínculo ativo #'.$existing->id)
+        ->assertFailed();
+    expect($user->affiliations()->count())->toBe(1)->and(Activity::count())->toBe($activityCount);
+    Bus::assertNotDispatched(SendEmailDelivery::class);
 });

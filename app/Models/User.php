@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Casts\CpfCast;
+use App\Enums\AffiliationType;
 use App\Notifications\QueuedPasswordReset;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -15,8 +17,10 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * @property int $id
@@ -33,7 +37,24 @@ use Spatie\Activitylog\Support\LogOptions;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, LogsActivity, Notifiable;
+    use HasFactory, LogsActivity, Notifiable, Searchable;
+
+    public function shouldBeSearchable(): bool
+    {
+        return $this->affiliations()->administrative()->exists();
+    }
+
+    /** @return array{id: int, name: string} */
+    public function toSearchableArray(): array
+    {
+        return ['id' => $this->id, 'name' => $this->name];
+    }
+
+    /** @param Builder<User> $query */
+    protected function makeAllSearchableUsing(Builder $query): Builder
+    {
+        return $query->whereHas('affiliations', fn (Builder $query) => $query->administrative());
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -96,6 +117,15 @@ class User extends Authenticatable
     public function affiliations(): HasMany
     {
         return $this->hasMany(Affiliation::class);
+    }
+
+    public function hasLinkedRecords(): bool
+    {
+        return $this->personalData()->exists()
+            || $this->notifications()->exists()
+            || Media::query()->where('model_type', $this->getMorphClass())->where('model_id', $this->id)->exists()
+            || $this->affiliations()->whereNotIn('type', [AffiliationType::SystemAdministrator, AffiliationType::CampusAdministrator])->exists()
+            || $this->affiliations()->get()->contains(fn (Affiliation $affiliation): bool => $affiliation->hasLinkedRecords());
     }
 
     public function delete(): ?bool

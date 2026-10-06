@@ -2,17 +2,14 @@
 
 namespace App\Console\Commands;
 
-use App\Actions\RequestEmailDelivery;
+use App\Actions\CreateAdministrativeAffiliation;
 use App\Enums\AffiliationType;
-use App\Models\Affiliation;
 use App\Models\User;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Context;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use LaravelLegends\PtBrValidator\Rules\Cpf;
 use Throwable;
 
@@ -23,7 +20,7 @@ use function Laravel\Prompts\text;
 #[Description('Cria um vínculo ativo de Administrador do Sistema.')]
 class CreateAdmin extends Command
 {
-    public function handle(): int
+    public function handle(CreateAdministrativeAffiliation $create): int
     {
         if (! $this->input->isInteractive()) {
             $this->error('Este comando precisa de um terminal interativo.');
@@ -80,44 +77,17 @@ class CreateAdmin extends Command
                 return self::FAILURE;
             }
 
-            DB::transaction(function () use ($existingUser, $name, $cpf, $accountEmail, $affiliationEmail, $registrationNumber): void {
-                if ($existingUser === null) {
-                    $user = Context::scope(
-                        fn (): User => User::query()->create([
-                            'name' => $name,
-                            'cpf' => $cpf,
-                            'email' => $accountEmail,
-                            'password' => Str::password(64),
-                        ]),
-                        ['audit_actor' => 'terminal'],
-                    );
-                } else {
-                    $user = $existingUser;
-                }
+            $create->handle([
+                'cpf' => $cpf,
+                'name' => $name,
+                'email' => $affiliationEmail,
+                'type' => AffiliationType::SystemAdministrator->value,
+                'registration_number' => $registrationNumber,
+            ]);
+        } catch (ValidationException $exception) {
+            $this->error($exception->validator->errors()->first());
 
-                $affiliation = Context::scope(
-                    fn (): Affiliation => $user->affiliations()->create([
-                        'campus_id' => null,
-                        'course_id' => null,
-                        'type' => AffiliationType::SystemAdministrator,
-                        'registration_number' => $registrationNumber,
-                        'email' => $affiliationEmail,
-                    ]),
-                    ['audit_actor' => 'terminal'],
-                );
-
-                $emailDelivery = app(RequestEmailDelivery::class);
-
-                if ($existingUser === null) {
-                    $emailDelivery->accountCreated($user->email, (string) Str::uuid());
-
-                    return;
-                }
-
-                foreach (array_unique([$user->email, $affiliation->email]) as $recipientEmail) {
-                    $emailDelivery->affiliationCreated($recipientEmail, (string) Str::uuid());
-                }
-            });
+            return self::FAILURE;
         } catch (Throwable) {
             $this->error('Não foi possível criar o administrador. Nenhum novo registro foi mantido.');
 
