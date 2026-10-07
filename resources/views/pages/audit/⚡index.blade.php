@@ -126,10 +126,11 @@ new #[Title('Auditoria')] class extends Component
         @endif
     </div>
 
-    <span wire:loading role="status">Atualizando histórico…</span>
     @php($activities = $this->activities)
-    <x-audit.activity-table :activities="$activities" />
-    @if ($activities->isEmpty())
-        <flux:text>Nenhum registro de auditoria encontrado nesta página.</flux:text>
-    @endif
+    <x-loading-overlay target="entity,event,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando histórico…">
+        <x-audit.activity-table :activities="$activities" />
+        @if ($activities->isEmpty())
+            <flux:text>Nenhum registro de auditoria encontrado nesta página.</flux:text>
+        @endif
+    </x-loading-overlay>
 </div>

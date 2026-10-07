@@ -83,36 +83,37 @@ new #[Title('Usuários')] class extends Component
         <flux:button variant="primary" icon="plus" :href="route('users.create')" wire:navigate>Cadastrar usuário</flux:button>
     </div>
     <flux:input wire:model.live.debounce.300ms="search" label="Buscar usuário" placeholder="Nome, CPF completo ou e-mail de login completo" maxlength="255" type="search" />
-    <span wire:loading role="status">Atualizando lista…</span>
     @php($users = $this->users)
     @php($affiliationSummaries = $this->affiliationSummaries)
-    <flux:table :paginate="$users">
-        <flux:table.columns>
-            <flux:table.column>Nome</flux:table.column><flux:table.column>CPF</flux:table.column><flux:table.column>E-mail de login</flux:table.column><flux:table.column>Vínculos</flux:table.column>
-        </flux:table.columns>
-        <flux:table.rows>
-            @foreach ($users as $user)
-                <flux:table.row :key="$user->id" class="group cursor-pointer transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700" x-on:click="if (! $event.target.closest('a, button')) $el.querySelector('[data-user-link]').click()">
-                    <flux:table.cell><a data-user-link href="{{ route('users.show', $user) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">{{ $user->name }}</a></flux:table.cell>
-                    <flux:table.cell>{{ $user->cpf }}</flux:table.cell>
-                    <flux:table.cell>{{ $user->email }}</flux:table.cell>
-                    <flux:table.cell>
-                        <div class="space-y-1">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <flux:badge size="sm" color="zinc">{{ $affiliationSummaries[$user->id]['total'] }} {{ $affiliationSummaries[$user->id]['total'] === 1 ? 'vínculo' : 'vínculos' }}</flux:badge>
-                                <span class="text-sm text-zinc-700 dark:text-zinc-200">{{ $affiliationSummaries[$user->id]['summary'] }}</span>
+    <x-loading-overlay target="search,gotoPage,nextPage,previousPage">
+        <flux:table :paginate="$users">
+            <flux:table.columns>
+                <flux:table.column>Nome</flux:table.column><flux:table.column>CPF</flux:table.column><flux:table.column>E-mail de login</flux:table.column><flux:table.column>Vínculos</flux:table.column>
+            </flux:table.columns>
+            <flux:table.rows>
+                @foreach ($users as $user)
+                    <flux:table.row :key="$user->id" class="group cursor-pointer transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700" x-on:click="if (! $event.target.closest('a, button')) $el.querySelector('[data-user-link]').click()">
+                        <flux:table.cell><a data-user-link href="{{ route('users.show', $user) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">{{ $user->name }}</a></flux:table.cell>
+                        <flux:table.cell>{{ $user->cpf }}</flux:table.cell>
+                        <flux:table.cell>{{ $user->email }}</flux:table.cell>
+                        <flux:table.cell>
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <flux:badge size="sm" color="zinc">{{ $affiliationSummaries[$user->id]['total'] }} {{ $affiliationSummaries[$user->id]['total'] === 1 ? 'vínculo' : 'vínculos' }}</flux:badge>
+                                    <span class="text-sm text-zinc-700 dark:text-zinc-200">{{ $affiliationSummaries[$user->id]['summary'] }}</span>
+                                </div>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {{ $affiliationSummaries[$user->id]['active'] }} {{ $affiliationSummaries[$user->id]['active'] === 1 ? 'ativo' : 'ativos' }}
+                                    · {{ $affiliationSummaries[$user->id]['inactive'] }} {{ $affiliationSummaries[$user->id]['inactive'] === 1 ? 'desativado' : 'desativados' }}
+                                </p>
                             </div>
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400">
-                                {{ $affiliationSummaries[$user->id]['active'] }} {{ $affiliationSummaries[$user->id]['active'] === 1 ? 'ativo' : 'ativos' }}
-                                · {{ $affiliationSummaries[$user->id]['inactive'] }} {{ $affiliationSummaries[$user->id]['inactive'] === 1 ? 'desativado' : 'desativados' }}
-                            </p>
-                        </div>
-                    </flux:table.cell>
-                </flux:table.row>
-            @endforeach
-        </flux:table.rows>
-    </flux:table>
-    @if ($users->isEmpty())
-        <flux:text>Nenhum usuário encontrado.</flux:text>
-    @endif
+                        </flux:table.cell>
+                    </flux:table.row>
+                @endforeach
+            </flux:table.rows>
+        </flux:table>
+        @if ($users->isEmpty())
+            <flux:text>Nenhum usuário encontrado.</flux:text>
+        @endif
+    </x-loading-overlay>
 </div>

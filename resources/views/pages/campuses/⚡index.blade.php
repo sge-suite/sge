@@ -96,11 +96,10 @@ new #[Title('Campi')] class extends Component
             <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']"
                 :option-icons="['all' => 'building-office-2', 'active' => 'check-circle', 'inactive' => 'no-symbol']" />
         </div>
-        <span wire:loading wire:target="search,status,clearFilters,gotoPage,nextPage,previousPage" class="text-sm text-zinc-500" role="status">Atualizando lista…</span>
     </div>
 
     @php($campuses = $this->campuses)
-    <div wire:loading.class="opacity-60" wire:target="search,status,clearFilters,gotoPage,nextPage,previousPage">
+    <x-loading-overlay target="search,status,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($campuses->isNotEmpty())
             <flux:table :paginate="$campuses" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
@@ -139,5 +138,5 @@ new #[Title('Campi')] class extends Component
                 @endif
             </div>
         @endif
-    </div>
+    </x-loading-overlay>
 </div>
