@@ -24,6 +24,9 @@
                         @can('viewAny', \App\Models\User::class)
                             <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>Usuários</flux:sidebar.item>
                         @endcan
+                        @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
+                            <flux:sidebar.item icon="clipboard-document-list" :href="route('audit.index')" :current="request()->routeIs('audit.*')" wire:navigate>Auditoria</flux:sidebar.item>
+                        @endcan
                     </flux:sidebar.group>
                 @endcan
             </flux:sidebar.nav>

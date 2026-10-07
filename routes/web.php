@@ -8,6 +8,7 @@ use App\Http\Middleware\RequireActiveAffiliation;
 use App\Models\Campus;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
+use Spatie\Activitylog\Models\Activity;
 
 Route::view('/', 'welcome')->name('home');
 
@@ -17,6 +18,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
         Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
+
+        Route::livewire('audit', 'pages::audit.index')
+            ->middleware('can:viewAny,'.Activity::class)->name('audit.index');
+        Route::livewire('audit/{activity}', 'pages::audit.show')
+            ->middleware('can:view,activity')->name('audit.show');
 
         Route::middleware('can:viewAdministration,'.Campus::class)->group(function (): void {
             Route::livewire('campuses', 'pages::campuses.index')->name('campuses.index');

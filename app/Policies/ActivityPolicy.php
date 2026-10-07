@@ -2,22 +2,25 @@
 
 namespace App\Policies;
 
-use App\Enums\AffiliationType;
 use App\Models\User;
-use App\Support\ActiveAffiliationContext;
+use App\Support\ActivityAccess;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivityPolicy
 {
-    public function __construct(private ActiveAffiliationContext $context) {}
+    public function __construct(
+        private ActivityAccess $access,
+    ) {}
 
     public function viewAny(User $user): bool
     {
-        return $this->context->currentFor($user, app('session.store'))?->type === AffiliationType::SystemAdministrator;
+        return $this->access->forCurrentContext($user, app('session.store')) !== null;
     }
 
     public function view(User $user, Activity $activity): bool
     {
-        return $this->viewAny($user);
+        $query = $this->access->forCurrentContext($user, app('session.store'));
+
+        return $query?->whereKey($activity->getKey())->exists() === true;
     }
 }
