@@ -80,7 +80,7 @@ new #[Title('Usuários')] class extends Component
     @endif
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div><flux:heading size="xl" level="1">Usuários</flux:heading><flux:text>Contas com vínculos administrativos, incluindo desativados.</flux:text></div>
-        <flux:button variant="primary" :href="route('users.create')" wire:navigate>Cadastrar usuário</flux:button>
+        <flux:button variant="primary" icon="plus" :href="route('users.create')" wire:navigate>Cadastrar usuário</flux:button>
     </div>
     <flux:input wire:model.live.debounce.300ms="search" label="Buscar usuário" placeholder="Nome, CPF completo ou e-mail de login completo" maxlength="255" type="search" />
     <span wire:loading role="status">Atualizando lista…</span>
