@@ -20,7 +20,7 @@
         <flux:menu.separator />
         <flux:menu.radio.group>
             @if (auth()->user()->affiliations()->active()->count() > 1)
-                <flux:menu.item :href="route('affiliations.select')" icon="arrows-right-left" wire:navigate>
+                <flux:menu.item :href="route('affiliations.select')" icon="link" wire:navigate>
                     Trocar vínculo
                 </flux:menu.item>
             @endif

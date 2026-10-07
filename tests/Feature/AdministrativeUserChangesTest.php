@@ -74,7 +74,12 @@ test('copied registration is scoped to the account and remains editable with onl
 test('index rows and sidebar follow campus navigation patterns and account editing is separate', function () {
     $this->get(route('users.index'))->assertOk()->assertSee('data-user-link', false)->assertSee("closest('a, button')", false)->assertSee('group cursor-pointer', false);
     $this->get(route('users.show', $this->target))->assertOk()->assertSee('Dados de acesso')->assertSee('Editar dados de acesso')->assertSee('Editar vínculo')->assertSee('Excluir vínculo')->assertSee('Excluir conta')->assertSee('Desativar');
-    expect(file_get_contents(resource_path('views/layouts/app/sidebar.blade.php')))->toContain('icon="users"');
+    $sidebar = file_get_contents(resource_path('views/layouts/app/sidebar.blade.php'));
+    $desktopUserMenu = file_get_contents(resource_path('views/components/desktop-user-menu.blade.php'));
+    $dashboard = file_get_contents(resource_path('views/pages/dashboard/partials/system-administrator.blade.php'));
+    expect($sidebar)->toContain('icon="users"')->toContain('icon="link"')
+        ->and($desktopUserMenu)->toContain('icon="link"')
+        ->and($dashboard)->toContain('icon="link"');
     $this->get(route('users.show', $this->actor))->assertOk()->assertSee('Vínculo em uso')->assertSee('Outro Administrador do Sistema pode desativá-lo');
 });
 
