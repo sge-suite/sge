@@ -107,17 +107,17 @@ test('casts version metadata and relates its template and responsible affiliatio
         'uploaded_by_affiliation_id' => $uploader->id,
         'validated_by_affiliation_id' => $reviewer->id,
         'validated_at' => now(),
-        'required_variables' => ['ESTUDANTE_NOME'],
+        'required_variables' => ['NOME_DISCENTE'],
         'optional_variables' => ['CURSO_NOME'],
-        'detected_variables' => ['ESTUDANTE_NOME', 'CURSO_NOME'],
+        'detected_variables' => ['NOME_DISCENTE', 'CURSO_NOME'],
         'validation_report' => ['errors' => [], 'warnings' => []],
     ])->fresh();
 
     expect($version->version)->toBeInt()
         ->and($version->file_size)->toBeInt()
-        ->and($version->required_variables)->toBe(['ESTUDANTE_NOME'])
+        ->and($version->required_variables)->toBe(['NOME_DISCENTE'])
         ->and($version->optional_variables)->toBe(['CURSO_NOME'])
-        ->and($version->detected_variables)->toBe(['ESTUDANTE_NOME', 'CURSO_NOME'])
+        ->and($version->detected_variables)->toBe(['NOME_DISCENTE', 'CURSO_NOME'])
         ->and($version->validation_report)->toBe(['errors' => [], 'warnings' => []])
         ->and($version->validated_at)->toBeInstanceOf(DateTimeInterface::class)
         ->and($version->documentTemplate->is($template))->toBeTrue()

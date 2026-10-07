@@ -24,7 +24,7 @@ enum AffiliationType: string
             self::InternshipOffice => 'Setor de Estágios',
             self::Coordinator => 'Coordenador de Curso',
             self::Advisor => 'Orientador',
-            self::Student => 'Estudante',
+            self::Student => 'Discente',
             self::Supervisor => 'Supervisor',
             self::TeachingDirection => 'Direção de Ensino',
         };

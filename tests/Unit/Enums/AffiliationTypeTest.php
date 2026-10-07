@@ -22,7 +22,7 @@ test('provides affiliation type values and labels', function () {
             'internship_office' => 'Setor de Estágios',
             'coordinator' => 'Coordenador de Curso',
             'advisor' => 'Orientador',
-            'student' => 'Estudante',
+            'student' => 'Discente',
             'supervisor' => 'Supervisor',
             'teaching_direction' => 'Direção de Ensino',
         ])
