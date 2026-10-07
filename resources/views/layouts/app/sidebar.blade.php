@@ -11,23 +11,19 @@
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                <flux:sidebar.group heading="Plataforma" class="grid">
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                        Painel
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
+                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                    Painel
+                </flux:sidebar.item>
                 @can('viewAdministration', \App\Models\Campus::class)
-                    <flux:sidebar.group heading="Administração" class="grid">
-                        <flux:sidebar.item icon="building-office-2" :href="route('campuses.index')" :current="request()->routeIs('campuses.*')" wire:navigate>
-                            Campi
-                        </flux:sidebar.item>
-                        @can('viewAny', \App\Models\User::class)
-                            <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>Usuários</flux:sidebar.item>
-                        @endcan
-                        @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
-                            <flux:sidebar.item icon="clipboard-document-list" :href="route('audit.index')" :current="request()->routeIs('audit.*')" wire:navigate>Auditoria</flux:sidebar.item>
-                        @endcan
-                    </flux:sidebar.group>
+                    <flux:sidebar.item icon="building-office-2" :href="route('campuses.index')" :current="request()->routeIs('campuses.*')" wire:navigate>
+                        Campi
+                    </flux:sidebar.item>
+                    @can('viewAny', \App\Models\User::class)
+                        <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>Usuários</flux:sidebar.item>
+                    @endcan
+                    @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('audit.index')" :current="request()->routeIs('audit.*')" wire:navigate>Auditoria</flux:sidebar.item>
+                    @endcan
                 @endcan
             </flux:sidebar.nav>
 
