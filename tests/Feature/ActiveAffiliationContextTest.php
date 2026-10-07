@@ -3,6 +3,7 @@
 use App\Models\Affiliation;
 use App\Models\User;
 use App\Support\ActiveAffiliationContext;
+use Spatie\Activitylog\Models\Activity;
 
 test('blocks functional access when no active affiliation exists', function () {
     $user = User::factory()->create();
@@ -47,6 +48,7 @@ test('selects and switches affiliations explicitly while keeping the current cho
     $user = User::factory()->create();
     $first = Affiliation::factory()->for($user)->create();
     $second = Affiliation::factory()->for($user)->create();
+    $activityCount = Activity::count();
 
     $this->actingAs($user)->post(route('affiliations.store'), ['affiliation_id' => $first->id])
         ->assertRedirect(route('dashboard'))
@@ -60,7 +62,8 @@ test('selects and switches affiliations explicitly while keeping the current cho
         ->assertSessionHas('active_affiliation_id', $second->id);
 
     expect($second->fresh()->last_used_at)->not->toBeNull()
-        ->and(app(ActiveAffiliationContext::class)->currentFor($user, app('session.store'))?->is($second))->toBeTrue();
+        ->and(app(ActiveAffiliationContext::class)->currentFor($user, app('session.store'))?->is($second))->toBeTrue()
+        ->and(Activity::count())->toBe($activityCount);
 });
 
 test('restores the most recently selected active affiliation without touching its last use', function () {

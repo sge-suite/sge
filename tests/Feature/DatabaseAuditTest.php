@@ -240,18 +240,17 @@ test('records fillable personal data and emancipation verification under the act
         ]);
 });
 
-test('attributes an explicit selection to the selected affiliation', function () {
+test('explicit affiliation selection updates last use without creating audit records', function () {
     $user = User::factory()->create();
     $affiliation = Affiliation::factory()->for($user)->create();
+    $activityCount = Activity::count();
 
     $this->actingAs($user)->post(route('affiliations.store'), ['affiliation_id' => $affiliation->id])
         ->assertRedirect(route('dashboard'));
 
-    $selection = Activity::forSubject($affiliation)->where('event', 'updated')->sole();
-
-    expect($selection->causer_type)->toBe(Affiliation::class)
-        ->and($selection->causer_id)->toBe($affiliation->id)
-        ->and($selection->attribute_changes->get('attributes'))->toHaveKey('last_used_at');
+    expect($affiliation->fresh()->last_used_at)->not->toBeNull()
+        ->and(Activity::count())->toBe($activityCount)
+        ->and(Activity::forSubject($affiliation)->where('event', 'updated')->exists())->toBeFalse();
 });
 
 test('attributes a business change in a web request to its active affiliation and account', function () {
