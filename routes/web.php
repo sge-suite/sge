@@ -16,6 +16,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('affiliations/select', [AffiliationSelectionController::class, 'store'])->name('affiliations.store');
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
+        Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
+
         Route::middleware('can:viewAdministration,'.Campus::class)->group(function (): void {
             Route::livewire('campuses', 'pages::campuses.index')->name('campuses.index');
             Route::livewire('campuses/create', 'pages::campuses.create')->name('campuses.create');
@@ -46,7 +48,6 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('campuses/{campus}/reactivate', [CampusController::class, 'reactivate'])->name('campuses.reactivate');
     });
 
-    Route::view('dashboard', 'dashboard')->middleware(RequireActiveAffiliation::class)->name('dashboard');
 });
 
 require __DIR__.'/settings.php';
