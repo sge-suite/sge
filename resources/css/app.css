@@ -51,6 +51,16 @@
     }
 }
 
+[data-flux-table] [data-flux-column]:first-child,
+[data-flux-table] [data-flux-cell]:first-child {
+    padding-inline-start: calc(var(--spacing) * 3);
+}
+
+[data-flux-table] [data-flux-column]:last-child,
+[data-flux-table] [data-flux-cell]:last-child {
+    padding-inline-end: calc(var(--spacing) * 3);
+}
+
 :root {
     --scrollbar-thumb: var(--color-zinc-400);
     --scrollbar-thumb-hover: var(--color-zinc-600);
