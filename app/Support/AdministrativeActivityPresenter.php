@@ -10,10 +10,14 @@ use Spatie\Activitylog\Models\Activity;
 
 class AdministrativeActivityPresenter
 {
-    /** @return array{actor: string, subject: string, event: string, occurred_at: string, changes: list<array{field: string, before: string, after: string}>} */
+    /** @return array{actor: string, subject: string, event: string, occurred_at: string, is_creation: bool, changes: list<array{field: string, before: string, after: string}>} */
     public function present(Activity $activity): array
     {
-        return [...$this->summary($activity), 'changes' => $this->changes($activity)];
+        return [
+            ...$this->summary($activity),
+            'is_creation' => $activity->event === 'created',
+            'changes' => $this->changes($activity),
+        ];
     }
 
     /** @return array{actor: string, subject: string, event: string, occurred_at: string} */

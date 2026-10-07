@@ -51,6 +51,19 @@ test('selected system administrator can read audit and navigate without changing
         ->and(Gate::allows('view', Activity::forSubject($campus)->sole()))->toBeTrue();
 });
 
+test('audit creation events omit the previous value column', function () {
+    $administrator = auditAdministrator();
+    $campus = Campus::factory()->create(['name' => 'Campus recém-criado']);
+    $activity = Activity::forSubject($campus)->where('event', 'created')->sole();
+    $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
+
+    $this->get(route('audit.show', $activity))
+        ->assertOk()
+        ->assertSee('Campus recém-criado')
+        ->assertSee('Valor novo')
+        ->assertDontSee('Valor anterior');
+});
+
 test('campus detail shows only its own audit history', function () {
     $administrator = auditAdministrator();
     $campus = Campus::factory()->create(['name' => 'Campus com histórico']);
