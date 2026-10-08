@@ -1,7 +1,7 @@
 @props(['message'])
 
 @if ($message?->content_html || $message?->content_text)
-    <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
+    <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-white">
         <div class="scroll-fade-y max-h-[70vh] overflow-y-auto overscroll-contain" tabindex="0" role="region" aria-label="Conteúdo do e-mail registrado">
             @if ($message?->content_html)
                 @php
