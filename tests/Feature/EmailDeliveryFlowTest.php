@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Support\CauserResolver;
 
-test('reserves one account creation invitation and renders its template without storing its body', function () {
+test('reserves one account creation invitation and sends its stored content', function () {
     Bus::fake();
     Mail::fake();
     $requester = Affiliation::factory()->global()->create();
@@ -26,14 +26,18 @@ test('reserves one account creation invitation and renders its template without 
     $firstAffiliation = Affiliation::factory()->student()->for($recipient)->create(['email' => $recipient->email]);
     $key = (string) Str::uuid();
 
-    $attempt = app(CauserResolver::class)->withCauser($requester, fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->accountCreated($recipient->email, $key));
-    $again = app(RequestEmailDelivery::class)->accountCreated($recipient->email, $key);
+    $attempt = app(CauserResolver::class)->withCauser($requester, fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->accountCreated($recipient->email, $key, $firstAffiliation));
+    $again = app(CauserResolver::class)->withCauser($requester, fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->accountCreated($recipient->email, $key, $firstAffiliation));
 
     expect($again->is($attempt))->toBeTrue()
         ->and($attempt->status)->toBe(EmailDeliveryAttemptStatus::Queued)
         ->and($attempt->purpose)->toBe(EmailMessagePurpose::AccountCreated)
         ->and($attempt->requested_by_affiliation_id)->toBe($requester->id)
-        ->and(EmailMessage::query()->count())->toBe(0)
+        ->and(EmailMessage::query()->count())->toBe(1)
+        ->and($attempt->emailMessage->purpose)->toBe(EmailMessagePurpose::AccountCreated)
+        ->and($attempt->emailMessage->content_text)->toContain('Sua conta foi criada', $firstAffiliation->type->label())
+        ->and($attempt->emailMessage->content_html)->toContain(route('password.request', ['email' => $recipient->email]))
+        ->and($attempt->emailMessage->content_html)->not->toContain($recipient->password)
         ->and(EmailDeliveryAttempt::query()->count())->toBe(1);
     Bus::assertDispatched(SendEmailDelivery::class, 1);
 
@@ -70,7 +74,7 @@ test('snapshots the new affiliation details into each login notice', function ()
         $requester,
         fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->affiliationCreated($user->email, $affiliation, $key),
     );
-    $again = app(RequestEmailDelivery::class)->affiliationCreated($user->email, $affiliation, $key);
+    $again = app(CauserResolver::class)->withCauser($requester, fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->affiliationCreated($user->email, $affiliation, $key));
 
     expect($attempt->purpose)->toBe(EmailMessagePurpose::NewAffiliation)
         ->and($attempt->email_message_id)->not->toBeNull()
@@ -175,6 +179,56 @@ test('email change content is stable for repeated requests and immutable after r
 
     expect($attempt->fresh()->emailMessage->content_text)->toContain('old@example.test', 'new@example.test');
     Bus::assertDispatched(SendEmailDelivery::class, 1);
+});
+
+test('administrative email signature snapshots the requester and falls back to the system', function (string $purpose) {
+    Bus::fake();
+    $requester = Affiliation::factory()->global()->create();
+    $requester->user->update(['name' => 'Solicitante original']);
+    $target = Affiliation::factory()->global()->create();
+    $request = app(RequestEmailDelivery::class);
+    $reserve = fn (): EmailDeliveryAttempt => match ($purpose) {
+        'account_created' => $request->accountCreated($target->email, (string) Str::uuid(), $target),
+        'new_affiliation' => $request->affiliationCreated($target->email, $target, (string) Str::uuid()),
+        'account_email_changed' => $request->accountEmailChanged($target->email, $target->email, 'new@example.test', (string) Str::uuid(), $target->user),
+        'administrative_change' => $request->administrativeChange($target->email, 'Aviso administrativo', 'Mensagem de exemplo.', (string) Str::uuid(), $target),
+    };
+    $attempt = app(CauserResolver::class)->withCauser($requester, $reserve);
+    $message = $attempt->emailMessage;
+
+    expect($message->content_html)->toContain('Solicitante original', 'Administrador do Sistema', 'via '.config('app.name'))
+        ->and($message->content_text)->toContain('Solicitante original', 'Administrador do Sistema', 'via '.config('app.name'));
+    $requester->user->update(['name' => 'Solicitante renomeado']);
+    $attempt->update(['status' => EmailDeliveryAttemptStatus::Failed, 'failed_at' => now(), 'failure_reason' => 'transport_failed']);
+    $retry = $request->retry($attempt);
+    expect($retry->email_message_id)->toBe($message->id);
+    (new DeliveryMail($retry))->assertSeeInHtml('Solicitante original')->assertSeeInText('Solicitante original')
+        ->assertDontSeeInHtml('Solicitante renomeado');
+
+    $automatic = $reserve()->emailMessage;
+    expect($automatic->content_html)->toContain('Atenciosamente', config('app.name'))
+        ->not->toContain('Solicitante original', 'Solicitante renomeado', 'via '.config('app.name'))
+        ->and($automatic->content_text)->not->toContain('via '.config('app.name'));
+})->with(['account_created', 'new_affiliation', 'account_email_changed', 'administrative_change']);
+
+test('account invitation preserves its content after account changes and on retry', function () {
+    Bus::fake();
+    $affiliation = Affiliation::factory()->global()->create();
+    $user = $affiliation->user;
+    $originalEmail = $user->email;
+    $request = app(RequestEmailDelivery::class);
+    $attempt = $request->accountCreated($originalEmail, (string) Str::uuid(), $affiliation);
+    $message = $attempt->emailMessage;
+    $user->update(['email' => 'changed@example.test']);
+    $attempt->update(['status' => EmailDeliveryAttemptStatus::Failed, 'failed_at' => now(), 'failure_reason' => 'transport_failed']);
+    $retry = $request->retry($attempt);
+
+    expect($retry->email_message_id)->toBe($message->id)
+        ->and($retry->recipient_email)->toBe($originalEmail)
+        ->and($message->content_text)->toContain(route('password.request', ['email' => $originalEmail]))
+        ->and(fn (): bool => $message->update(['content_text' => 'alterado']))->toThrow(ValidationException::class);
+    (new DeliveryMail($retry))->assertSeeInHtml(route('password.request', ['email' => $originalEmail]))
+        ->assertSeeInText('Administrador do Sistema')->assertDontSeeInHtml('changed@example.test');
 });
 
 test('limits reprocessing to three attempts and preserves earlier failures', function () {

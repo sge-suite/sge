@@ -11,6 +11,5 @@ Solicitar link para definir senha
 
 Se você não esperava a criação desta conta, procure a administração do sistema.
 
-Atenciosamente,<br>
-{{ config('app.name') }}
+@include('emails.partials.signature', ['requesterName' => $requesterName ?? null, 'requesterRole' => $requesterRole ?? null])
 </x-mail::message>

@@ -47,7 +47,7 @@ class ManageAdministrativeUser
                 if ($previousEmail !== $user->email) {
                     DB::table('password_reset_tokens')->whereIn('email', [$previousEmail, $user->email])->delete();
                     foreach (array_unique([$previousEmail, $user->email]) as $recipient) {
-                        $this->emailDelivery->accountEmailChanged($recipient, $previousEmail, $user->email, (string) Str::uuid());
+                        $this->emailDelivery->accountEmailChanged($recipient, $previousEmail, $user->email, (string) Str::uuid(), $user);
                     }
                 }
 
@@ -70,7 +70,7 @@ class ManageAdministrativeUser
             }
             $recipients = $affiliations->pluck('email')->push($user->email)->map(fn (string $email): string => mb_strtolower(trim($email)))->unique();
             foreach ($recipients as $recipient) {
-                $this->emailDelivery->administrativeChange($recipient, 'Conta excluída', "A conta de {$user->name} e seus vínculos foram excluídos pela administração. O acesso ao sistema foi encerrado.", (string) Str::uuid());
+                $this->emailDelivery->administrativeChange($recipient, 'Conta excluída', "A conta de {$user->name} e seus vínculos foram excluídos pela administração. O acesso ao sistema foi encerrado.", (string) Str::uuid(), $user);
             }
             foreach ($affiliations as $affiliation) {
                 $affiliation->delete();

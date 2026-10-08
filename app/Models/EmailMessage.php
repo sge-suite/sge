@@ -68,8 +68,8 @@ class EmailMessage extends Model
                 'idempotency_key' => ['required', 'uuid'],
             ])->validate();
 
-            if (! in_array($message->purpose, [EmailMessagePurpose::Notification, EmailMessagePurpose::NewAffiliation, EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange], true) ||
-                (in_array($message->purpose, [EmailMessagePurpose::NewAffiliation, EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange], true) && $message->notification_id !== null) ||
+            if (! in_array($message->purpose, [EmailMessagePurpose::Notification, EmailMessagePurpose::AccountCreated, EmailMessagePurpose::NewAffiliation, EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange], true) ||
+                (in_array($message->purpose, [EmailMessagePurpose::AccountCreated, EmailMessagePurpose::NewAffiliation, EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange], true) && $message->notification_id !== null) ||
                 ($message->notification_id !== null && ! DatabaseNotification::find($message->notification_id))) {
                 throw ValidationException::withMessages(['purpose' => 'Somente conteúdo de notificação ou aviso administrativo pode ser armazenado.']);
             }

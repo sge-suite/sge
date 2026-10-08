@@ -80,8 +80,8 @@ new #[Title('Segurança')] class extends Component {
             $causerResolver->withCauser($affiliation, function () use ($user, $validated, $previousEmail, $requestEmailDelivery): void {
                 DB::transaction(function () use ($user, $validated, $previousEmail, $requestEmailDelivery): void {
                     $user->update(['email' => $validated['email']]);
-                    $requestEmailDelivery->accountEmailChanged($previousEmail, $previousEmail, $validated['email'], (string) Str::uuid());
-                    $requestEmailDelivery->accountEmailChanged($validated['email'], $previousEmail, $validated['email'], (string) Str::uuid());
+                    $requestEmailDelivery->accountEmailChanged($previousEmail, $previousEmail, $validated['email'], (string) Str::uuid(), $user);
+                    $requestEmailDelivery->accountEmailChanged($validated['email'], $previousEmail, $validated['email'], (string) Str::uuid(), $user);
                 });
             });
 

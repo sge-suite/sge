@@ -17,6 +17,7 @@ return new class extends Migration
             $table->uuid('delivery_key');
             $table->foreignId('requested_by_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();
             $table->string('purpose');
+            $table->jsonb('scope_context')->nullable();
             $table->text('recipient_email');
             $table->unsignedSmallInteger('attempt_number');
             $table->string('status');

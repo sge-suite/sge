@@ -6,6 +6,7 @@ use App\Http\Controllers\CampusController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RequireActiveAffiliation;
 use App\Models\Campus;
+use App\Models\EmailDeliveryAttempt;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Spatie\Activitylog\Models\Activity;
@@ -18,6 +19,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
         Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
+
+        Route::livewire('email-logs', 'pages::email-logs.index')
+            ->middleware('can:viewAny,'.EmailDeliveryAttempt::class)->name('email-logs.index');
+        Route::livewire('email-logs/{attempt}', 'pages::email-logs.show')
+            ->middleware('can:view,attempt')->name('email-logs.show');
 
         Route::livewire('audit', 'pages::audit.index')
             ->middleware('can:viewAny,'.Activity::class)->name('audit.index');

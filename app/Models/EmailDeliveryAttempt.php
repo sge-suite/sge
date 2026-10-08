@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AffiliationType;
 use App\Enums\EmailDeliveryAttemptStatus;
 use App\Enums\EmailMessagePurpose;
 use Database\Factories\EmailDeliveryAttemptFactory;
@@ -28,11 +29,12 @@ use Spatie\Activitylog\Support\CauserResolver;
  * @property Carbon|null $queued_at
  * @property Carbon|null $sent_at
  * @property Carbon|null $failed_at
+ * @property array{user_id?: int, affiliation_ids?: list<int>, affiliation_types?: list<string>, campus_ids?: list<int>}|null $scope_context
  * @property string|null $failure_reason
  * @property-read EmailMessage|null $emailMessage
  */
-#[Fillable(['email_message_id', 'delivery_key', 'purpose', 'recipient_email', 'requested_by_affiliation_id', 'attempt_number', 'status', 'provider', 'provider_message_id', 'queued_at', 'sent_at', 'failed_at', 'failure_reason'])]
-#[Hidden(['recipient_email', 'provider_message_id'])]
+#[Fillable(['email_message_id', 'delivery_key', 'purpose', 'recipient_email', 'requested_by_affiliation_id', 'attempt_number', 'status', 'provider', 'provider_message_id', 'queued_at', 'sent_at', 'failed_at', 'failure_reason', 'scope_context'])]
+#[Hidden(['recipient_email', 'provider_message_id', 'scope_context'])]
 class EmailDeliveryAttempt extends Model
 {
     /** @use HasFactory<EmailDeliveryAttemptFactory> */
@@ -42,6 +44,7 @@ class EmailDeliveryAttempt extends Model
     {
         return [
             'purpose' => EmailMessagePurpose::class,
+            'scope_context' => 'array',
             'attempt_number' => 'integer',
             'status' => EmailDeliveryAttemptStatus::class,
             'queued_at' => 'datetime',
@@ -84,6 +87,7 @@ class EmailDeliveryAttempt extends Model
                 'attempt_number' => $attempt->attempt_number,
                 'status' => $attempt->status instanceof EmailDeliveryAttemptStatus ? $attempt->status->value : null,
                 'failure_reason' => $attempt->failure_reason,
+                'scope_context' => $attempt->scope_context,
             ], [
                 'email_message_id' => ['nullable', 'integer', 'min:1'],
                 'delivery_key' => ['required', 'uuid'],
@@ -93,6 +97,14 @@ class EmailDeliveryAttempt extends Model
                 'attempt_number' => ['required', 'integer', 'min:1', 'max:65535'],
                 'status' => ['required', Rule::enum(EmailDeliveryAttemptStatus::class)],
                 'failure_reason' => ['nullable', 'regex:/^[a-z0-9_.-]+$/', 'max:120'],
+                'scope_context' => ['nullable', 'array:user_id,affiliation_ids,affiliation_types,campus_ids'],
+                'scope_context.user_id' => ['sometimes', 'integer', 'min:1'],
+                'scope_context.affiliation_ids' => ['sometimes', 'array'],
+                'scope_context.affiliation_ids.*' => ['integer', 'min:1'],
+                'scope_context.affiliation_types' => ['sometimes', 'array'],
+                'scope_context.affiliation_types.*' => [Rule::enum(AffiliationType::class)],
+                'scope_context.campus_ids' => ['sometimes', 'array'],
+                'scope_context.campus_ids.*' => ['integer', 'min:1'],
             ])->validate();
 
             if (! $attempt->exists) {
@@ -103,7 +115,7 @@ class EmailDeliveryAttempt extends Model
                     EmailMessagePurpose::AdministrativeChange,
                 ], true);
 
-                if ($requiresMessage !== ($attempt->email_message_id !== null)) {
+                if ($requiresMessage && $attempt->email_message_id === null) {
                     throw ValidationException::withMessages(['email_message_id' => 'O conteúdo da tentativa não corresponde à finalidade do envio.']);
                 }
 
@@ -137,7 +149,7 @@ class EmailDeliveryAttempt extends Model
 
             if ($attempt->exists && ($attempt->isDirty('email_message_id') || $attempt->isDirty('delivery_key') || $attempt->isDirty('purpose') ||
                 $attempt->isDirty('recipient_email') || $attempt->isDirty('requested_by_affiliation_id') || $attempt->isDirty('attempt_number') ||
-                $attempt->isDirty('queued_at'))) {
+                $attempt->isDirty('queued_at') || $attempt->isDirty('scope_context'))) {
                 throw ValidationException::withMessages(['attempt_number' => 'A identidade e a reserva da tentativa são imutáveis.']);
             }
 

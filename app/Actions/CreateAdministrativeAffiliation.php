@@ -63,7 +63,7 @@ class CreateAdministrativeAffiliation
             ]);
 
             if ($isNewAccount) {
-                $this->emailDelivery->accountCreated($user->email, (string) Str::uuid());
+                $this->emailDelivery->accountCreated($user->email, (string) Str::uuid(), $affiliation);
             } else {
                 foreach (array_unique(array_map(fn (string $email): string => mb_strtolower(trim($email)), [$user->email, $affiliation->email])) as $recipient) {
                     $this->emailDelivery->affiliationCreated($recipient, $affiliation, (string) Str::uuid());

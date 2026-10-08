@@ -51,7 +51,7 @@ class UpdateAdministrativeAffiliation
                 $subject = $operation === 'delete' ? 'Vínculo excluído' : 'Vínculo desativado';
                 $body = "O vínculo {$affiliation->type->label()} de {$user->name}, matrícula {$affiliation->registration_number}, foi ".($operation === 'delete' ? 'excluído.' : 'desativado.').' O acesso por este vínculo foi encerrado.';
                 foreach (array_unique(array_map(fn (string $email): string => mb_strtolower(trim($email)), [$user->email, $affiliation->email])) as $recipient) {
-                    $this->emailDelivery->administrativeChange($recipient, $subject, $body, (string) Str::uuid());
+                    $this->emailDelivery->administrativeChange($recipient, $subject, $body, (string) Str::uuid(), $affiliation);
                 }
                 if ($operation === 'delete') {
                     $affiliation->delete();

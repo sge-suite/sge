@@ -15,6 +15,5 @@ Se você reconhece essa alteração, use o novo endereço no próximo acesso. Se
 Acessar o sistema
 </x-mail::button>
 
-Atenciosamente,<br>
-{{ config('app.name') }}
+@include('emails.partials.signature', ['requesterName' => $requesterName ?? null, 'requesterRole' => $requesterRole ?? null])
 </x-mail::message>

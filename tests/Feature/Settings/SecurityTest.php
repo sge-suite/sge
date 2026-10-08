@@ -115,6 +115,9 @@ test('account email change requires the current password and queues notices for 
         ->and($attempts->every(fn (EmailDeliveryAttempt $attempt): bool => str_contains($attempt->emailMessage->content_text, 'conta@example.test') &&
             str_contains($attempt->emailMessage->content_text, 'novo@example.test')))->toBeTrue()
         ->and($attempts->every(fn (EmailDeliveryAttempt $attempt): bool => $attempt->requested_by_affiliation_id === $affiliation->id))->toBeTrue()
+        ->and($attempts->every(fn (EmailDeliveryAttempt $attempt): bool => $attempt->scope_context['user_id'] === $user->id &&
+            $attempt->scope_context['affiliation_ids'] === [$affiliation->id] &&
+            $attempt->scope_context['affiliation_types'] === [$affiliation->type->value]))->toBeTrue()
         ->and(EmailMessage::query()->count())->toBe(2)
         ->and($activity->attribute_changes->get('old'))->toMatchArray(['email' => 'conta@example.test'])
         ->and($activity->attribute_changes->get('attributes'))->toMatchArray(['email' => 'novo@example.test'])
@@ -135,13 +138,13 @@ test('account email and its delivery requests roll back together', function () {
     {
         private int $requests = 0;
 
-        public function accountEmailChanged(string $recipientEmail, string $previousEmail, string $newEmail, string $deliveryKey): EmailDeliveryAttempt
+        public function accountEmailChanged(string $recipientEmail, string $previousEmail, string $newEmail, string $deliveryKey, ?User $account = null): EmailDeliveryAttempt
         {
             if (++$this->requests === 2) {
                 throw new RuntimeException('Falha ao reservar o segundo aviso.');
             }
 
-            return parent::accountEmailChanged($recipientEmail, $previousEmail, $newEmail, $deliveryKey);
+            return parent::accountEmailChanged($recipientEmail, $previousEmail, $newEmail, $deliveryKey, $account);
         }
     });
 

@@ -17,6 +17,5 @@ Acessar o sistema
 
 Se você não esperava esta alteração, procure a administração do sistema.
 
-Atenciosamente,<br>
-{{ config('app.name') }}
+@include('emails.partials.signature', ['requesterName' => $requesterName ?? null, 'requesterRole' => $requesterRole ?? null])
 </x-mail::message>

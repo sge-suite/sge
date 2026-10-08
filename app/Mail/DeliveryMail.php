@@ -38,6 +38,14 @@ class DeliveryMail extends Mailable
 
     private function accountCreatedContent(): static
     {
+        $message = $this->attempt->emailMessage;
+
+        if ($message !== null) {
+            return $this->subject($message->subject)
+                ->html($message->content_html)
+                ->text('emails.delivery-text', ['body' => $message->content_text]);
+        }
+
         $user = User::query()->where('email', $this->attempt->recipient_email)->firstOrFail();
         $affiliation = $user->affiliations()->orderBy('id')->firstOrFail();
 

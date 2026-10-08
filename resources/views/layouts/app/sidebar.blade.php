@@ -25,6 +25,9 @@
                         <flux:sidebar.item icon="clipboard-document-list" :href="route('audit.index')" :current="request()->routeIs('audit.*')" wire:navigate>Auditoria</flux:sidebar.item>
                     @endcan
                 @endcan
+                @can('viewAny', \App\Models\EmailDeliveryAttempt::class)
+                    <flux:sidebar.item icon="envelope" :href="route('email-logs.index')" :current="request()->routeIs('email-logs.*')" wire:navigate>E-mails</flux:sidebar.item>
+                @endcan
             </flux:sidebar.nav>
 
             <flux:spacer />

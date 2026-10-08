@@ -57,13 +57,17 @@ test('creates the initial system administrator with a shared email and queues an
         ->and($affiliation->campus_id)->toBeNull()
         ->and($affiliation->course_id)->toBeNull()
         ->and($affiliation->registration_number)->toBe('ADM-001')
-        ->and(EmailMessage::query()->exists())->toBeFalse()
+        ->and(EmailMessage::query()->count())->toBe(1)
         ->and(EmailDeliveryAttempt::query()->count())->toBe(1);
 
     $attempt = EmailDeliveryAttempt::query()->sole();
     expect($attempt->recipient_email)->toBe($user->email)
+        ->and($attempt->scope_context)->toMatchArray(['user_id' => $user->id, 'affiliation_ids' => [$affiliation->id], 'affiliation_types' => [AffiliationType::SystemAdministrator->value]])
         ->and($attempt->purpose)->toBe(EmailMessagePurpose::AccountCreated)
-        ->and($attempt->email_message_id)->toBeNull();
+        ->and($attempt->email_message_id)->not->toBeNull()
+        ->and($attempt->emailMessage->content_html)->toContain('Sua conta foi criada', 'Administrador do Sistema')
+        ->and($attempt->emailMessage->content_text)->toContain('Sua conta foi criada')
+        ->and($attempt->emailMessage->content_html)->not->toContain($user->getRawOriginal('password'));
     (new DeliveryMail($attempt))->assertSeeInHtml('Sua conta foi criada')
         ->assertSeeInHtml('Administrador do Sistema')
         ->assertSeeInHtml(route('password.request', ['email' => $user->email]))
@@ -113,6 +117,7 @@ test('adds an administrator affiliation and queues notices to the account and af
         ->and($attempts->pluck('recipient_email')->all())->toBe(['ada@example.test', 'admin@example.test'])
         ->and($attempts->pluck('purpose')->unique()->sole())->toBe(EmailMessagePurpose::NewAffiliation)
         ->and($attempts->every(fn (EmailDeliveryAttempt $attempt): bool => $attempt->email_message_id !== null))->toBeTrue()
+        ->and($attempts->every(fn (EmailDeliveryAttempt $attempt): bool => $attempt->scope_context['affiliation_ids'] === [$affiliation->id]))->toBeTrue()
         ->and(EmailMessage::query()->count())->toBe(2);
 
     foreach ($attempts as $attempt) {
