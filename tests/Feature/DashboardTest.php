@@ -56,7 +56,7 @@ test('system administrators see global totals and progress charts for system rec
 
     $this->actingAs($admin)->withSession(['active_affiliation_id' => $systemAffiliation->id]);
 
-    $this->get(route('dashboard'))
+    $response = $this->get(route('dashboard'))
         ->assertOk()
         ->assertSee('Painel administrativo')
         ->assertSee('Usuários cadastrados')
@@ -72,6 +72,15 @@ test('system administrators see global totals and progress charts for system rec
         ->assertDontSee('Acompanhar')
         ->assertSee('(1 ativo)')
         ->assertSee('data-flux-progress', false);
+
+    $document = new DOMDocument;
+    @$document->loadHTML($response->getContent());
+    $progressBars = (new DOMXPath($document))->query('//ui-progress[@data-flux-progress]');
+
+    expect($progressBars->length)->toBeGreaterThan(0);
+    foreach ($progressBars as $progressBar) {
+        expect($progressBar->getAttribute('style'))->toContain('--flux-progress-color: var(--color-brand)');
+    }
 
     $metrics = app(GetAdministrativeDashboardMetrics::class)();
     $supervisorCounts = collect($metrics['affiliationTypes'])->firstWhere('label', 'Supervisor');

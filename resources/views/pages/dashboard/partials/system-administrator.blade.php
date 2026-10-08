@@ -63,7 +63,7 @@
                                 <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ $type['active'] }} {{ $type['active'] === 1 ? 'ativo' : 'ativos' }})</span>
                             </flux:text>
                         </div>
-                        <flux:progress :value="$type['value']" :max="$metrics['maxAffiliationTypeCount']" color="teal" :aria-label="$type['label']" />
+                        <flux:progress :value="$type['value']" :max="$metrics['maxAffiliationTypeCount']" style="--flux-progress-color: var(--color-brand)" :aria-label="$type['label']" />
                     </div>
                 @endforeach
             </div>
@@ -85,7 +85,7 @@
                             <flux:text class="min-w-0 break-words text-sm">{{ $status['label'] }}</flux:text>
                             <flux:text class="shrink-0 text-sm tabular-nums">{{ $status['value'] }}</flux:text>
                         </div>
-                        <flux:progress :value="$status['value']" :max="$metrics['maxInternshipStatusCount']" color="teal" :aria-label="$status['label']" />
+                        <flux:progress :value="$status['value']" :max="$metrics['maxInternshipStatusCount']" style="--flux-progress-color: var(--color-brand)" :aria-label="$status['label']" />
                     </div>
                 @endforeach
             </div>
@@ -109,7 +109,7 @@
                             <flux:text class="min-w-0 break-words text-sm">{{ $status['label'] }}</flux:text>
                             <flux:text class="shrink-0 text-sm tabular-nums">{{ $status['value'] }}</flux:text>
                         </div>
-                        <flux:progress :value="$status['value']" :max="$metrics['maxDocumentStatusCount']" :color="$status['color']" :aria-label="$status['label']" />
+                        <flux:progress :value="$status['value']" :max="$metrics['maxDocumentStatusCount']" style="--flux-progress-color: var(--color-brand)" :aria-label="$status['label']" />
                     </div>
                 @endforeach
             </div>
@@ -127,14 +127,14 @@
                         <flux:text class="min-w-0 break-words text-sm">Solicitações de estágio</flux:text>
                         <flux:text class="shrink-0 text-sm tabular-nums">{{ $metrics['pendingInternshipRequestsCount'] }}</flux:text>
                     </div>
-                    <flux:progress :value="$metrics['pendingInternshipRequestsCount']" :max="$metrics['maxPendingRequestsCount']" color="teal" aria-label="Solicitações de estágio" />
+                    <flux:progress :value="$metrics['pendingInternshipRequestsCount']" :max="$metrics['maxPendingRequestsCount']" style="--flux-progress-color: var(--color-brand)" aria-label="Solicitações de estágio" />
                 </div>
                 <div class="min-w-0 space-y-1">
                     <div class="flex min-w-0 items-baseline justify-between gap-3">
                         <flux:text class="min-w-0 break-words text-sm">Cadastros de concedentes e supervisores</flux:text>
                         <flux:text class="shrink-0 text-sm tabular-nums">{{ $metrics['pendingRegistrationRequestsCount'] }}</flux:text>
                     </div>
-                    <flux:progress :value="$metrics['pendingRegistrationRequestsCount']" :max="$metrics['maxPendingRequestsCount']" color="teal" aria-label="Cadastros de concedentes e supervisores" />
+                    <flux:progress :value="$metrics['pendingRegistrationRequestsCount']" :max="$metrics['maxPendingRequestsCount']" style="--flux-progress-color: var(--color-brand)" aria-label="Cadastros de concedentes e supervisores" />
                 </div>
             </div>
         </section>
