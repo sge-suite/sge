@@ -35,7 +35,10 @@ test('selected system administrator can read audit and navigate without changing
     $activity = Activity::forSubject($campus)->sole();
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
 
-    $dashboard = $this->get(route('dashboard'))->assertOk()->assertSee('href="'.route('audit.index').'"', false);
+    $dashboard = $this->get(route('dashboard'))->assertOk()
+        ->assertSee('Logs')
+        ->assertSee('href="'.route('audit.index').'"', false)
+        ->assertSee('href="'.route('email-logs.index').'"', false);
     $document = new DOMDocument;
     @$document->loadHTML($dashboard->getContent());
     expect((new DOMXPath($document))->query('//a[@href="'.route('audit.index').'"]//*[@data-flux-icon]')->length)->toBe(1);
@@ -132,7 +135,10 @@ test('every other selected profile is forbidden even when the account also has a
     Livewire::test('pages::audit.index')->assertForbidden();
     $this->get(route('audit.show', $activity))->assertForbidden();
     Livewire::test('pages::audit.show', ['activity' => $activity])->assertForbidden();
-    $this->get(route('dashboard'))->assertOk()->assertDontSee('href="'.route('audit.index').'"', false);
+    $this->get(route('dashboard'))->assertOk()
+        ->assertDontSee('Logs')
+        ->assertDontSee('href="'.route('audit.index').'"', false)
+        ->assertDontSee('href="'.route('email-logs.index').'"', false);
     expect(Gate::allows('viewAny', Activity::class))->toBeFalse();
 })->with(array_filter(AffiliationType::cases(), fn (AffiliationType $type): bool => $type !== AffiliationType::SystemAdministrator));
 
