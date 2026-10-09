@@ -1,7 +1,7 @@
 @props([
     'label', 'options' => [], 'name' => '', 'value' => '', 'selectedLabel' => '',
     'placeholder' => 'Selecione uma opção', 'searchable' => false,
-    'disabled' => false, 'required' => false, 'invalid' => false, 'error' => '',
+    'disabled' => false, 'required' => false, 'invalid' => false, 'error' => '', 'openOnMount' => false,
     'empty' => 'Nenhuma opção encontrada.',
     'icon' => null, 'optionIcons' => [],
 ])
@@ -15,6 +15,7 @@
         {{ $attributes->only(['wire:key', 'class'])->class('relative w-full min-w-0') }}
         x-data="{
         value: String(@js((string) $value)),
+        openOnMount: @js($openOnMount),
         query: '',
         open: false,
         upwards: false,
@@ -29,7 +30,7 @@
         init() {
             this.$watch('value', () => {
                 this.missing = false;
-                this.close(false);
+                if (!this.open) this.close(false);
                 this.measureLabel();
             });
             this.$nextTick(() => {
@@ -53,6 +54,7 @@
                 this.labelResizeObserver.observe(this.$refs.labelViewport);
                 this.labelResizeObserver.observe(this.$refs.labelText);
                 this.measureLabel();
+                if (this.openOnMount) this.show(true);
             });
         },
 
@@ -106,7 +108,7 @@
             return this.$root.dataset.placeholder;
         },
 
-        show() {
+        show(focusTrigger = false) {
             if (this.$refs.trigger.disabled) return;
             this.upwards = this.$refs.trigger.getBoundingClientRect().bottom + 320 > window.innerHeight
                 && this.$refs.trigger.getBoundingClientRect().top > 320;
@@ -114,8 +116,11 @@
             this.$nextTick(() => {
                 const options = this.options();
                 this.activeValue = options.find(option => option.dataset.value === String(this.value))?.dataset.value
-                    ?? options[0]?.dataset.value ?? '';
-                (this.$refs.search?.querySelector('input') ?? this.$refs.list).focus();
+                    ?? '';
+                const focusTarget = focusTrigger
+                    ? this.$refs.trigger
+                    : (this.$refs.search?.querySelector('input') ?? this.$refs.list);
+                requestAnimationFrame(() => focusTarget.focus());
             });
         },
 
@@ -129,7 +134,10 @@
             const options = this.options();
             if (!options.length) return;
             const index = options.findIndex(option => option.dataset.value === this.activeValue);
-            const next = options[(index + direction + options.length) % options.length];
+            const nextIndex = index === -1
+                ? (direction > 0 ? 0 : options.length - 1)
+                : Math.max(0, Math.min(index + direction, options.length - 1));
+            const next = options[nextIndex];
             this.activeValue = next.dataset.value;
             next.scrollIntoView({ block: 'nearest' });
         },
@@ -154,8 +162,10 @@
         data-selected-value="{{ $value }}" data-selected-label="{{ $selectedLabel }}" data-placeholder="{{ $placeholder }}"
         x-on:click.outside="close(false)"
         x-on:keydown.escape.stop.prevent="close()"
-        x-on:keydown.arrow-down.prevent="move(1)"
-        x-on:keydown.arrow-up.prevent="move(-1)"
+        x-on:keydown="
+            if ($event.key === 'ArrowDown') { $event.preventDefault(); move(1); }
+            else if ($event.key === 'ArrowUp') { $event.preventDefault(); move(-1); }
+        "
         x-on:keydown.enter="if (open) { $event.preventDefault(); $event.stopPropagation(); chooseActive(); }"
         x-on:keydown.tab="close(false)"
     >
@@ -235,8 +245,10 @@
                             @endif
                             <span class="min-w-0 whitespace-normal break-words">{{ $optionLabel }}</span>
                         </span>
-                        <span class="shrink-0" x-show="String(value) === @js((string) $optionValue)">
-                            <flux:icon.check variant="micro" />
+                        <span class="flex size-4 shrink-0 items-center justify-center">
+                            <span x-show="String(value) === @js((string) $optionValue)">
+                                <flux:icon.check variant="micro" />
+                            </span>
                         </span>
                     </button>
                 @endforeach

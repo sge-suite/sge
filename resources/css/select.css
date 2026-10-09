@@ -11,8 +11,12 @@
 }
 
 .select-trigger:focus-visible {
-    outline: 2px solid var(--color-brand) !important;
+    outline: 2px solid var(--color-accent) !important;
     outline-offset: 2px !important;
+}
+
+.select-trigger[aria-expanded='true']:focus-visible {
+    outline: none !important;
 }
 
 .select-trigger[aria-invalid='true']:focus-visible {

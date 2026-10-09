@@ -23,6 +23,7 @@
                 :value="$currentAffiliation?->id ?? ''"
                 :options="$affiliationOptions"
                 placeholder="Selecione um vínculo"
+                open-on-mount
                 required
             />
             <div class="flex justify-end">
