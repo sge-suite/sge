@@ -230,7 +230,7 @@ new #[Title('Detalhes do campus')] class extends Component
             <flux:text class="mt-1 max-w-xl">{{ $campus->deactivated_at === null ? 'A desativação impede alterações nos recursos do campus e preserva os vínculos e os processos existentes.' : 'A reativação permite novas alterações. Processamentos anteriores não são retomados automaticamente.' }}</flux:text>
         </div>
         @if ($campus->deactivated_at === null)
-            <flux:button variant="danger" x-on:click="$wire.showDeactivation = true">Desativar campus</flux:button>
+            <flux:button variant="danger" icon="no-symbol" x-on:click="$wire.showDeactivation = true">Desativar campus</flux:button>
         @else
             <flux:button variant="primary" x-on:click="$wire.showReactivation = true">Reativar campus</flux:button>
         @endif
@@ -259,7 +259,7 @@ new #[Title('Detalhes do campus')] class extends Component
                 @endif
                 <div class="flex flex-wrap justify-end gap-3">
                     <flux:modal.close><flux:button type="button" variant="outline" wire:click="closeDeactivationModal">Cancelar</flux:button></flux:modal.close>
-                    <flux:button type="submit" variant="danger">Desativar campus</flux:button>
+                    <flux:button type="submit" variant="danger" icon="no-symbol">Desativar campus</flux:button>
                 </div>
             </form>
         </flux:modal>

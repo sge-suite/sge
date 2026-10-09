@@ -3,9 +3,11 @@
 use App\Http\Controllers\AdministrativeAffiliationController;
 use App\Http\Controllers\AffiliationSelectionController;
 use App\Http\Controllers\CampusController;
+use App\Http\Controllers\CourseController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RequireActiveAffiliation;
 use App\Models\Campus;
+use App\Models\Course;
 use App\Models\EmailDeliveryAttempt;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +21,17 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
         Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
+
+        Route::middleware('can:viewAny,'.Course::class)->group(function (): void {
+            Route::livewire('courses', 'pages::courses.index')->name('courses.index');
+            Route::livewire('courses/create', 'pages::courses.create')->name('courses.create');
+            Route::livewire('courses/{course}/edit', 'pages::courses.edit')->name('courses.edit');
+            Route::livewire('courses/{course}', 'pages::courses.show')->name('courses.show');
+            Route::post('courses', [CourseController::class, 'store'])->name('courses.store');
+            Route::put('courses/{course}', [CourseController::class, 'update'])->name('courses.update');
+            Route::patch('courses/{course}/deactivate', [CourseController::class, 'deactivate'])->name('courses.deactivate');
+            Route::patch('courses/{course}/reactivate', [CourseController::class, 'reactivate'])->name('courses.reactivate');
+        });
 
         Route::livewire('email-logs', 'pages::email-logs.index')
             ->middleware('can:viewAny,'.EmailDeliveryAttempt::class)->name('email-logs.index');

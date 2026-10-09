@@ -74,6 +74,26 @@ class Course extends Model
         return $this->hasMany(InternshipType::class);
     }
 
+    /** @return HasMany<Internship, $this> */
+    public function internships(): HasMany
+    {
+        return $this->hasMany(Internship::class);
+    }
+
+    /** @return HasMany<InternshipRequest, $this> */
+    public function internshipRequests(): HasMany
+    {
+        return $this->hasMany(InternshipRequest::class);
+    }
+
+    public function hasLinkedRecords(): bool
+    {
+        return $this->studentAffiliations()->exists()
+            || $this->internshipTypes()->exists()
+            || $this->internshipRequests()->exists()
+            || $this->internships()->exists();
+    }
+
     /**
      * @param  Builder<Course>  $query
      * @return Builder<Course>
@@ -90,6 +110,43 @@ class Course extends Model
             ->logOnlyDirty();
     }
 
+    /** @return array<string, array<int, mixed>> */
+    public function validationRules(): array
+    {
+        $attributes = $this->getAttributes();
+        $campusId = $attributes['campus_id'] ?? null;
+        $requiresActiveCampus = ! $this->exists
+            || (int) $campusId !== (int) $this->getOriginal('campus_id')
+            || ($this->getOriginal('deactivated_at') !== null && ($attributes['deactivated_at'] ?? null) === null);
+        $campusExists = $requiresActiveCampus
+            ? Rule::exists('campuses', 'id')->whereNull('deactivated_at')->whereNull('deleted_at')
+            : Rule::exists('campuses', 'id');
+
+        $coordinatorRules = function (string $attribute) use ($campusId): array {
+            $needsActiveCoordinator = ! $this->exists || $this->isDirty($attribute);
+            $exists = Rule::exists('affiliations', 'id')
+                ->where('type', AffiliationType::Coordinator->value)
+                ->where('campus_id', $campusId);
+
+            if ($needsActiveCoordinator) {
+                $exists->whereNull('deactivated_at');
+            }
+
+            return ['bail', 'nullable', 'integer', $exists];
+        };
+
+        return [
+            'campus_id' => ['bail', 'required', 'integer', $campusExists],
+            'name' => ['required', 'string', 'max:255'],
+            'primary_coordinator_affiliation_id' => $coordinatorRules('primary_coordinator_affiliation_id'),
+            'secondary_coordinator_affiliation_id' => [
+                ...$coordinatorRules('secondary_coordinator_affiliation_id'),
+                'different:primary_coordinator_affiliation_id',
+            ],
+            'deactivated_at' => ['nullable', 'date'],
+        ];
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $course): void {
@@ -99,38 +156,7 @@ class Course extends Model
                 }
             }
 
-            $attributes = $course->getAttributes();
-            $campusId = $attributes['campus_id'] ?? null;
-            $requiresActiveCampus = ! $course->exists
-                || (int) $campusId !== (int) $course->getOriginal('campus_id')
-                || ($course->getOriginal('deactivated_at') !== null && ($attributes['deactivated_at'] ?? null) === null);
-            $campusExists = $requiresActiveCampus
-                ? Rule::exists('campuses', 'id')->whereNull('deactivated_at')->whereNull('deleted_at')
-                : Rule::exists('campuses', 'id');
-
-            $coordinatorRules = function (string $attribute) use ($course, $campusId): array {
-                $needsActiveCoordinator = ! $course->exists || $course->isDirty($attribute);
-                $exists = Rule::exists('affiliations', 'id')
-                    ->where('type', AffiliationType::Coordinator->value)
-                    ->where('campus_id', $campusId);
-
-                if ($needsActiveCoordinator) {
-                    $exists->whereNull('deactivated_at');
-                }
-
-                return ['bail', 'nullable', 'integer', $exists];
-            };
-
-            Validator::make($attributes, [
-                'campus_id' => ['bail', 'required', 'integer', $campusExists],
-                'name' => ['required', 'string', 'max:255'],
-                'primary_coordinator_affiliation_id' => $coordinatorRules('primary_coordinator_affiliation_id'),
-                'secondary_coordinator_affiliation_id' => [
-                    ...$coordinatorRules('secondary_coordinator_affiliation_id'),
-                    'different:primary_coordinator_affiliation_id',
-                ],
-                'deactivated_at' => ['nullable', 'date'],
-            ])->validate();
+            Validator::make($course->getAttributes(), $course->validationRules())->validate();
         });
     }
 }
