@@ -112,8 +112,9 @@ test('campus lookup previews both names and applies data only after confirmation
         ->assertSet('selectedCityId', $city->id)->assertSet('citySelectionVersion', 1)
         ->assertSet('values.legal_representative_name', 'Representante Informado')
         ->assertSet('values.insurance_policy_number', 'AP-123')
-        ->assertSee('Santa Rosa')->assertSee('value="'.$city->id.'" selected', false)
-        ->assertSee('value="RUA DAS FLORES"', false)->assertSee('Dados aplicados ao formulário. Confira as informações antes de salvar.');
+        ->assertSee('Santa Rosa')->assertSee('name="address[city_id]"', false)
+        ->assertSee('value="RUA DAS FLORES"', false)
+        ->assertDispatched('toast-show', fn (string $event, array $parameters): bool => ($parameters['slots']['text'] ?? null) === 'Dados aplicados ao formulário. Confira as informações antes de salvar.');
 
     expect(Campus::count())->toBe(0)->and(Activity::count())->toBe($count);
 });
@@ -167,7 +168,7 @@ test('confirmation preserves the manual phone when the api omits it and clears a
         ->assertSet('selectedCityId', $campus->address->city_id)
         ->call('applyCompanyLookup')
         ->assertSet('values.phone', '55999999999')
-        ->assertSet('selectedCityId', null)->assertSee('selecione a UF e a cidade manualmente');
+        ->assertSet('selectedCityId', null)->assertSee('Cidade não encontrada no catálogo. Selecione a UF e busque a cidade.');
     expect($campus->fresh()->name)->toBe($campus->name);
 });
 

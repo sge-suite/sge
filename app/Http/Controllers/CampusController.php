@@ -38,6 +38,9 @@ class CampusController extends Controller
             $campus = Campus::query()->lockForUpdate()->findOrFail($campus->getKey());
             Gate::authorize('update', $campus);
             $campus->assertWritable();
+            if (array_key_exists('cnpj', $validated)) {
+                Gate::authorize('updateCnpj', $campus);
+            }
 
             $addressData = $validated['address'] ?? null;
             unset($validated['address']);
@@ -59,7 +62,7 @@ class CampusController extends Controller
 
         $destination = Gate::allows('viewAdministration', Campus::class)
             ? route('campuses.show', $campus)
-            : route('dashboard');
+            : route('campuses.own');
 
         return redirect($destination)->with('status', 'Campus atualizado com sucesso.');
     }

@@ -6,10 +6,14 @@ use App\Models\City;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 new class extends Component
 {
+    #[Locked]
+    public ?int $campusId = null;
+
     public string $state = '';
 
     public string $cityId = '';
@@ -18,13 +22,15 @@ new class extends Component
 
     public string $citySearch = '';
 
-    public function boot(): void
+    public function hydrate(): void
     {
-        Gate::authorize('viewAdministration', Campus::class);
+        $this->authorizeSelection();
     }
 
-    public function mount(mixed $selectedCityId = null, string $cityError = ''): void
+    public function mount(mixed $selectedCityId = null, string $cityError = '', ?int $campusId = null): void
     {
+        $this->campusId = $campusId;
+        $this->authorizeSelection();
         $key = is_scalar($selectedCityId)
             ? filter_var($selectedCityId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
             : false;
@@ -35,6 +41,11 @@ new class extends Component
         $this->state = $city?->state->value ?? '';
         $this->cityId = $city === null ? '' : (string) $city->id;
         $this->cityError = $cityError;
+    }
+
+    private function authorizeSelection(): void
+    {
+        Gate::authorize($this->campusId === null ? 'create' : 'update', $this->campusId === null ? Campus::class : Campus::findOrFail($this->campusId));
     }
 
     public function updatedState(): void

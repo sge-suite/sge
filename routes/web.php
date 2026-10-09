@@ -22,6 +22,9 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
         Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 
+        Route::livewire('campus', 'pages::campuses.own')
+            ->middleware('can:viewOwn,'.Campus::class)->name('campuses.own');
+
         Route::middleware('can:viewAny,'.Course::class)->group(function (): void {
             Route::livewire('courses', 'pages::courses.index')->name('courses.index');
             Route::livewire('courses/create', 'pages::courses.create')->name('courses.create');

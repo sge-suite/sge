@@ -23,8 +23,11 @@ class UpdateCampusRequest extends CampusFormRequest
     public function rules(): array
     {
         $campus = $this->route('campus');
-        $canEditInstitutionalFields = $this->user()?->can('updateInstitutionalFields', $campus) ?? false;
+        $canEditCnpj = $this->user()?->can('updateCnpj', $campus) ?? false;
         $rules = [
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'address' => ['sometimes', 'array:city_id,street,number,neighborhood,zip_code', 'min:1'],
+            ...$this->addressRules(partial: true),
             'phone' => ['sometimes', 'required', 'string', 'max:255', $this->phoneRule(), ...$this->uniqueCampusValueWhenChanged('phone', $campus)],
             'legal_representative_name' => ['sometimes', 'required', 'string', 'max:255'],
             'legal_representative_position' => ['sometimes', 'required', 'string', 'max:255'],
@@ -32,13 +35,10 @@ class UpdateCampusRequest extends CampusFormRequest
             'insurance_policy_number' => ['sometimes', 'required', 'string', 'max:255'],
         ];
 
-        if ($canEditInstitutionalFields) {
+        if ($canEditCnpj) {
             $rules = [
-                'name' => ['sometimes', 'required', 'string', 'max:255'],
                 'cnpj' => ['sometimes', 'required', 'string', 'size:14', new Cnpj, ...$this->uniqueCampusValueWhenChanged('cnpj', $campus)],
                 ...$rules,
-                'address' => ['sometimes', 'array:city_id,street,number,neighborhood,zip_code', 'min:1'],
-                ...$this->addressRules(partial: true),
             ];
         }
 
@@ -51,12 +51,12 @@ class UpdateCampusRequest extends CampusFormRequest
     public function after(): array
     {
         $campus = $this->route('campus');
-        $allowedKeys = ['phone', 'legal_representative_name', 'legal_representative_position', 'insurance_company_name', 'insurance_policy_number'];
+        $allowedKeys = ['name', 'address', 'phone', 'legal_representative_name', 'legal_representative_position', 'insurance_company_name', 'insurance_policy_number'];
 
-        if ($this->user()?->can('updateInstitutionalFields', $campus)) {
+        if ($this->user()?->can('updateCnpj', $campus)) {
             $allowedKeys = [
                 ...$allowedKeys,
-                'name', 'cnpj', 'address',
+                'cnpj',
             ];
         }
 

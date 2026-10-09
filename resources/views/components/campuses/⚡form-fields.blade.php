@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use LaravelLegends\PtBrValidator\Rules\Cnpj;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 new class extends Component
@@ -36,18 +37,23 @@ new class extends Component
 
     public string $cityLookupMessage = '';
 
-    public function boot(): void
+    public function hydrate(): void
     {
-        Gate::authorize('viewAdministration', Campus::class);
         Gate::authorize($this->campusId === null ? 'create' : 'update', $this->campusId === null ? Campus::class : Campus::findOrFail($this->campusId));
+    }
+
+    #[Computed]
+    public function canEditCnpj(): bool
+    {
+        return $this->campusId === null
+            ? Gate::allows('create', Campus::class)
+            : Gate::allows('updateCnpj', Campus::findOrFail($this->campusId));
     }
 
     public function mount(?Campus $campus = null): void
     {
         $this->campusId = $campus?->id;
-        if ($campus !== null) {
-            Gate::authorize('update', $campus);
-        }
+        Gate::authorize($campus === null ? 'create' : 'update', $campus ?? Campus::class);
 
         foreach (['name', 'cnpj', 'phone', 'legal_representative_name', 'legal_representative_position', 'insurance_company_name', 'insurance_policy_number'] as $field) {
             $this->values[$field] = old($field, $campus?->{$field}) ?? '';
@@ -66,6 +72,7 @@ new class extends Component
 
     public function lookupCnpj(BrasilApiCompanyLookup $lookup): void
     {
+        abort_unless($this->canEditCnpj, 403);
         $this->cityLookupMessage = '';
         $this->pendingCompanyLookup = [];
         $this->showLookupPreview = false;
@@ -145,6 +152,7 @@ new class extends Component
 
     public function applyCompanyLookup(): void
     {
+        abort_unless($this->canEditCnpj, 403);
         $this->resetValidation(['values.cnpj', 'selectedCompanyName']);
 
         $currentCnpj = is_string($this->values['cnpj'] ?? null) ? DigitsHelper::only($this->values['cnpj']) : '';
@@ -211,6 +219,7 @@ new class extends Component
 }; ?>
 
 <div>
+    @php($canEditCnpj = $this->canEditCnpj)
     <div class="grid gap-8 xl:grid-cols-2 xl:items-start xl:gap-x-12">
         <section class="min-w-0 xl:col-start-1 xl:row-start-1" aria-labelledby="campus-registration-heading">
             <flux:heading id="campus-registration-heading" size="lg" level="2">Dados do campus</flux:heading>
@@ -220,17 +229,23 @@ new class extends Component
                     <flux:input name="name" error:name="name" label="Nome do campus" wire:model="values.name" :value="$values['name']" maxlength="255" required autocomplete="organization" />
                 </div>
                 <div class="sm:col-span-2 grid items-start gap-x-5 gap-y-4 sm:grid-cols-2">
+                    @if ($canEditCnpj)
                     <div>
                         <flux:input name="cnpj" error:name="cnpj" label="CNPJ" wire:model="values.cnpj" :value="$values['cnpj']" maxlength="18" placeholder="00.000.000/0000-00" :invalid="$errors->has('values.cnpj') || $errors->has('cnpj')" required />
                         <flux:error name="values.cnpj" />
                     </div>
+                    @else
+                        <flux:input label="CNPJ" :name="null" :value="$values['cnpj']" readonly />
+                    @endif
                     <flux:input name="phone" error:name="phone" label="Telefone" wire:model="values.phone" :value="$values['phone']" maxlength="15" type="tel" autocomplete="tel" placeholder="(55) 3333-3333" required />
+                    @if ($canEditCnpj)
                     <div class="sm:col-span-2 flex flex-col items-start gap-2">
                         <flux:text size="sm">Busque na BrasilAPI para preencher o nome, o telefone e o endereço do campus. Confira os dados antes de salvar.</flux:text>
                         <flux:button type="button" size="sm" icon="magnifying-glass" wire:click="lookupCnpj" wire:loading.attr="disabled" wire:target="lookupCnpj">
                             Buscar dados na BrasilAPI
                         </flux:button>
                     </div>
+                    @endif
                 </div>
             </div>
         </section>
@@ -239,14 +254,7 @@ new class extends Component
 
         <section class="min-w-0 xl:col-start-2 xl:row-span-5 xl:row-start-1" aria-labelledby="campus-address-heading">
             <flux:heading id="campus-address-heading" size="lg" level="2">Endereço</flux:heading>
-            <flux:text class="mt-1" role="status">{{ $cityLookupMessage !== '' ? $cityLookupMessage : 'Selecione a UF e digite pelo menos 2 caracteres para buscar a cidade.' }}</flux:text>
-            <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-                <livewire:cities.select :selected-city-id="$selectedCityId" :key="'campus-city-'.$citySelectionVersion" :city-error="$errors->first('address.city_id')" />
-                <flux:input name="address[street]" error:name="address.street" label="Logradouro" wire:model="values.address.street" :value="$values['address']['street']" :invalid="$errors->has('address.street')" maxlength="255" autocomplete="address-line1" required />
-                <flux:input name="address[number]" error:name="address.number" label="Número" wire:model="values.address.number" :value="$values['address']['number']" :invalid="$errors->has('address.number')" maxlength="255" required />
-                <flux:input name="address[neighborhood]" error:name="address.neighborhood" label="Bairro" wire:model="values.address.neighborhood" :value="$values['address']['neighborhood']" :invalid="$errors->has('address.neighborhood')" maxlength="255" required />
-                <flux:input name="address[zip_code]" error:name="address.zip_code" label="CEP (opcional)" wire:model="values.address.zip_code" :value="$values['address']['zip_code']" :invalid="$errors->has('address.zip_code')" maxlength="9" autocomplete="postal-code" />
-            </div>
+            <x-address.form-fields :values="$values['address']" :selected-city-id="$selectedCityId" :campus-id="$campusId" :selection-key="'campus-city-'.$citySelectionVersion" :city-message="$cityLookupMessage" />
         </section>
 
         <flux:separator class="xl:hidden" />
@@ -270,6 +278,7 @@ new class extends Component
         </section>
     </div>
 
+    @if ($canEditCnpj)
     <flux:modal
         name="campus-cnpj-preview"
         wire:model.self="showLookupPreview"
@@ -335,4 +344,5 @@ new class extends Component
             </div>
         </div>
     </flux:modal>
+    @endif
 </div>

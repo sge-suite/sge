@@ -205,9 +205,9 @@ test('the active affiliation determines campus permissions when one account has 
     $this->actingAs($user)->withSession(['active_affiliation_id' => $campusAdministrator->id]);
 
     $this->postJson(route('campuses.store'), $payload)->assertForbidden();
-    $this->putJson(route('campuses.update', $campus), ['name' => 'Nome não permitido'])
+    $this->putJson(route('campuses.update', $campus), ['cnpj' => '11111111111111'])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['name']);
+        ->assertJsonValidationErrors(['cnpj']);
 
     $payload['cnpj'] = '11222333000181';
     $payload['phone'] = '(55) 3333-4444';
@@ -239,7 +239,7 @@ test('an invalid or deactivated affiliation cannot authorize campus mutations', 
     expect($campus->fresh()->phone)->not->toBe('55988887777');
 });
 
-test('campus administrators can edit only phone representative and insurance fields for their own active campus', function () {
+test('campus administrators can edit their own active campus including its cnpj', function () {
     $user = User::factory()->create();
     $campus = Campus::factory()->create();
     $otherCampus = Campus::factory()->create();
@@ -254,7 +254,7 @@ test('campus administrators can edit only phone representative and insurance fie
             'insurance_company_name' => 'Seguradora Institucional',
             'insurance_policy_number' => 'APOL-2026-01',
         ])
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('campuses.own'));
 
     expect($campus->fresh()->phone)->toBe('55988887777')
         ->and($campus->fresh()->legal_representative_name)->toBe('Nova Responsável')
@@ -262,9 +262,9 @@ test('campus administrators can edit only phone representative and insurance fie
         ->and($campus->fresh()->address_id)->toBe($addressId)
         ->and(Activity::forSubject($campus)->where('event', 'updated')->sole()->causer->is($affiliation))->toBeTrue();
 
-    $this->putJson(route('campuses.update', $campus), ['name' => 'Nome não permitido'])
+    $this->putJson(route('campuses.update', $campus), ['cnpj' => '11111111111111'])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['name']);
+        ->assertJsonValidationErrors(['cnpj']);
 
     $this->putJson(route('campuses.update', $otherCampus), ['phone' => '(55) 98888-7777'])
         ->assertForbidden();
@@ -273,7 +273,7 @@ test('campus administrators can edit only phone representative and insurance fie
     $this->patchJson(route('campuses.reactivate', $campus))
         ->assertForbidden();
 
-    expect($campus->fresh()->name)->not->toBe('Nome não permitido');
+    expect($campus->fresh()->cnpj)->toBe($campus->cnpj);
 });
 
 test('system administrators can update campus fields and the existing owned address in one audited transaction', function () {

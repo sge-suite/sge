@@ -17,6 +17,14 @@ class CampusPolicy
         return $this->activeAffiliation($user)?->type === AffiliationType::SystemAdministrator;
     }
 
+    public function viewOwn(User $user): bool
+    {
+        $affiliation = $this->activeAffiliation($user);
+
+        return $affiliation?->type === AffiliationType::CampusAdministrator
+            && $affiliation->campus_id !== null;
+    }
+
     public function viewAny(User $user): bool
     {
         $affiliation = $this->activeAffiliation($user);
@@ -56,10 +64,9 @@ class CampusPolicy
                 && $affiliation->campus_id === $campus->getKey());
     }
 
-    public function updateInstitutionalFields(User $user, Campus $campus): bool
+    public function updateCnpj(User $user, Campus $campus): bool
     {
-        return $this->update($user, $campus)
-            && $this->activeAffiliation($user)?->type === AffiliationType::SystemAdministrator;
+        return $this->update($user, $campus);
     }
 
     public function deactivate(User $user, Campus $campus): bool
