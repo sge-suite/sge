@@ -291,13 +291,23 @@ test('preserves an existing account when affiliation creation fails', function (
     Bus::assertNothingDispatched();
 });
 
-test('terminal creation rejects active administrative duplicate and identifies the existing affiliation', function () {
+test('terminal creation rejects an active administrative duplicate at the cpf prompt', function () {
     $user = User::factory()->create(['cpf' => '52998224725']);
     $existing = Affiliation::factory()->global()->for($user)->create();
     $activityCount = Activity::count();
-    expectExistingAdminPrompts($this->artisan('admin:create'))
+    $this->artisan('admin:create')
+        ->expectsQuestion('CPF (11 dígitos, somente números)', '52998224725')
         ->expectsOutputToContain('Já existe o vínculo ativo #'.$existing->id)
         ->assertFailed();
     expect($user->affiliations()->count())->toBe(1)->and(Activity::count())->toBe($activityCount);
     Bus::assertNotDispatched(SendEmailDelivery::class);
+});
+
+test('terminal creation rejects a blank normalized name before asking for email', function () {
+    $this->artisan('admin:create')
+        ->expectsQuestion('CPF (11 dígitos, somente números)', '52998224725')
+        ->expectsQuestion('Nome completo', '   ')
+        ->assertFailed();
+
+    expect(User::count())->toBe(0)->and(Affiliation::count())->toBe(0);
 });

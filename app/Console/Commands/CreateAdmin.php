@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\AdministrativeAffiliationTransaction;
 use App\Actions\CreateAdministrativeAffiliation;
 use App\Enums\AffiliationType;
 use App\Models\User;
@@ -20,7 +21,7 @@ use function Laravel\Prompts\text;
 #[Description('Cria um vínculo ativo de Administrador do Sistema.')]
 class CreateAdmin extends Command
 {
-    public function handle(CreateAdministrativeAffiliation $create): int
+    public function handle(CreateAdministrativeAffiliation $create, AdministrativeAffiliationTransaction $transaction): int
     {
         if (! $this->input->isInteractive()) {
             $this->error('Este comando precisa de um terminal interativo.');
@@ -29,11 +30,7 @@ class CreateAdmin extends Command
         }
 
         try {
-            $cpf = $this->askText(
-                'CPF (11 dígitos, somente números)',
-                'cpf',
-                ['required', 'string', 'regex:/^[0-9]{11}$/', new Cpf],
-            );
+            $cpf = $this->askCpf($transaction);
             $existingUser = User::query()->where('cpf', $cpf)->first();
 
             if ($existingUser === null) {
@@ -108,11 +105,40 @@ class CreateAdmin extends Command
      */
     private function askText(string $label, string $attribute, array $rules, ?\Closure $transform = null): string
     {
-        return text(
+        $value = text(
             $label,
             required: true,
-            validate: fn (string $value): ?string => $this->validationError($attribute, $value, $rules),
+            validate: fn (string $value): ?string => $this->validationError($attribute, $transform === null ? $value : $transform($value), $rules),
             transform: $transform,
+        );
+
+        return $transform === null ? $value : $transform($value);
+    }
+
+    private function askCpf(AdministrativeAffiliationTransaction $transaction): string
+    {
+        return text(
+            'CPF (11 dígitos, somente números)',
+            required: true,
+            validate: function (string $value) use ($transaction): ?string {
+                $error = $this->validationError('cpf', $value, ['bail', 'required', 'string', 'regex:/^[0-9]{11}$/', new Cpf]);
+
+                if ($error !== null) {
+                    return $error;
+                }
+
+                $user = User::query()->where('cpf', $value)->first();
+
+                if ($user !== null) {
+                    try {
+                        $transaction->assertNoActiveDuplicate($user, AffiliationType::SystemAdministrator, null);
+                    } catch (ValidationException $exception) {
+                        return $exception->validator->errors()->first();
+                    }
+                }
+
+                return null;
+            },
         );
     }
 
