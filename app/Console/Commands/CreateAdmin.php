@@ -6,6 +6,7 @@ use App\Actions\AdministrativeAffiliationTransaction;
 use App\Actions\CreateAdministrativeAffiliation;
 use App\Enums\AffiliationType;
 use App\Models\User;
+use App\Rules\RegistrationNumberBelongsToUser;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -51,7 +52,7 @@ class CreateAdmin extends Command
             $registrationNumber = $this->askText(
                 'Número de registro institucional',
                 'registration_number',
-                ['required', 'string', 'max:255'],
+                ['bail', 'required', 'string', 'max:255', new RegistrationNumberBelongsToUser($existingUser?->id)],
                 transform: static fn (string $value): string => trim($value),
             );
             $this->newLine();

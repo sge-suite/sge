@@ -107,6 +107,21 @@ test('concurrent duplicate creations serialize on the oldest administrator even 
     expect($results)->toBe(['success', 'validation'])->and($target->affiliations()->active()->count())->toBe(1);
 });
 
+test('concurrent creations cannot assign the same registration to different people', function () {
+    $oldest = Affiliation::factory()->global()->deactivated()->create();
+    $actor = User::factory()->create();
+    Affiliation::factory()->global()->for($actor)->create();
+    $first = User::factory()->create();
+    $second = User::factory()->create();
+    $results = runConcurrentAdministrativeWrites([
+        [$actor->id, $first->id, 'create'], [$actor->id, $second->id, 'create'],
+    ], $oldest);
+    sort($results);
+
+    expect($results)->toBe(['success', 'validation'])
+        ->and(Affiliation::query()->where('registration_number', 'NEW')->count())->toBe(1);
+});
+
 test('concurrent creation and reactivation leave exactly one active affiliation', function () {
     $oldest = Affiliation::factory()->global()->deactivated()->create();
     $actor = User::factory()->create();

@@ -7,6 +7,6 @@ class StoreAdministrativeAffiliationRequest extends AdministrativeAffiliationReq
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
-        return $this->administrativeAffiliationRules();
+        return $this->administrativeAffiliationRules($this->route('user'));
     }
 }

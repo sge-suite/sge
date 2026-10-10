@@ -260,29 +260,88 @@ test('requires an active non-deleted campus on creation and reactivation', funct
     expect($affiliation->fresh()->deactivated_at)->toBeNull();
 });
 
-test('validates student registration uniqueness and allows repeated server registrations', function () {
+test('validates student registration uniqueness and allows server reuse for the same person', function () {
     $campus = Campus::factory()->create();
+    $user = User::factory()->create();
     $registrationNumber = 'APP-REG-REUSE-001';
 
-    Affiliation::factory()->student()->for($campus)->create([
+    Affiliation::factory()->student()->for($campus)->for($user)->create([
         'registration_number' => $registrationNumber,
     ]);
 
-    expect(fn () => Affiliation::factory()->student()->for($campus)->create([
+    expect(fn () => Affiliation::factory()->student()->for($campus)->for($user)->create([
         'registration_number' => $registrationNumber,
     ]))->toThrow(ValidationException::class);
 
-    $firstServer = Affiliation::factory()->server()->for($campus)->create([
+    $firstServer = Affiliation::factory()->server()->for($campus)->for($user)->create([
         'type' => AffiliationType::CampusAdministrator,
         'registration_number' => 'SERVER-REG-REUSE-001',
     ]);
-    $secondServer = Affiliation::factory()->server()->for($campus)->create([
+    $secondServer = Affiliation::factory()->server()->for($campus)->for($user)->create([
         'type' => AffiliationType::Coordinator,
         'registration_number' => 'SERVER-REG-REUSE-001',
     ]);
 
     expect($firstServer->exists)->toBeTrue()
         ->and($secondServer->exists)->toBeTrue();
+});
+
+test('registration cannot belong to different people across campuses profiles or inactive affiliations', function (bool $inactive, bool $studentOwner) {
+    $owner = $studentOwner ? Affiliation::factory()->student() : Affiliation::factory()->server();
+    $owner->create(['registration_number' => 'SHARED-001', 'deactivated_at' => $inactive ? now() : null]);
+
+    expect(fn () => Affiliation::factory()->global()->create(['registration_number' => ' SHARED-001 ']))
+        ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.')
+        ->and(Affiliation::count())->toBe(1);
+})->with([true, false])->with([true, false]);
+
+test('changing a registration or its owner cannot take another persons number', function (bool $changeOwner) {
+    $owner = Affiliation::factory()->global()->create(['registration_number' => 'OWNER-001']);
+    $other = Affiliation::factory()->global()->create(['registration_number' => 'OTHER-001']);
+    if ($changeOwner) {
+        Affiliation::factory()->server()->for($owner->user)->create(['registration_number' => $owner->registration_number]);
+    }
+
+    expect(fn () => $changeOwner
+        ? $owner->update(['user_id' => $other->user_id])
+        : $other->update(['registration_number' => 'OWNER-001']))
+        ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.');
+
+    expect($owner->fresh()->user_id)->toBe($owner->getOriginal('user_id'))
+        ->and($other->fresh()->registration_number)->toBe('OTHER-001');
+})->with([true, false]);
+
+test('a registration can change owner when no other affiliation keeps the number', function () {
+    $affiliation = Affiliation::factory()->global()->create();
+    $newOwner = User::factory()->create();
+    $affiliation->update(['user_id' => $newOwner->id]);
+
+    expect($affiliation->fresh()->user_id)->toBe($newOwner->id);
+});
+
+test('the same person can reuse a student registration in a server affiliation', function () {
+    $student = Affiliation::factory()->student()->create(['registration_number' => 'STUDENT-SERVER-001']);
+    $server = Affiliation::factory()->server()->for($student->user)->create(['registration_number' => ' STUDENT-SERVER-001 ']);
+
+    $server->update(['email' => 'updated@example.test']);
+
+    expect($server->fresh()->registration_number)->toBe($student->registration_number);
+});
+
+test('historical ownership conflicts allow deactivation but require correction before reactivation', function () {
+    $owner = Affiliation::factory()->global()->create(['registration_number' => 'LEGACY-CONFLICT']);
+    $other = Affiliation::factory()->global()->create(['registration_number' => 'OTHER']);
+    DB::table('affiliations')->where('id', $other->id)->update(['registration_number' => $owner->registration_number]);
+    $other->refresh()->update(['deactivated_at' => now()]);
+
+    expect($other->fresh()->deactivated_at)->not->toBeNull()
+        ->and(fn () => $other->update(['deactivated_at' => null]))
+        ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.');
+
+    $other->refresh()->update(['registration_number' => 'CORRECTED']);
+    $other->update(['deactivated_at' => null]);
+
+    expect($other->fresh()->deactivated_at)->toBeNull();
 });
 
 test('tracks affiliation lifecycle and excludes deactivated records from active affiliations', function () {

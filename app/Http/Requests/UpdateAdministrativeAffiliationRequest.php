@@ -12,6 +12,6 @@ class UpdateAdministrativeAffiliationRequest extends AdministrativeAffiliationRe
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
-        return $this->administrativeAffiliationEditableRules();
+        return $this->administrativeAffiliationEditableRules($this->route('user'));
     }
 }

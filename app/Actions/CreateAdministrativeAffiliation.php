@@ -31,7 +31,7 @@ class CreateAdministrativeAffiliation
                 ? User::query()->where('cpf', $data['cpf'])->lockForUpdate()->first()
                 : User::query()->lockForUpdate()->findOrFail($target->id);
             $isNewAccount = $user === null;
-            Validator::make($data, [...$this->administrativeAccountRules($user), ...$this->administrativeAffiliationRules()])->validate();
+            Validator::make($data, [...$this->administrativeAccountRules($user), ...$this->administrativeAffiliationRules($user)])->validate();
 
             $type = AffiliationType::from($data['type']);
             $campusId = $type === AffiliationType::CampusAdministrator ? (int) $data['campus_id'] : null;

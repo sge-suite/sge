@@ -303,6 +303,40 @@ test('terminal creation rejects an active administrative duplicate at the cpf pr
     Bus::assertNotDispatched(SendEmailDelivery::class);
 });
 
+test('terminal creation rejects another persons registration at its prompt before confirmation', function (bool $existingAccount) {
+    Affiliation::factory()->global()->deactivated()->create(['registration_number' => 'TAKEN']);
+    if ($existingAccount) {
+        User::factory()->create(['cpf' => '52998224725']);
+    }
+    $userCount = User::count();
+    $affiliationCount = Affiliation::count();
+    $activityCount = Activity::count();
+    $command = $this->artisan('admin:create')
+        ->expectsQuestion('CPF (11 dígitos, somente números)', '52998224725');
+    if (! $existingAccount) {
+        $command->expectsQuestion('Nome completo', 'Ada Lovelace');
+    }
+    $command->expectsQuestion($existingAccount ? 'E-mail do vínculo' : 'E-mail da conta', 'ada@example.test')
+        ->expectsQuestion('Número de registro institucional', ' TAKEN ')
+        ->expectsOutputToContain('Este registro institucional já pertence a outra pessoa.')
+        ->assertFailed();
+
+    expect(User::count())->toBe($userCount)
+        ->and(Affiliation::count())->toBe($affiliationCount)
+        ->and(Activity::count())->toBe($activityCount)
+        ->and(EmailDeliveryAttempt::count())->toBe(0);
+    Bus::assertNotDispatched(SendEmailDelivery::class);
+})->with([true, false]);
+
+test('terminal creation reuses the existing persons registration from another profile', function () {
+    $user = User::factory()->create(['cpf' => '52998224725']);
+    Affiliation::factory()->server()->deactivated()->for($user)->create(['registration_number' => 'ADM-007']);
+
+    expectExistingAdminPrompts($this->artisan('admin:create'))->assertSuccessful();
+
+    expect($user->affiliations()->pluck('registration_number')->all())->toBe(['ADM-007', 'ADM-007']);
+});
+
 test('terminal creation rejects a blank normalized name before asking for email', function () {
     $this->artisan('admin:create')
         ->expectsQuestion('CPF (11 dígitos, somente números)', '52998224725')

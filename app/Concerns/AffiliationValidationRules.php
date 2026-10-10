@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Enums\AffiliationType;
+use App\Rules\RegistrationNumberBelongsToUser;
 use Illuminate\Validation\Rule;
 
 trait AffiliationValidationRules
@@ -38,6 +39,17 @@ trait AffiliationValidationRules
         $registrationNumberRules = $type === AffiliationType::Supervisor->value
             ? ['nullable', 'prohibited']
             : ['required', 'string', 'max:255'];
+
+        $requiresRegistrationOwnership = ! $this->exists
+            || $this->isDirty(['user_id', 'registration_number'])
+            || ($this->getOriginal('deactivated_at') !== null && ($attributes['deactivated_at'] ?? null) === null);
+
+        if ($requiresRegistrationOwnership) {
+            $registrationNumberRules[] = new RegistrationNumberBelongsToUser(
+                isset($attributes['user_id']) ? (int) $attributes['user_id'] : null,
+                $this->exists ? $this->getKey() : null,
+            );
+        }
 
         if ($type === AffiliationType::Student->value) {
             $uniqueRegistrationNumber = Rule::unique('affiliations', 'registration_number')
@@ -77,6 +89,10 @@ trait AffiliationValidationRules
 
     protected function nullifyBlankOptionalAffiliationValues(): void
     {
+        if (is_string($this->registration_number)) {
+            $this->registration_number = trim($this->registration_number);
+        }
+
         foreach (['campus_id', 'course_id', 'registration_number', 'deactivated_at', 'last_used_at'] as $attribute) {
             if (blank($this->getAttributes()[$attribute] ?? null)) {
                 $this->{$attribute} = null;

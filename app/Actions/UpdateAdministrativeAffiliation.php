@@ -35,7 +35,7 @@ class UpdateAdministrativeAffiliation
             if ($operation === 'update') {
                 $data['email'] = mb_strtolower(trim($data['email']));
                 $data['registration_number'] = trim($data['registration_number']);
-                $data = Validator::make($data, $this->administrativeAffiliationEditableRules())->validate();
+                $data = Validator::make($data, $this->administrativeAffiliationEditableRules($user))->validate();
                 $affiliation->update($data);
             } elseif (in_array($operation, ['deactivate', 'delete'], true)) {
                 Validator::make($data, ['confirmed' => ['accepted'], 'current_password' => ['required', 'string']])->validate();

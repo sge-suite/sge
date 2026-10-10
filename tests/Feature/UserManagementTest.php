@@ -2,6 +2,7 @@
 
 use App\Actions\CreateAdministrativeAffiliation;
 use App\Actions\RequestEmailDelivery;
+use App\Actions\UpdateAdministrativeAffiliation;
 use App\Enums\AffiliationType;
 use App\Enums\EmailMessagePurpose;
 use App\Jobs\SendEmailDelivery;
@@ -86,6 +87,58 @@ test('campus administrators can have multiple campi but active duplicates identi
     $this->post(route('users.affiliations.store', $user), [...$data, 'campus_id' => $second->id])->assertSessionHasNoErrors();
     expect($user->affiliations()->count())->toBe(2);
 });
+
+test('administrative forms reject another persons registration in every write flow', function (string $operation, bool $inactiveOwner) {
+    userManagementAdministrator();
+    Affiliation::factory()->server()->create(['registration_number' => 'TAKEN', 'deactivated_at' => $inactiveOwner ? now() : null]);
+    $user = User::factory()->create();
+    $affiliation = Affiliation::factory()->global()->for($user)->create();
+    $userCount = User::count();
+    $affiliationCount = Affiliation::count();
+    $original = $affiliation->fresh()->getAttributes();
+    $data = ['type' => 'campus_administrator', 'campus_id' => Campus::factory()->create()->id, 'email' => 'new@example.test', 'registration_number' => ' TAKEN '];
+    $activityCount = Activity::count();
+
+    if ($operation === 'account') {
+        $this->post(route('users.store'), administrativeUserPayload(['registration_number' => ' TAKEN ']))->assertSessionHasErrors('registration_number');
+    } elseif ($operation === 'affiliation') {
+        $this->post(route('users.affiliations.store', $user), $data)->assertSessionHasErrors('registration_number');
+    } else {
+        $this->put(route('users.affiliations.update', [$user, $affiliation]), ['email' => $data['email'], 'registration_number' => $data['registration_number']])->assertSessionHasErrors('registration_number');
+    }
+
+    expect(User::count())->toBe($userCount)
+        ->and(Affiliation::count())->toBe($affiliationCount)
+        ->and($affiliation->fresh()->getAttributes())->toBe($original)
+        ->and(Activity::count())->toBe($activityCount)
+        ->and(EmailDeliveryAttempt::count())->toBe(0);
+    Bus::assertNotDispatched(SendEmailDelivery::class);
+})->with(['account', 'affiliation', 'update'])->with([true, false]);
+
+test('administrative editing allows a number already used by the same person', function () {
+    userManagementAdministrator();
+    $owner = Affiliation::factory()->server()->create(['registration_number' => 'SAME-PERSON']);
+    $affiliation = Affiliation::factory()->global()->for($owner->user)->create();
+
+    $this->put(route('users.affiliations.update', [$owner->user, $affiliation]), ['email' => $affiliation->email, 'registration_number' => ' SAME-PERSON '])
+        ->assertSessionHasNoErrors();
+
+    expect($affiliation->fresh()->registration_number)->toBe('SAME-PERSON');
+});
+
+test('actions revalidate registration ownership without relying on form requests', function (bool $update) {
+    $actor = userManagementAdministrator();
+    Affiliation::factory()->global()->deactivated()->create(['registration_number' => 'TAKEN']);
+    $target = User::factory()->create();
+    $affiliation = Affiliation::factory()->global()->for($target)->create();
+    $data = ['email' => 'new@example.test', 'registration_number' => 'TAKEN'];
+    $campus = Campus::factory()->create();
+
+    expect(fn () => $update
+        ? app(UpdateAdministrativeAffiliation::class)->handle($actor, $target, $affiliation, 'update', $data)
+        : app(CreateAdministrativeAffiliation::class)->handle([...$data, 'type' => 'campus_administrator', 'campus_id' => $campus->id], $actor, $target))
+        ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.');
+})->with([true, false]);
 
 test('edits only email and registration including inactive affiliations without new mail', function (bool $inactive) {
     userManagementAdministrator();
