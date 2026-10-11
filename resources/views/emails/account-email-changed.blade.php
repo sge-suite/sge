@@ -3,6 +3,10 @@
 
 O endereço usado para entrar no Sistema de Gestão de Estágios foi alterado.
 
+@if ($isSelfChange ?? false)
+Esta alteração foi realizada por você, na sua própria conta.
+@endif
+
 <x-mail::panel>
 **E-mail anterior:** {{ $previousEmail }}
 

@@ -197,7 +197,9 @@ test('administrative email signature snapshots the requester and falls back to t
     $message = $attempt->emailMessage;
 
     expect($message->content_html)->toContain('Solicitante original', 'Administrador do Sistema', 'via '.config('app.name'))
-        ->and($message->content_text)->toContain('Solicitante original', 'Administrador do Sistema', 'via '.config('app.name'));
+        ->not->toContain('Esta alteração foi realizada por você, na sua própria conta.')
+        ->and($message->content_text)->toContain('Solicitante original', 'Administrador do Sistema', 'via '.config('app.name'))
+        ->not->toContain('Esta alteração foi realizada por você, na sua própria conta.');
     $requester->user->update(['name' => 'Solicitante renomeado']);
     $attempt->update(['status' => EmailDeliveryAttemptStatus::Failed, 'failed_at' => now(), 'failure_reason' => 'transport_failed']);
     $retry = $request->retry($attempt);
@@ -210,6 +212,23 @@ test('administrative email signature snapshots the requester and falls back to t
         ->not->toContain('Solicitante original', 'Solicitante renomeado', 'via '.config('app.name'))
         ->and($automatic->content_text)->not->toContain('via '.config('app.name'));
 })->with(['account_created', 'new_affiliation', 'account_email_changed', 'administrative_change']);
+
+test('own email changes identify the account holder and use the system signature', function (string $actorType) {
+    Bus::fake();
+    $affiliation = $actorType === 'administrator'
+        ? Affiliation::factory()->global()->create()
+        : Affiliation::factory()->create(['type' => AffiliationType::InternshipOffice]);
+    $account = $affiliation->user;
+
+    foreach ([$account->email, 'new@example.test'] as $recipient) {
+        $attempt = app(CauserResolver::class)->withCauser($affiliation, fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)
+            ->accountEmailChanged($recipient, $account->email, 'new@example.test', (string) Str::uuid(), $account));
+        foreach ([$attempt->emailMessage->content_html, $attempt->emailMessage->content_text] as $content) {
+            expect($content)->toContain('Esta alteração foi realizada por você, na sua própria conta.', config('app.name'))
+                ->not->toContain($account->name, 'Setor de Estágios', 'Administrador do Sistema', 'via '.config('app.name'));
+        }
+    }
+})->with(['office', 'administrator']);
 
 test('account invitation preserves its content after account changes and on retry', function () {
     Bus::fake();

@@ -135,8 +135,11 @@ class RequestEmailDelivery
 
         $scopeContext = $account === null ? null : app(EmailDeliveryContext::class)->forUser($account);
         $subject = 'E-mail da conta alterado';
+        $requester = app(CauserResolver::class)->resolve();
+        $isSelfChange = $account !== null && $requester instanceof Affiliation && $requester->user_id === $account->id;
         $data = [
-            ...$this->signatureData(),
+            ...($isSelfChange ? ['requesterName' => null, 'requesterRole' => null] : $this->signatureData()),
+            'isSelfChange' => $isSelfChange,
             'previousEmail' => $previousEmail,
             'newEmail' => $newEmail,
             'loginUrl' => route('login'),
