@@ -110,7 +110,7 @@ class AdministrativeActivityPresenter
             (new User)->getMorphClass() => ['name' => 'Nome', 'cpf' => 'CPF', 'email' => 'E-mail de login'],
             (new Affiliation)->getMorphClass() => [
                 'user_id' => 'ID da conta', 'campus_id' => 'ID do campus', 'course_id' => 'ID do curso',
-                'type' => 'Tipo de vínculo', 'registration_number' => 'Registro institucional',
+                'type' => 'Tipo de vínculo', 'registration_number' => 'Matrícula',
                 'email' => 'E-mail do vínculo', 'deactivated_at' => 'Desativação',
             ],
             default => [],

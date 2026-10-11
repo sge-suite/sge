@@ -21,7 +21,7 @@ function expectNewAdminPrompts(PendingCommand $command, string $cpf = '529982247
         ->expectsQuestion('CPF (11 dígitos, somente números)', $cpf)
         ->expectsQuestion('Nome completo', 'Ada Lovelace')
         ->expectsQuestion('E-mail da conta', $email)
-        ->expectsQuestion('Número de registro institucional', 'ADM-001')
+        ->expectsQuestion('Matrícula', 'ADM-001')
         ->expectsQuestion('Criar esta conta e seu vínculo administrador?', $confirm);
 }
 
@@ -30,7 +30,7 @@ function expectExistingAdminPrompts(PendingCommand $command, bool $confirm = tru
     return $command
         ->expectsQuestion('CPF (11 dígitos, somente números)', '52998224725')
         ->expectsQuestion('E-mail do vínculo', $email)
-        ->expectsQuestion('Número de registro institucional', 'ADM-007')
+        ->expectsQuestion('Matrícula', 'ADM-007')
         ->expectsQuestion('Adicionar o vínculo administrador a esta conta?', $confirm);
 }
 
@@ -317,8 +317,8 @@ test('terminal creation rejects another persons registration at its prompt befor
         $command->expectsQuestion('Nome completo', 'Ada Lovelace');
     }
     $command->expectsQuestion($existingAccount ? 'E-mail do vínculo' : 'E-mail da conta', 'ada@example.test')
-        ->expectsQuestion('Número de registro institucional', ' TAKEN ')
-        ->expectsOutputToContain('Este registro institucional já pertence a outra pessoa.')
+        ->expectsQuestion('Matrícula', ' TAKEN ')
+        ->expectsOutputToContain('Este matrícula já pertence a outra pessoa.')
         ->assertFailed();
 
     expect(User::count())->toBe($userCount)

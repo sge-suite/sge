@@ -189,7 +189,7 @@ new class extends Component
                     <flux:text size="sm">A matrícula copiada pode ser ajustada antes de salvar.</flux:text>
                 </div>
             @endif
-            <flux:input name="registration_number" label="Matrícula / registro institucional" wire:model="registrationNumber" :value="$registrationNumber" maxlength="255" error:name="registration_number" />
+            <flux:input name="registration_number" label="Matrícula" wire:model="registrationNumber" :value="$registrationNumber" maxlength="255" error:name="registration_number" />
         </section>
     @endif
 </div>

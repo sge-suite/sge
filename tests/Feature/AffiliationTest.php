@@ -291,7 +291,7 @@ test('registration cannot belong to different people across campuses profiles or
     $owner->create(['registration_number' => 'SHARED-001', 'deactivated_at' => $inactive ? now() : null]);
 
     expect(fn () => Affiliation::factory()->global()->create(['registration_number' => ' SHARED-001 ']))
-        ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.')
+        ->toThrow(ValidationException::class, 'Este matrícula já pertence a outra pessoa.')
         ->and(Affiliation::count())->toBe(1);
 })->with([true, false])->with([true, false]);
 
@@ -305,7 +305,7 @@ test('changing a registration or its owner cannot take another persons number', 
     expect(fn () => $changeOwner
         ? $owner->update(['user_id' => $other->user_id])
         : $other->update(['registration_number' => 'OWNER-001']))
-        ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.');
+        ->toThrow(ValidationException::class, 'Este matrícula já pertence a outra pessoa.');
 
     expect($owner->fresh()->user_id)->toBe($owner->getOriginal('user_id'))
         ->and($other->fresh()->registration_number)->toBe('OTHER-001');
@@ -336,7 +336,7 @@ test('historical ownership conflicts allow deactivation but require correction b
 
     expect($other->fresh()->deactivated_at)->not->toBeNull()
         ->and(fn () => $other->update(['deactivated_at' => null]))
-        ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.');
+        ->toThrow(ValidationException::class, 'Este matrícula já pertence a outra pessoa.');
 
     $other->refresh()->update(['registration_number' => 'CORRECTED']);
     $other->update(['deactivated_at' => null]);

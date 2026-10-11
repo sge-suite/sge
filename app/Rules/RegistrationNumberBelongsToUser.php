@@ -33,7 +33,7 @@ class RegistrationNumberBelongsToUser implements ValidationRule
         }
 
         if ($query->exists()) {
-            $fail('Este registro institucional já pertence a outra pessoa.');
+            $fail('Este matrícula já pertence a outra pessoa.');
         }
     }
 }

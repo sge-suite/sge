@@ -137,7 +137,7 @@ test('actions revalidate registration ownership without relying on form requests
     expect(fn () => $update
         ? app(UpdateAdministrativeAffiliation::class)->handle($actor, $target, $affiliation, 'update', $data)
         : app(CreateAdministrativeAffiliation::class)->handle([...$data, 'type' => 'internship_office', 'campus_id' => $campus->id], $actor, $target))
-        ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.');
+        ->toThrow(ValidationException::class, 'Este matrícula já pertence a outra pessoa.');
 })->with([true, false]);
 
 test('edits only email and registration including inactive affiliations without new mail', function (bool $inactive) {

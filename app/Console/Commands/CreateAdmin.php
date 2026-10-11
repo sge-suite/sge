@@ -50,7 +50,7 @@ class CreateAdmin extends Command
             }
 
             $registrationNumber = $this->askText(
-                'Número de registro institucional',
+                'Matrícula',
                 'registration_number',
                 ['bail', 'required', 'string', 'max:255', new RegistrationNumberBelongsToUser($existingUser?->id)],
                 transform: static fn (string $value): string => trim($value),

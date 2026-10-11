@@ -57,6 +57,6 @@ abstract class AdministrativeAffiliationRequest extends FormRequest
     /** @return array<string, string> */
     public function attributes(): array
     {
-        return ['name' => 'nome completo', 'cpf' => 'CPF', 'email' => 'e-mail', 'type' => 'tipo de vínculo', 'campus_id' => 'campus', 'registration_number' => 'registro institucional', 'current_password' => 'senha atual', 'confirmed' => 'confirmação'];
+        return ['name' => 'nome completo', 'cpf' => 'CPF', 'email' => 'e-mail', 'type' => 'tipo de vínculo', 'campus_id' => 'campus', 'registration_number' => 'matrícula', 'current_password' => 'senha atual', 'confirmed' => 'confirmação'];
     }
 }
