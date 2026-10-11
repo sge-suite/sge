@@ -262,7 +262,7 @@ test('successful native campus form redirects to the new campus details', functi
         'insurance_company_name' => 'Seguradora Institucional',
         'insurance_policy_number' => 'APOL-1234',
         'citySearch' => 'Santo Augusto',
-        'address' => ['city_id' => $city->id, 'street' => 'Rua do Campus', 'number' => 's/n', 'neighborhood' => 'Centro'],
+        'address' => ['city_id' => $city->id, 'street' => 'Rua do Campus', 'number' => 's/n', 'neighborhood' => 'Centro', 'zip_code' => '97015-000'],
     ]);
     $campus = Campus::query()->sole();
 

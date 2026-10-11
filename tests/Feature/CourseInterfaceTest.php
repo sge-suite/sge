@@ -29,7 +29,7 @@ test('course pages render administrative navigation forms and optional custom se
         ->assertSee('name="currentPassword"', false)
         ->assertSee('Sua senha atual')->assertSee('wire:submit="deactivateCourse"', false);
     $this->get(route('courses.edit', $course))->assertOk()->assertSee('Editar curso')->assertSee('value="Engenharia"', false);
-    $this->get(route('dashboard'))->assertOk()->assertSee(route('courses.index'))->assertDontSee(route('audit.index'))->assertDontSee(route('email-logs.index'));
+    $this->get(route('dashboard'))->assertOk()->assertSee(route('courses.index'))->assertSee(route('audit.index'))->assertSee(route('email-logs.index'));
 });
 
 test('course navigation depends on the selected affiliation policy', function () {

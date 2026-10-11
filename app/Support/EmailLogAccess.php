@@ -14,6 +14,7 @@ class EmailLogAccess
     public function __construct(
         private ActiveAffiliationContext $context,
         private AdministrativeEmailLogScope $administrativeScope,
+        private CampusEmailLogScope $campusScope,
     ) {}
 
     /** @return array<string, string> */
@@ -22,6 +23,7 @@ class EmailLogAccess
         $affiliation = $this->context->currentFor($user, $session);
         $purposes = match ($affiliation?->type) {
             AffiliationType::SystemAdministrator => $this->administrativeScope->purposes(),
+            AffiliationType::InternshipOffice => $this->campusScope->purposes(),
             default => [],
         };
 
@@ -35,6 +37,9 @@ class EmailLogAccess
 
         return match ($affiliation?->type) {
             AffiliationType::SystemAdministrator => $this->administrativeScope->apply(EmailDeliveryAttempt::query()),
+            AffiliationType::InternshipOffice => $affiliation->campus_id !== null && $affiliation->campus()->exists()
+                ? $this->campusScope->apply(EmailDeliveryAttempt::query(), $affiliation->campus_id, $user)
+                : null,
             default => null,
         };
     }

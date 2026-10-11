@@ -122,7 +122,7 @@ test('email logs show escaped text when only text was stored and explain missing
         ->assertSee('<iframe', false)->assertDontSee('O conteúdo deste envio não foi armazenado.');
 });
 
-test('non-system administrator affiliations cannot read email logs even on an administrator account', function (AffiliationType $type) {
+test('nonadministrative affiliations cannot read email logs even on an administrator account', function (AffiliationType $type) {
     $administrator = emailLogAdministrator();
     $attempt = administrativeEmailAttempt($administrator);
     $factory = Affiliation::factory()->for($administrator->user)->state(['type' => $type]);
@@ -137,7 +137,7 @@ test('non-system administrator affiliations cannot read email logs even on an ad
     $this->get(route('email-logs.show', $attempt))->assertForbidden();
     Livewire::test('pages::email-logs.index')->assertForbidden();
     $this->get(route('dashboard'))->assertOk()->assertDontSee(route('email-logs.index'), false);
-})->with(array_filter(AffiliationType::cases(), fn (AffiliationType $type): bool => $type !== AffiliationType::SystemAdministrator));
+})->with(array_filter(AffiliationType::cases(), fn (AffiliationType $type): bool => ! in_array($type, [AffiliationType::SystemAdministrator, AffiliationType::InternshipOffice], true)));
 
 test('email logs reject inactive foreign and choice-required contexts', function (string $context) {
     $administrator = emailLogAdministrator();

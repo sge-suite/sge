@@ -119,7 +119,7 @@ test('user detail groups account and current or deleted administrative affiliati
         ->and($historyIds)->not->toContain($outsideActivity->id);
 });
 
-test('every other selected profile is forbidden even when the account also has a system administrator affiliation', function (AffiliationType $type) {
+test('nonadministrative selected profiles are forbidden even on a system administrator account', function (AffiliationType $type) {
     $administrator = auditAdministrator();
     $factory = Affiliation::factory()->for($administrator->user)->state(['type' => $type]);
     if ($type === AffiliationType::Student) {
@@ -140,7 +140,7 @@ test('every other selected profile is forbidden even when the account also has a
         ->assertDontSee('href="'.route('audit.index').'"', false)
         ->assertDontSee('href="'.route('email-logs.index').'"', false);
     expect(Gate::allows('viewAny', Activity::class))->toBeFalse();
-})->with(array_filter(AffiliationType::cases(), fn (AffiliationType $type): bool => $type !== AffiliationType::SystemAdministrator));
+})->with(array_filter(AffiliationType::cases(), fn (AffiliationType $type): bool => ! in_array($type, [AffiliationType::SystemAdministrator, AffiliationType::InternshipOffice], true)));
 
 test('missing inactive foreign and invalid contexts do not grant audit access', function (string $context) {
     $administrator = auditAdministrator();
@@ -191,14 +191,14 @@ test('missing inactive foreign and invalid contexts do not grant audit access', 
 
 test('mounted audit reauthorizes every refresh filter and pagination request', function (string $revocation, string $request) {
     $administrator = auditAdministrator();
-    $other = Affiliation::factory()->for($administrator->user)->create(['type' => AffiliationType::InternshipOffice]);
+    $other = Affiliation::factory()->for($administrator->user)->create(['type' => AffiliationType::Advisor]);
     $foreign = auditAdministrator();
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
     $component = Livewire::test('pages::audit.index');
 
     match ($revocation) {
         'deactivated' => $administrator->update(['deactivated_at' => now()]),
-        'profile changed' => $administrator->update(['type' => AffiliationType::InternshipOffice, 'campus_id' => $other->campus_id]),
+        'profile changed' => $administrator->update(['type' => AffiliationType::Advisor, 'campus_id' => $other->campus_id]),
         'selected other profile' => session()->put('active_affiliation_id', $other->id),
         'foreign selection' => session()->put('active_affiliation_id', $foreign->id),
         'deleted' => $administrator->delete(),

@@ -13,6 +13,7 @@ class ActivityAccess
     public function __construct(
         private ActiveAffiliationContext $context,
         private AdministrativeActivityScope $administrativeScope,
+        private CampusActivityScope $campusScope,
     ) {}
 
     /**
@@ -31,7 +32,20 @@ class ActivityAccess
 
         return match ($affiliation->type) {
             AffiliationType::SystemAdministrator => $this->administrativeScope->apply(Activity::query()),
+            AffiliationType::InternshipOffice => $affiliation->campus_id !== null && $affiliation->campus()->exists()
+                ? $this->campusScope->apply(Activity::query(), $affiliation->campus_id, $user)
+                : null,
             default => null,
+        };
+    }
+
+    /** @return array<string, string> */
+    public function entityOptionsForCurrentContext(User $user, Store $session): array
+    {
+        return match ($this->context->currentFor($user, $session)?->type) {
+            AffiliationType::SystemAdministrator => ['campus' => 'Campi', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos administrativos'],
+            AffiliationType::InternshipOffice => ['campus' => 'Meu campus', 'course' => 'Cursos', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos no campus'],
+            default => [],
         };
     }
 }

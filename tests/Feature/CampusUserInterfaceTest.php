@@ -60,7 +60,7 @@ test('detail page shows local affiliations and shared creation and access editin
     $foreign = Affiliation::factory()->for($local)->create(['registration_number' => 'FOREIGN', 'email' => 'foreign@example.test']);
     $this->get(route('users.show', $local))->assertOk()->assertSee('Vínculos no campus')->assertSee($student->registration_number)->assertSee($course->name)
         ->assertDontSee($foreign->email)->assertDontSee($foreign->registration_number)
-        ->assertSee('Editar dados de acesso')->assertSee('Adicionar vínculo')->assertDontSee('Excluir conta')->assertDontSee('Auditoria');
+        ->assertSee('Editar dados de acesso')->assertSee('Adicionar vínculo')->assertDontSee('Excluir conta')->assertSee('Auditoria');
     $this->get(route('users.edit', $local))->assertOk()->assertSee(route('users.update', $local), false);
     $this->get(route('users.affiliations.create', $local))->assertOk()->assertSee(route('users.affiliations.store', $local), false)
         ->assertDontSee('value="system_administrator"', false)->assertDontSee('Consultar CPF');

@@ -2,6 +2,7 @@
 
 use App\Models\Affiliation;
 use App\Models\Campus;
+use App\Models\Course;
 use App\Models\User;
 use App\Support\AdministrativeActivityPresenter;
 use App\Support\ActivityAccess;
@@ -57,7 +58,7 @@ new #[Title('Auditoria')] class extends Component
 
     private function normalizeFilters(): void
     {
-        if (! in_array($this->entity, ['all', 'campus', 'user', 'affiliation'], true)) {
+        if (! array_key_exists($this->entity, $this->entityOptions)) {
             $this->entity = 'all';
         }
 
@@ -66,14 +67,21 @@ new #[Title('Auditoria')] class extends Component
         }
     }
 
+    /** @return array<string, string> */
+    #[Computed]
+    public function entityOptions(): array
+    {
+        return app(ActivityAccess::class)->entityOptionsForCurrentContext(auth()->user(), app('session.store'));
+    }
+
     #[Computed]
     public function activities(): LengthAwarePaginator
     {
         $query = app(ActivityAccess::class)->forCurrentContext(auth()->user(), app('session.store'));
         abort_if($query === null, 403);
-        $types = ['campus' => new Campus, 'user' => new User, 'affiliation' => new Affiliation];
+        $types = ['campus' => new Campus, 'course' => new Course, 'user' => new User, 'affiliation' => new Affiliation];
 
-        if (isset($types[$this->entity])) {
+        if (isset($types[$this->entity], $this->entityOptions[$this->entity])) {
             $query->where('subject_type', $types[$this->entity]->getMorphClass());
         }
 
@@ -99,17 +107,12 @@ new #[Title('Auditoria')] class extends Component
 <div class="w-full space-y-8">
     <div>
         <flux:heading size="xl" level="1">Auditoria</flux:heading>
-        <flux:text>Histórico de campi, contas com vínculos administrativos e vínculos de Administrador do Sistema e Setor de Estágios.</flux:text>
+        <flux:text>Histórico de alterações dos registros dentro do seu escopo de atuação.</flux:text>
     </div>
 
     <div class="flex flex-wrap items-end gap-4">
         <div class="w-full sm:max-w-xs">
-            <x-select wire:model.live="entity" label="Registro" :value="$entity" :options="[
-                'all' => 'Todos os registros administrativos',
-                'campus' => 'Campi',
-                'user' => 'Contas de usuários',
-                'affiliation' => 'Vínculos administrativos',
-            ]" />
+            <x-select wire:model.live="entity" label="Registro" :value="$entity" :options="['all' => 'Todos os registros', ...$this->entityOptions]" />
         </div>
         <div class="w-full sm:max-w-xs">
             <x-select wire:model.live="event" label="Ação" :value="$event" :options="[
