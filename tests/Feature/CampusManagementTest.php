@@ -39,7 +39,7 @@ function systemAdministratorFor(User $user): Affiliation
 function campusAdministratorFor(User $user, Campus $campus): Affiliation
 {
     return Affiliation::factory()->for($user)->create([
-        'type' => AffiliationType::CampusAdministrator,
+        'type' => AffiliationType::InternshipOffice,
         'campus_id' => $campus->id,
         'course_id' => null,
     ]);
@@ -239,7 +239,7 @@ test('an invalid or deactivated affiliation cannot authorize campus mutations', 
     expect($campus->fresh()->phone)->not->toBe('55988887777');
 });
 
-test('campus administrators can edit their own active campus including its cnpj', function () {
+test('internship office staff can edit their own active campus including its cnpj', function () {
     $user = User::factory()->create();
     $campus = Campus::factory()->create();
     $otherCampus = Campus::factory()->create();

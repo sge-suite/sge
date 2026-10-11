@@ -102,7 +102,7 @@ class EmailDeliveryAttempt extends Model
                 'scope_context.affiliation_ids' => ['sometimes', 'array'],
                 'scope_context.affiliation_ids.*' => ['integer', 'min:1'],
                 'scope_context.affiliation_types' => ['sometimes', 'array'],
-                'scope_context.affiliation_types.*' => [Rule::enum(AffiliationType::class)],
+                'scope_context.affiliation_types.*' => [Rule::in([...AffiliationType::values(), AffiliationType::LEGACY_CAMPUS_ADMINISTRATOR])],
                 'scope_context.campus_ids' => ['sometimes', 'array'],
                 'scope_context.campus_ids.*' => ['integer', 'min:1'],
             ])->validate();

@@ -12,11 +12,11 @@ use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     $this->campus = Campus::factory()->create();
-    $this->administrator = Affiliation::factory()->for($this->campus)->create(['type' => AffiliationType::CampusAdministrator]);
+    $this->administrator = Affiliation::factory()->for($this->campus)->create(['type' => AffiliationType::InternshipOffice]);
     $this->actingAs($this->administrator->user)->withSession(['active_affiliation_id' => $this->administrator->id]);
 });
 
-test('campus administrators manage courses using their selected campus and existing audit actor', function () {
+test('internship office staff manage courses using their selected campus and existing audit actor', function () {
     $this->post(route('courses.store'), ['name' => 'Técnico em Informática'])
         ->assertRedirect();
     $course = Course::query()->sole();
@@ -137,14 +137,14 @@ test('system administrators and other selected profiles receive no course manage
     $this->put(route('courses.update', $course), ['name' => 'Curso'])->assertForbidden();
     $this->patch(route('courses.deactivate', $course))->assertForbidden();
     $this->patch(route('courses.reactivate', $course))->assertForbidden();
-})->with(array_filter(AffiliationType::cases(), fn (AffiliationType $type): bool => $type !== AffiliationType::CampusAdministrator));
+})->with(array_filter(AffiliationType::cases(), fn (AffiliationType $type): bool => $type !== AffiliationType::InternshipOffice));
 
 test('selected deactivated or foreign affiliations cannot grant course access', function (string $contextKind) {
     $selected = $this->administrator;
     if ($contextKind === 'deactivated') {
         $selected->update(['deactivated_at' => now()]);
     } elseif ($contextKind === 'foreign') {
-        $selected = Affiliation::factory()->for($this->campus)->create(['type' => AffiliationType::CampusAdministrator]);
+        $selected = Affiliation::factory()->for($this->campus)->create(['type' => AffiliationType::InternshipOffice]);
     }
     $this->withSession(['active_affiliation_id' => $contextKind === 'missing' ? 9999999 : $selected->id]);
     expect(Gate::allows('viewAny', Course::class))->toBeFalse()->and(Gate::allows('create', Course::class))->toBeFalse();
@@ -242,7 +242,7 @@ test('course actions revalidate campus state and selected profile before persist
         ->toThrow(AuthorizationException::class);
 });
 
-test('course management does not grant campus administrators access to audit or email logs', function () {
+test('course management does not grant internship office staff access to audit or email logs', function () {
     $this->get(route('audit.index'))->assertForbidden();
     $this->get(route('email-logs.index'))->assertForbidden();
 });

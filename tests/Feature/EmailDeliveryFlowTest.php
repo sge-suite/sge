@@ -62,7 +62,7 @@ test('snapshots the new affiliation details into each login notice', function ()
     $user = User::factory()->create();
     $campus = Campus::factory()->create(['name' => 'INSTITUTO FEDERAL FARROUPILHA - CAMPUS SANTO AUGUSTO']);
     $affiliation = Affiliation::factory()->for($user)->create([
-        'type' => AffiliationType::CampusAdministrator,
+        'type' => AffiliationType::InternshipOffice,
         'campus_id' => $campus->id,
         'course_id' => null,
         'registration_number' => 'CA-2026-117',

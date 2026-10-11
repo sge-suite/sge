@@ -73,7 +73,7 @@ test('other profiles have no campus administration interface or navigation', fun
 test('only the selected affiliation grants campus frontend access', function () {
     $user = campusInterfaceAdministrator();
     $system = $user->affiliations()->sole();
-    $campusAffiliation = Affiliation::factory()->for($user)->create(['type' => AffiliationType::CampusAdministrator]);
+    $campusAffiliation = Affiliation::factory()->for($user)->create(['type' => AffiliationType::InternshipOffice]);
 
     $this->actingAs($user)->withSession(['active_affiliation_id' => $campusAffiliation->id]);
     $this->get(route('campuses.index'))->assertForbidden();
@@ -475,7 +475,7 @@ test('a campus deactivated after opening the edit page is not editable on refres
 test('switching to a campus affiliation revokes an already mounted administration page', function () {
     $user = campusInterfaceAdministrator();
     $systemAffiliation = $user->affiliations()->sole();
-    $campusAffiliation = Affiliation::factory()->for($user)->create(['type' => AffiliationType::CampusAdministrator]);
+    $campusAffiliation = Affiliation::factory()->for($user)->create(['type' => AffiliationType::InternshipOffice]);
     $this->actingAs($user)->withSession(['active_affiliation_id' => $systemAffiliation->id]);
     $component = Livewire::test('pages::campuses.index');
 

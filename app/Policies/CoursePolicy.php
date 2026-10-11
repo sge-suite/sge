@@ -14,19 +14,19 @@ class CoursePolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->administrator($user) !== null;
+        return $this->internshipOffice($user) !== null;
     }
 
     public function view(User $user, Course $course): bool
     {
-        $affiliation = $this->administrator($user);
+        $affiliation = $this->internshipOffice($user);
 
         return $affiliation !== null && $affiliation->campus_id === $course->campus_id;
     }
 
     public function create(User $user): bool
     {
-        $affiliation = $this->administrator($user);
+        $affiliation = $this->internshipOffice($user);
 
         return $affiliation !== null && $affiliation->campus->deactivated_at === null;
     }
@@ -51,11 +51,11 @@ class CoursePolicy
         return $this->update($user, $course);
     }
 
-    private function administrator(User $user): ?Affiliation
+    private function internshipOffice(User $user): ?Affiliation
     {
         $affiliation = $this->context->currentFor($user, app('session.store'));
 
-        if ($affiliation?->type !== AffiliationType::CampusAdministrator || $affiliation->campus_id === null) {
+        if ($affiliation?->type !== AffiliationType::InternshipOffice || $affiliation->campus_id === null) {
             return null;
         }
 

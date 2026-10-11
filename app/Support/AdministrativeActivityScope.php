@@ -48,7 +48,7 @@ class AdministrativeActivityScope
     /** @param Builder<Activity> $query */
     private function recordedAdministrativeType(Builder $query): void
     {
-        $types = [AffiliationType::SystemAdministrator->value, AffiliationType::CampusAdministrator->value];
+        $types = AffiliationType::administrativeValues();
 
         $query->whereIn('attribute_changes->attributes->type', $types)
             ->orWhereIn('attribute_changes->old->type', $types);
@@ -71,7 +71,7 @@ class AdministrativeActivityScope
             ->whereColumn('affiliation_type_history.id', '<=', $table.'.id')
             ->whereRaw($recordedType.' IS NOT NULL')
             ->orderByDesc('affiliation_type_history.id')->limit(1);
-        $types = [AffiliationType::SystemAdministrator->value, AffiliationType::CampusAdministrator->value];
+        $types = AffiliationType::administrativeValues();
 
         $query->where(function (Builder $query) use ($history, $types): void {
             $query->whereExists(function (QueryBuilder $recorded) use ($history, $types): void {
@@ -95,7 +95,7 @@ class AdministrativeActivityScope
     {
         /** @var literal-string $table */
         $table = (new Activity)->getTable();
-        $types = [AffiliationType::SystemAdministrator->value, AffiliationType::CampusAdministrator->value];
+        $types = AffiliationType::administrativeValues();
 
         $query->whereExists(function (QueryBuilder $history) use ($table, $types): void {
             $history->selectRaw('1')->from($table.' as affiliation_history')

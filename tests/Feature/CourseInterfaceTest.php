@@ -13,7 +13,7 @@ use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     $this->campus = Campus::factory()->create();
-    $this->administrator = Affiliation::factory()->for($this->campus)->create(['type' => AffiliationType::CampusAdministrator]);
+    $this->administrator = Affiliation::factory()->for($this->campus)->create(['type' => AffiliationType::InternshipOffice]);
     $this->actingAs($this->administrator->user)->withSession(['active_affiliation_id' => $this->administrator->id]);
 });
 
@@ -113,14 +113,14 @@ test('livewire refuses directly mounted courses from another campus', function (
 test('switching selected campus revokes existing course details edits and selectors', function (string $componentName) {
     $course = Course::factory()->for($this->campus)->create();
     $component = Livewire::test($componentName, ['course' => $course]);
-    $other = Affiliation::factory()->for($this->administrator->user)->create(['type' => AffiliationType::CampusAdministrator]);
+    $other = Affiliation::factory()->for($this->administrator->user)->create(['type' => AffiliationType::InternshipOffice]);
     session()->put('active_affiliation_id', $other->id);
     $component->call('$refresh')->assertForbidden();
 })->with(['pages::courses.show', 'pages::courses.edit', 'courses.form-fields']);
 
 test('new course selectors cannot continue after switching selected campus', function () {
     $component = Livewire::test('courses.form-fields');
-    $other = Affiliation::factory()->for($this->administrator->user)->create(['type' => AffiliationType::CampusAdministrator]);
+    $other = Affiliation::factory()->for($this->administrator->user)->create(['type' => AffiliationType::InternshipOffice]);
     session()->put('active_affiliation_id', $other->id);
     $component->call('$refresh')->assertForbidden();
 });
@@ -164,7 +164,7 @@ test('course deactivation modal keeps wrong-password feedback open and clears th
 test('livewire lifecycle actions reject a changed selected campus', function (string $operation) {
     $course = Course::factory()->for($this->campus)->create(['deactivated_at' => $operation === 'reactivateCourse' ? now() : null]);
     $component = Livewire::test('pages::courses.show', ['course' => $course]);
-    $other = Affiliation::factory()->for($this->administrator->user)->create(['type' => AffiliationType::CampusAdministrator]);
+    $other = Affiliation::factory()->for($this->administrator->user)->create(['type' => AffiliationType::InternshipOffice]);
     session()->put('active_affiliation_id', $other->id);
     $component->call($operation)->assertForbidden();
     expect($course->fresh()->deactivated_at === null)->toBe($operation === 'deactivateCourse');
@@ -240,7 +240,7 @@ test('course details offer deletion and require an explicit confirmation', funct
         ->assertSee('Confirme sua senha para continuar.');
 });
 
-test('a campus administrator cannot delete a course outside the selected campus', function () {
+test('internship office staff cannot delete a course outside the selected campus', function () {
     $course = Course::factory()->create();
     Livewire::test('pages::courses.show', ['course' => $course])->assertForbidden();
 });

@@ -140,7 +140,7 @@ test('personal data or nonadministrative history prevent account deletion', func
     if ($personalData) {
         UserPersonalData::factory()->for($this->target)->create();
     } else {
-        Affiliation::factory()->for($this->target)->create();
+        Affiliation::factory()->for($this->target)->create(['type' => AffiliationType::Advisor]);
     }
     $this->delete(route('users.destroy', $this->target), ['confirmed' => 1, 'current_password' => 'password'])->assertSessionHasErrors('account');
     $this->assertModelExists($this->target);
@@ -168,7 +168,7 @@ test('reservation failure rolls back account edit deletion or deactivation', fun
 
 test('changing selected role revokes mounted login editing and copying registration', function () {
     $component = Livewire::test('pages::users.edit', ['user' => $this->target]);
-    $other = Affiliation::factory()->for($this->actor)->create(['type' => AffiliationType::CampusAdministrator]);
+    $other = Affiliation::factory()->for($this->actor)->create(['type' => AffiliationType::InternshipOffice]);
     session()->put('active_affiliation_id', $other->id);
     $component->call('$refresh')->assertForbidden();
     $this->delete(route('users.destroy', $this->target), ['confirmed' => 1, 'current_password' => 'password'])->assertForbidden();

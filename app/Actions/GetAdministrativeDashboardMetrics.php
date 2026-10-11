@@ -51,12 +51,12 @@ class GetAdministrativeDashboardMetrics
 
         $affiliationTypes = collect(AffiliationType::cases())
             ->map(static function (AffiliationType $type) use ($affiliationCounts): array {
-                $counts = $affiliationCounts->get($type->value);
+                $counts = $affiliationCounts->only($type->databaseValues());
 
                 return [
                     'label' => $type->label(),
-                    'value' => (int) ($counts->total ?? 0),
-                    'active' => (int) ($counts->active ?? 0),
+                    'value' => (int) $counts->sum('total'),
+                    'active' => (int) $counts->sum('active'),
                 ];
             })
             ->all();

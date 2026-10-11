@@ -89,7 +89,7 @@ test('user detail groups account and current or deleted administrative affiliati
     $administrator = auditAdministrator();
     $account = User::factory()->create(['name' => 'Conta com histórico']);
     $systemAffiliation = Affiliation::factory()->global()->for($account)->create();
-    $campusAffiliation = Affiliation::factory()->for($account)->create(['type' => AffiliationType::CampusAdministrator]);
+    $campusAffiliation = Affiliation::factory()->for($account)->create(['type' => AffiliationType::InternshipOffice]);
     $deletedAffiliation = Affiliation::factory()->global()->for($account)->create();
     $account->update(['name' => 'Conta com nome alterado']);
     $systemAffiliation->update(['email' => 'sistema-alterado@example.test']);
@@ -191,14 +191,14 @@ test('missing inactive foreign and invalid contexts do not grant audit access', 
 
 test('mounted audit reauthorizes every refresh filter and pagination request', function (string $revocation, string $request) {
     $administrator = auditAdministrator();
-    $other = Affiliation::factory()->for($administrator->user)->create(['type' => AffiliationType::CampusAdministrator]);
+    $other = Affiliation::factory()->for($administrator->user)->create(['type' => AffiliationType::InternshipOffice]);
     $foreign = auditAdministrator();
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
     $component = Livewire::test('pages::audit.index');
 
     match ($revocation) {
         'deactivated' => $administrator->update(['deactivated_at' => now()]),
-        'profile changed' => $administrator->update(['type' => AffiliationType::CampusAdministrator, 'campus_id' => $other->campus_id]),
+        'profile changed' => $administrator->update(['type' => AffiliationType::InternshipOffice, 'campus_id' => $other->campus_id]),
         'selected other profile' => session()->put('active_affiliation_id', $other->id),
         'foreign selection' => session()->put('active_affiliation_id', $foreign->id),
         'deleted' => $administrator->delete(),
@@ -218,8 +218,8 @@ test('scope includes campuses and administrative accounts and affiliations regar
         $campus = Campus::factory()->create();
         $user = User::factory()->create();
         $administrative = Affiliation::factory()->global()->deactivated()->for($user)->create();
-        $other = Affiliation::factory()->for($user)->create();
-        $outside = Affiliation::factory()->create();
+        $other = Affiliation::factory()->for($user)->create(['type' => AffiliationType::Advisor]);
+        $outside = Affiliation::factory()->create(['type' => AffiliationType::Advisor]);
 
         return [$campus, $user, $administrative, $outside->user, $other, User::factory()->create()];
     });
@@ -266,7 +266,7 @@ test('scope includes campuses and administrative accounts and affiliations regar
 test('administrative campus affiliations and inactive campuses remain in scope', function () {
     $administrator = auditAdministrator();
     $campus = Campus::factory()->create();
-    $affiliation = Affiliation::factory()->for($campus)->create(['type' => AffiliationType::CampusAdministrator]);
+    $affiliation = Affiliation::factory()->for($campus)->create(['type' => AffiliationType::InternshipOffice]);
     $campus->deactivate();
     $affiliation->update(['deactivated_at' => now()]);
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
@@ -285,7 +285,7 @@ test('deleted administrative accounts and affiliations retain auditable history 
     $affiliation->delete();
     $user->delete();
     $outside = User::factory()->create(['name' => 'Conta operacional excluída']);
-    $outsideAffiliation = Affiliation::factory()->for($outside)->create();
+    $outsideAffiliation = Affiliation::factory()->for($outside)->create(['type' => AffiliationType::Advisor]);
     $outsideAffiliation->delete();
     $outside->delete();
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
@@ -302,11 +302,11 @@ test('deleted administrative accounts and affiliations retain auditable history 
 
 test('historical affiliation types cannot expose operational changes when the current type becomes administrative', function () {
     $administrator = auditAdministrator();
-    $affiliation = Affiliation::factory()->create();
+    $affiliation = Affiliation::factory()->create(['type' => AffiliationType::Advisor]);
     $created = Activity::forSubject($affiliation)->where('event', 'created')->sole();
     $affiliation->update(['email' => 'operational-history@example.test']);
     $operational = Activity::forSubject($affiliation)->where('event', 'updated')->sole();
-    $affiliation->update(['type' => AffiliationType::CampusAdministrator]);
+    $affiliation->update(['type' => AffiliationType::InternshipOffice]);
     $transition = Activity::forSubject($affiliation)->where('event', 'updated')->latest('id')->first();
     $affiliation->update(['email' => 'administrative-history@example.test']);
     $administrative = Activity::forSubject($affiliation)->where('event', 'updated')->latest('id')->first();
@@ -443,7 +443,7 @@ test('soft deleted campus is visible and current account without administrative 
 
 test('audit details reauthorize the selected context on every request', function (string $revocation) {
     $administrator = auditAdministrator();
-    $other = Affiliation::factory()->for($administrator->user)->create(['type' => AffiliationType::CampusAdministrator]);
+    $other = Affiliation::factory()->for($administrator->user)->create(['type' => AffiliationType::InternshipOffice]);
     $foreign = auditAdministrator();
     $activity = Activity::forSubject(Campus::factory()->create())->sole();
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
@@ -451,7 +451,7 @@ test('audit details reauthorize the selected context on every request', function
 
     match ($revocation) {
         'deactivated' => $administrator->update(['deactivated_at' => now()]),
-        'profile changed' => $administrator->update(['type' => AffiliationType::CampusAdministrator, 'campus_id' => $other->campus_id]),
+        'profile changed' => $administrator->update(['type' => AffiliationType::InternshipOffice, 'campus_id' => $other->campus_id]),
         'selected other profile' => session()->put('active_affiliation_id', $other->id),
         'foreign selection' => session()->put('active_affiliation_id', $foreign->id),
         'deleted' => $administrator->delete(),

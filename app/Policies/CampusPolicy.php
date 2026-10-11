@@ -21,7 +21,7 @@ class CampusPolicy
     {
         $affiliation = $this->activeAffiliation($user);
 
-        return $affiliation?->type === AffiliationType::CampusAdministrator
+        return $affiliation?->type === AffiliationType::InternshipOffice
             && $affiliation->campus_id !== null;
     }
 
@@ -30,7 +30,7 @@ class CampusPolicy
         $affiliation = $this->activeAffiliation($user);
 
         return $affiliation?->type === AffiliationType::SystemAdministrator
-            || ($affiliation?->type === AffiliationType::CampusAdministrator && $affiliation->campus_id !== null);
+            || ($affiliation?->type === AffiliationType::InternshipOffice && $affiliation->campus_id !== null);
     }
 
     public function view(User $user, Campus $campus): bool
@@ -42,7 +42,7 @@ class CampusPolicy
         $affiliation = $this->activeAffiliation($user);
 
         return $affiliation?->type === AffiliationType::SystemAdministrator
-            || ($affiliation?->type === AffiliationType::CampusAdministrator
+            || ($affiliation?->type === AffiliationType::InternshipOffice
                 && $affiliation->campus_id === $campus->getKey());
     }
 
@@ -60,7 +60,7 @@ class CampusPolicy
         $affiliation = $this->activeAffiliation($user);
 
         return $affiliation?->type === AffiliationType::SystemAdministrator
-            || ($affiliation?->type === AffiliationType::CampusAdministrator
+            || ($affiliation?->type === AffiliationType::InternshipOffice
                 && $affiliation->campus_id === $campus->getKey());
     }
 

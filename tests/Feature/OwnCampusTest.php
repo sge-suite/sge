@@ -11,7 +11,7 @@ use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     $this->campus = Campus::factory()->create(['cnpj' => '11222333000181']);
-    $this->administrator = Affiliation::factory()->for($this->campus)->create(['type' => AffiliationType::CampusAdministrator]);
+    $this->administrator = Affiliation::factory()->for($this->campus)->create(['type' => AffiliationType::InternshipOffice]);
     $this->actingAs($this->administrator->user)->withSession(['active_affiliation_id' => $this->administrator->id]);
 });
 
@@ -70,7 +70,7 @@ test('own campus components revalidate a changed or deactivated affiliation', fu
     if ($change === 'deactivated') {
         $this->administrator->update(['deactivated_at' => now()]);
     } else {
-        $other = Affiliation::factory()->for($this->administrator->user)->create(['type' => AffiliationType::CampusAdministrator]);
+        $other = Affiliation::factory()->for($this->administrator->user)->create(['type' => AffiliationType::InternshipOffice]);
         session()->put('active_affiliation_id', $other->id);
     }
     $component->call('$refresh')->assertForbidden();

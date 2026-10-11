@@ -109,7 +109,7 @@ test('all enum categories render zero progress charts without configured courses
         ->assertOk()
         ->assertSee('Estágios por situação')
         ->assertDontSee('Estágios cadastrados')
-        ->assertSee('1 vínculo ativo')
+        ->assertSee('1 ativo')
         ->assertSee('(1 ativo)')
         ->assertSee('text-brand', false);
 
@@ -121,6 +121,8 @@ test('all enum categories render zero progress charts without configured courses
 
     expect($metrics['internshipsByStatus'])
         ->toHaveCount(count(InternshipStatus::cases()))
+        ->and($metrics['affiliationsCount'])->toBe(1)
+        ->and($metrics['activeAffiliationsCount'])->toBe(1)
         ->and($metrics['maxInternshipStatusCount'])->toBe(1)
         ->and($metrics['internshipsCount'])->toBe(0)
         ->and(collect($metrics['internshipsByStatus'])->every(fn (array $status): bool => $status['value'] === 0))

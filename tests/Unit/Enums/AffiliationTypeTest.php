@@ -8,7 +8,6 @@ uses(TestCase::class);
 test('provides affiliation type values and labels', function () {
     expect(AffiliationType::values())->toBe([
         'system_administrator',
-        'campus_administrator',
         'internship_office',
         'coordinator',
         'advisor',
@@ -18,7 +17,6 @@ test('provides affiliation type values and labels', function () {
     ])
         ->and(AffiliationType::options())->toBe([
             'system_administrator' => 'Administrador do Sistema',
-            'campus_administrator' => 'Administrador do Campus',
             'internship_office' => 'Setor de Estágios',
             'coordinator' => 'Coordenador de Curso',
             'advisor' => 'Orientador',

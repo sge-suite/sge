@@ -43,7 +43,7 @@ beforeEach(function () {
 test('creates either administrator type with one email unknown password and affiliation audit actor', function (string $type) {
     $actor = userManagementAdministrator();
     $data = administrativeUserPayload(['type' => $type]);
-    if ($type === 'campus_administrator') {
+    if ($type === 'internship_office') {
         $data['campus_id'] = Campus::factory()->create()->id;
     }
     $this->post(route('users.store'), $data)->assertSessionHasNoErrors()->assertRedirect();
@@ -60,7 +60,7 @@ test('creates either administrator type with one email unknown password and affi
         ->and(Activity::all()->toJson())->not->toContain($user->password);
     Bus::assertDispatched(SendEmailDelivery::class, 1);
     Mail::assertNothingOutgoing();
-})->with(['system_administrator', 'campus_administrator']);
+})->with(['system_administrator', 'internship_office']);
 
 test('existing cpf preserves all account fields and notifies deduplicated recipients', function (bool $sameEmail) {
     userManagementAdministrator();
@@ -74,12 +74,12 @@ test('existing cpf preserves all account fields and notifies deduplicated recipi
     Mail::assertNothingOutgoing();
 })->with([true, false]);
 
-test('campus administrators can have multiple campi but active duplicates identify the existing affiliation', function () {
+test('internship office staff can have multiple campi but active duplicates identify the existing affiliation', function () {
     userManagementAdministrator();
     $user = User::factory()->create();
     $first = Campus::factory()->create();
     $second = Campus::factory()->create();
-    $data = ['type' => 'campus_administrator', 'campus_id' => $first->id, 'email' => 'adm@example.test', 'registration_number' => 'C-1'];
+    $data = ['type' => 'internship_office', 'campus_id' => $first->id, 'email' => 'adm@example.test', 'registration_number' => 'C-1'];
     $this->post(route('users.affiliations.store', $user), $data)->assertSessionHasNoErrors();
     $existing = $user->affiliations()->sole();
     $this->post(route('users.affiliations.store', $user), $data)->assertSessionHasErrors('type');
@@ -96,7 +96,7 @@ test('administrative forms reject another persons registration in every write fl
     $userCount = User::count();
     $affiliationCount = Affiliation::count();
     $original = $affiliation->fresh()->getAttributes();
-    $data = ['type' => 'campus_administrator', 'campus_id' => Campus::factory()->create()->id, 'email' => 'new@example.test', 'registration_number' => ' TAKEN '];
+    $data = ['type' => 'internship_office', 'campus_id' => Campus::factory()->create()->id, 'email' => 'new@example.test', 'registration_number' => ' TAKEN '];
     $activityCount = Activity::count();
 
     if ($operation === 'account') {
@@ -136,7 +136,7 @@ test('actions revalidate registration ownership without relying on form requests
 
     expect(fn () => $update
         ? app(UpdateAdministrativeAffiliation::class)->handle($actor, $target, $affiliation, 'update', $data)
-        : app(CreateAdministrativeAffiliation::class)->handle([...$data, 'type' => 'campus_administrator', 'campus_id' => $campus->id], $actor, $target))
+        : app(CreateAdministrativeAffiliation::class)->handle([...$data, 'type' => 'internship_office', 'campus_id' => $campus->id], $actor, $target))
         ->toThrow(ValidationException::class, 'Este registro institucional já pertence a outra pessoa.');
 })->with([true, false]);
 
@@ -186,7 +186,7 @@ test('selected affiliation cannot be deactivated even when another system admini
 test('a campus deactivated after the page was loaded rejects every write', function (string $operation) {
     userManagementAdministrator();
     $campus = Campus::factory()->create();
-    $affiliation = Affiliation::factory()->for($campus)->create(['type' => AffiliationType::CampusAdministrator]);
+    $affiliation = Affiliation::factory()->for($campus)->create(['type' => AffiliationType::InternshipOffice]);
     if ($operation === 'reactivate') {
         $affiliation->update(['deactivated_at' => now()]);
     }
@@ -213,7 +213,7 @@ test('creation rejects invalid or tampered fields', function (array $overrides, 
     expect(User::where('cpf', '52998224725')->exists())->toBeFalse();
 })->with([
     [['cpf' => '12345678901'], 'cpf'], [['consulted_cpf' => '11111111111'], 'consulted_cpf'],
-    [['type' => 'student'], 'type'], [['type' => ''], 'type'], [['type' => 'campus_administrator'], 'campus_id'],
+    [['type' => 'student'], 'type'], [['type' => ''], 'type'], [['type' => 'internship_office'], 'campus_id'],
     [['campus_id' => 1], 'campus_id'], [['course_id' => 1], 'course_id'], [['password' => 'injected'], 'password'], [['user_id' => 1], 'user_id'], [['login_email' => 'other@example.test'], 'login_email'],
 ]);
 
@@ -234,7 +234,7 @@ test('new login email cannot belong to another account but existing account affi
 test('creation revalidates campus activity in the transaction', function () {
     $actor = userManagementAdministrator();
     $campus = Campus::factory()->deactivated()->create();
-    expect(fn () => app(CreateAdministrativeAffiliation::class)->handle(administrativeUserPayload(['type' => 'campus_administrator', 'campus_id' => $campus->id]), $actor))
+    expect(fn () => app(CreateAdministrativeAffiliation::class)->handle(administrativeUserPayload(['type' => 'internship_office', 'campus_id' => $campus->id]), $actor))
         ->toThrow(ValidationException::class);
 });
 
@@ -245,12 +245,12 @@ test('incorrect selected profiles have no administrative user access even with a
     $this->get(route('users.index'))->assertForbidden();
     $this->get(route('users.create'))->assertForbidden();
     $this->post(route('users.store'), administrativeUserPayload())->assertForbidden();
-})->with(['campus_administrator', 'internship_office', 'advisor', 'teaching_direction']);
+})->with(['internship_office', 'advisor', 'teaching_direction']);
 
 test('transaction reauthorizes when context is switched or deactivated after waiting for the administrative lock', function (bool $deactivate) {
     $actor = userManagementAdministrator();
     $selected = $actor->affiliations()->sole();
-    $other = Affiliation::factory()->for($actor)->create(['type' => AffiliationType::CampusAdministrator]);
+    $other = Affiliation::factory()->for($actor)->create(['type' => AffiliationType::InternshipOffice]);
     $triggered = false;
     DB::listen(function ($query) use (&$triggered, $selected, $other, $deactivate): void {
         if (! $triggered && str_contains($query->sql, 'for update')) {

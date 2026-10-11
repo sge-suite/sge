@@ -274,7 +274,7 @@ test('validates student registration uniqueness and allows server reuse for the 
     ]))->toThrow(ValidationException::class);
 
     $firstServer = Affiliation::factory()->server()->for($campus)->for($user)->create([
-        'type' => AffiliationType::CampusAdministrator,
+        'type' => AffiliationType::InternshipOffice,
         'registration_number' => 'SERVER-REG-REUSE-001',
     ]);
     $secondServer = Affiliation::factory()->server()->for($campus)->for($user)->create([

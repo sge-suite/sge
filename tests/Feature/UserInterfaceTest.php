@@ -67,7 +67,7 @@ test('list includes only administrative persons with inactive history and pagina
     Affiliation::factory()->global()->deactivated()->for($inactive)->create();
     $multiple = User::factory()->create(['name' => 'Administradora com vários vínculos']);
     Affiliation::factory()->global()->deactivated()->for($multiple)->create();
-    Affiliation::factory()->for(Campus::factory())->for($multiple)->create(['type' => AffiliationType::CampusAdministrator]);
+    Affiliation::factory()->for(Campus::factory())->for($multiple)->create(['type' => AffiliationType::InternshipOffice]);
     Affiliation::factory()->global()->count(16)->create();
     $component = Livewire::test('pages::users.index')->assertDontSee($hidden->name)->assertSee($inactive->name);
     Livewire::test('pages::users.index')->set('search', $multiple->cpf)
@@ -100,7 +100,7 @@ test('client cannot change consulted cpf or routed identities', function (string
 
 test('inactive campus affiliations show read only and reject editing on refresh', function () {
     $campus = Campus::factory()->create();
-    $affiliation = Affiliation::factory()->for($campus)->create(['type' => AffiliationType::CampusAdministrator]);
+    $affiliation = Affiliation::factory()->for($campus)->create(['type' => AffiliationType::InternshipOffice]);
     $component = Livewire::test('pages::users.affiliations.edit', ['user' => $affiliation->user, 'affiliation' => $affiliation]);
     $campus->deactivate();
     $component->call('$refresh')->assertForbidden();

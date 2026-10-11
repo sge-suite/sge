@@ -15,8 +15,8 @@ trait AdministrativeAffiliationValidationRules
     public function administrativeAffiliationRules(?User $user = null): array
     {
         return [
-            'type' => ['required', Rule::in([AffiliationType::SystemAdministrator->value, AffiliationType::CampusAdministrator->value])],
-            'campus_id' => ['bail', 'required_if:type,campus_administrator', 'prohibited_unless:type,campus_administrator', 'nullable', 'integer', Rule::exists(Campus::class, 'id')->whereNull('deactivated_at')->whereNull('deleted_at')],
+            'type' => ['required', Rule::in([AffiliationType::SystemAdministrator->value, AffiliationType::InternshipOffice->value])],
+            'campus_id' => ['bail', 'required_if:type,internship_office', 'prohibited_unless:type,internship_office', 'nullable', 'integer', Rule::exists(Campus::class, 'id')->whereNull('deactivated_at')->whereNull('deleted_at')],
             ...$this->administrativeAffiliationEditableRules($user),
         ];
     }

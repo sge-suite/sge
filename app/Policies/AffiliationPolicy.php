@@ -18,7 +18,7 @@ class AffiliationPolicy
 
     public function view(User $user, Affiliation $affiliation): bool
     {
-        return $this->create($user) && in_array($affiliation->type, [AffiliationType::SystemAdministrator, AffiliationType::CampusAdministrator], true);
+        return $this->create($user) && in_array($affiliation->type, [AffiliationType::SystemAdministrator, AffiliationType::InternshipOffice], true);
     }
 
     public function update(User $user, Affiliation $affiliation): bool

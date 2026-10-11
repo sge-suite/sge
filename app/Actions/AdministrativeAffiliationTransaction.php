@@ -55,7 +55,7 @@ class AdministrativeAffiliationTransaction
 
     public function assertNoActiveDuplicate(User $user, AffiliationType $type, ?int $campusId, ?int $exceptId = null): void
     {
-        $existing = $user->affiliations()->active()->where('type', $type)->where('campus_id', $campusId)
+        $existing = $user->affiliations()->active()->whereIn('type', $type->databaseValues())->where('campus_id', $campusId)
             ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId))->orderBy('id')->first();
 
         if ($existing !== null) {

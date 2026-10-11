@@ -37,12 +37,12 @@ test('email log routes require authentication', function () {
 test('system administrator sees only administrative email contexts and all supported purposes', function () {
     $administrator = emailLogAdministrator();
     $target = emailLogAdministrator();
-    $campusAdministrator = Affiliation::factory()->create(['type' => AffiliationType::CampusAdministrator]);
-    $operational = Affiliation::factory()->create();
+    $internshipOffice = Affiliation::factory()->create(['type' => AffiliationType::InternshipOffice]);
+    $operational = Affiliation::factory()->create(['type' => AffiliationType::Advisor]);
     $request = app(RequestEmailDelivery::class);
     $expected = [
         administrativeEmailAttempt($target),
-        $request->affiliationCreated($campusAdministrator->email, $campusAdministrator, (string) Str::uuid()),
+        $request->affiliationCreated($internshipOffice->email, $internshipOffice, (string) Str::uuid()),
         $request->affiliationCreated('external-contact@example.test', $target, (string) Str::uuid()),
         $request->accountEmailChanged('old@example.test', 'old@example.test', 'new@example.test', (string) Str::uuid(), $target->user),
         $request->administrativeChange($target->user->email, 'Aviso administrativo', 'Aviso registrado', (string) Str::uuid(), $target),
@@ -190,7 +190,7 @@ test('retry history preserves scope snapshots and lists only the latest attempt 
 
 test('scope metadata is immutable and cannot be reused for another delivery context', function () {
     $administrator = emailLogAdministrator();
-    $operational = Affiliation::factory()->create();
+    $operational = Affiliation::factory()->create(['type' => AffiliationType::Advisor]);
     $attempt = administrativeEmailAttempt($administrator);
     expect(fn (): bool => $attempt->update(['scope_context' => app(EmailDeliveryContext::class)->forAffiliation($operational)]))->toThrow(ValidationException::class);
     expect(fn (): EmailDeliveryAttempt => app(RequestEmailDelivery::class)->accountCreated($administrator->user->email, $attempt->delivery_key, $operational))->toThrow(ValidationException::class);

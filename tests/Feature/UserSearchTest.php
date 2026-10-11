@@ -89,5 +89,8 @@ test('reassigning or changing the type of an affiliation updates both accounts e
     $campus = City::withoutSyncingToSearch(fn () => Campus::withoutSyncingToSearch(fn () => Campus::factory()->create()));
     DB::transaction(fn () => $affiliation->update(['type' => AffiliationType::InternshipOffice, 'campus_id' => $campus->id]));
     settleUserSearchIndex();
+    expect(User::search('Destino')->get()->modelKeys())->toBe([$second->id]);
+    DB::transaction(fn () => $affiliation->update(['type' => AffiliationType::Advisor]));
+    settleUserSearchIndex();
     expect(User::search('Destino')->raw()['hits'])->toBeEmpty();
 });

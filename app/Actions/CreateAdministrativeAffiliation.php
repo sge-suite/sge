@@ -34,7 +34,7 @@ class CreateAdministrativeAffiliation
             Validator::make($data, [...$this->administrativeAccountRules($user), ...$this->administrativeAffiliationRules($user)])->validate();
 
             $type = AffiliationType::from($data['type']);
-            $campusId = $type === AffiliationType::CampusAdministrator ? (int) $data['campus_id'] : null;
+            $campusId = $type === AffiliationType::InternshipOffice ? (int) $data['campus_id'] : null;
             if ($campusId !== null) {
                 $campus = Campus::query()->lockForUpdate()->find($campusId);
                 if ($campus === null || $campus->deactivated_at !== null) {

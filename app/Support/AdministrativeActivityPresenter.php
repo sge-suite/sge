@@ -162,7 +162,7 @@ class AdministrativeActivityPresenter
         }
 
         if ($field === 'type') {
-            return AffiliationType::tryFrom((string) $value)?->label() ?? 'Tipo não reconhecido';
+            return AffiliationType::tryFrom($value === AffiliationType::LEGACY_CAMPUS_ADMINISTRATOR ? AffiliationType::InternshipOffice->value : (string) $value)?->label() ?? 'Tipo não reconhecido';
         }
 
         return (string) $value;

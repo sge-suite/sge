@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AffiliationTypeCast;
 use App\Concerns\AffiliationValidationRules;
 use App\Enums\AffiliationType;
 use Database\Factories\AffiliationFactory;
@@ -55,7 +56,7 @@ class Affiliation extends Model
             'user_id' => 'integer',
             'campus_id' => 'integer',
             'course_id' => 'integer',
-            'type' => AffiliationType::class,
+            'type' => AffiliationTypeCast::class,
             'registration_number' => 'string',
             'email' => 'string',
             'deactivated_at' => 'datetime',
@@ -117,7 +118,7 @@ class Affiliation extends Model
      */
     public function scopeAdministrative(Builder $query): Builder
     {
-        return $query->whereIn('type', [AffiliationType::SystemAdministrator, AffiliationType::CampusAdministrator]);
+        return $query->whereIn('type', AffiliationType::administrativeValues());
     }
 
     /**
@@ -190,7 +191,7 @@ class Affiliation extends Model
     {
         foreach (['saved', 'deleted'] as $event) {
             static::{$event}(function (self $affiliation) use ($event): void {
-                $administrativeTypes = [AffiliationType::SystemAdministrator, AffiliationType::CampusAdministrator];
+                $administrativeTypes = [AffiliationType::SystemAdministrator, AffiliationType::InternshipOffice];
                 if (! in_array($affiliation->type, $administrativeTypes, true) && ! in_array($affiliation->getOriginal('type'), $administrativeTypes, true)) {
                     return;
                 }
@@ -217,7 +218,13 @@ class Affiliation extends Model
         static::saving(function (self $affiliation): void {
             $affiliation->nullifyBlankOptionalAffiliationValues();
 
-            Validator::make($affiliation->getAttributes(), $affiliation->affiliationRules())->validate();
+            $attributes = $affiliation->getAttributes();
+            if ($affiliation->exists && ($attributes['type'] ?? null) === AffiliationType::LEGACY_CAMPUS_ADMINISTRATOR
+                && $affiliation->getRawOriginal('type') === AffiliationType::LEGACY_CAMPUS_ADMINISTRATOR) {
+                $attributes['type'] = AffiliationType::InternshipOffice->value;
+            }
+
+            Validator::make($attributes, $affiliation->affiliationRules())->validate();
         });
     }
 }

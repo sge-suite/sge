@@ -256,7 +256,7 @@ class Internship extends Model
                 'planned_start_date' => ['required', 'date'],
                 'projected_end_date' => ['required', 'date', 'after_or_equal:planned_start_date'],
                 'released_at' => ['nullable', 'date', 'required_with:released_by_affiliation_id'],
-                'released_by_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::InternshipOffice->value), 'required_with:released_at'],
+                'released_by_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->whereIn('type', AffiliationType::InternshipOffice->databaseValues()), 'required_with:released_at'],
                 'is_remunerated' => ['required', 'boolean'],
                 'grant_value' => [Rule::requiredIf($internship->is_remunerated), 'nullable', 'numeric', 'gt:0'],
                 'transportation_allowance' => ['nullable', 'numeric', 'min:0'],
@@ -272,7 +272,7 @@ class Internship extends Model
                 'consolidated_grade' => ['nullable', 'numeric', 'min:0'],
                 'status' => ['required', Rule::enum(InternshipStatus::class)],
                 'evaluation_released_at' => ['nullable', 'date'],
-                'evaluation_released_by_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::InternshipOffice->value)],
+                'evaluation_released_by_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->whereIn('type', AffiliationType::InternshipOffice->databaseValues())],
                 'current_supervisor_evaluation_id' => ['nullable', 'integer', Rule::exists(SupervisorEvaluation::class, 'id')->where('internship_id', $internship->id)->where('status', 'approved')],
             ]);
 

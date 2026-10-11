@@ -157,7 +157,7 @@ class Campus extends Model
 
         return match ($affiliation->type) {
             AffiliationType::SystemAdministrator => $query,
-            AffiliationType::CampusAdministrator => $affiliation->campus_id === null
+            AffiliationType::InternshipOffice => $affiliation->campus_id === null
                 ? $query->whereNull($query->getModel()->getQualifiedKeyName())
                 : $query->whereKey($affiliation->campus_id),
             default => $query->whereNull($query->getModel()->getQualifiedKeyName()),

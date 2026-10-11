@@ -5,13 +5,28 @@ namespace App\Enums;
 enum AffiliationType: string
 {
     case SystemAdministrator = 'system_administrator';
-    case CampusAdministrator = 'campus_administrator';
     case InternshipOffice = 'internship_office';
     case Coordinator = 'coordinator';
     case Advisor = 'advisor';
     case Student = 'student';
     case Supervisor = 'supervisor';
     case TeachingDirection = 'teaching_direction';
+
+    public const LEGACY_CAMPUS_ADMINISTRATOR = 'campus_administrator';
+
+    /** @return list<string> */
+    public function databaseValues(): array
+    {
+        return $this === self::InternshipOffice
+            ? [$this->value, self::LEGACY_CAMPUS_ADMINISTRATOR]
+            : [$this->value];
+    }
+
+    /** @return list<string> */
+    public static function administrativeValues(): array
+    {
+        return [self::SystemAdministrator->value, ...self::InternshipOffice->databaseValues()];
+    }
 
     /**
      * Obter o rótulo do tipo de vínculo em português.
@@ -20,7 +35,6 @@ enum AffiliationType: string
     {
         return match ($this) {
             self::SystemAdministrator => 'Administrador do Sistema',
-            self::CampusAdministrator => 'Administrador do Campus',
             self::InternshipOffice => 'Setor de Estágios',
             self::Coordinator => 'Coordenador de Curso',
             self::Advisor => 'Orientador',

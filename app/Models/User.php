@@ -124,7 +124,7 @@ class User extends Authenticatable
         return $this->personalData()->exists()
             || $this->notifications()->exists()
             || Media::query()->where('model_type', $this->getMorphClass())->where('model_id', $this->id)->exists()
-            || $this->affiliations()->whereNotIn('type', [AffiliationType::SystemAdministrator, AffiliationType::CampusAdministrator])->exists()
+            || $this->affiliations()->whereNotIn('type', AffiliationType::administrativeValues())->exists()
             || $this->affiliations()->get()->contains(fn (Affiliation $affiliation): bool => $affiliation->hasLinkedRecords());
     }
 

@@ -23,7 +23,8 @@ class AdministrativeEmailLogScope
     {
         return $query->whereIn('purpose', $this->purposes())->where(function (Builder $query): void {
             $query->whereJsonContains('scope_context->affiliation_types', AffiliationType::SystemAdministrator->value)
-                ->orWhereJsonContains('scope_context->affiliation_types', AffiliationType::CampusAdministrator->value);
+                ->orWhereJsonContains('scope_context->affiliation_types', AffiliationType::InternshipOffice->value)
+                ->orWhereJsonContains('scope_context->affiliation_types', AffiliationType::LEGACY_CAMPUS_ADMINISTRATOR);
         });
     }
 }
