@@ -238,10 +238,17 @@ test('creation revalidates campus activity in the transaction', function () {
         ->toThrow(ValidationException::class);
 });
 
-test('incorrect selected profiles have no administrative user access even with another administrator affiliation', function (string $type) {
+test('incorrect selected profiles have no system administrator permissions even with another administrator affiliation', function (string $type) {
     $user = userManagementAdministrator();
     $selected = Affiliation::factory()->for($user)->create(['type' => AffiliationType::from($type)]);
     $this->withSession(['active_affiliation_id' => $selected->id]);
+    if ($type === AffiliationType::InternshipOffice->value) {
+        $this->get(route('users.index'))->assertOk();
+        $this->get(route('users.create'))->assertOk();
+        $this->post(route('users.store'), administrativeUserPayload())->assertSessionHasErrors('type');
+
+        return;
+    }
     $this->get(route('users.index'))->assertForbidden();
     $this->get(route('users.create'))->assertForbidden();
     $this->post(route('users.store'), administrativeUserPayload())->assertForbidden();

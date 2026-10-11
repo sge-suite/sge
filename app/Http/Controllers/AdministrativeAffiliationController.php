@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\CreateAdministrativeAffiliation;
+use App\Actions\CreateCampusAffiliation;
 use App\Actions\UpdateAdministrativeAffiliation;
 use App\Http\Requests\DeactivateAdministrativeAffiliationRequest;
 use App\Http\Requests\DeleteAdministrativeAffiliationRequest;
@@ -16,8 +17,14 @@ use Illuminate\Validation\ValidationException;
 
 class AdministrativeAffiliationController extends Controller
 {
-    public function store(StoreAdministrativeAffiliationRequest $request, User $user, CreateAdministrativeAffiliation $create): RedirectResponse
+    public function store(StoreAdministrativeAffiliationRequest $request, User $user, CreateAdministrativeAffiliation $create, CreateCampusAffiliation $createOnCampus): RedirectResponse
     {
+        if ($request->user()->can('createOnCampus', User::class)) {
+            $createOnCampus->handle($request->user(), $request->campusCreationData(), $user);
+
+            return redirect()->route('users.show', $user)->with('status', 'Vínculo cadastrado com sucesso.');
+        }
+
         $create->handle($request->validated(), $request->user(), $user);
 
         return redirect()->route('users.show', $user)->with('status', 'Vínculo administrativo cadastrado com sucesso.');
@@ -39,7 +46,11 @@ class AdministrativeAffiliationController extends Controller
             throw $exception;
         }
 
-        return redirect()->route('users.show', $user)->with('status', 'Vínculo excluído. Os avisos foram enfileirados.');
+        $redirect = $request->user()->can('view', $user)
+            ? redirect()->route('users.show', $user)
+            : redirect()->route('users.index');
+
+        return $redirect->with('status', 'Vínculo excluído. Os avisos foram enfileirados.');
     }
 
     public function deactivate(DeactivateAdministrativeAffiliationRequest $request, User $user, Affiliation $affiliation, UpdateAdministrativeAffiliation $update): RedirectResponse

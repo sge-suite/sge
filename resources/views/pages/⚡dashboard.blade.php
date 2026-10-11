@@ -13,13 +13,13 @@ new #[Title('Painel')] class extends Component
     #[Computed]
     public function metrics(): array
     {
-        Gate::authorize('viewAny', User::class);
+        Gate::authorize('viewAdministration', User::class);
 
         return app(GetAdministrativeDashboardMetrics::class)();
     }
 }; ?>
 
-@can('viewAny', \App\Models\User::class)
+@can('viewAdministration', \App\Models\User::class)
     @include('pages.dashboard.partials.system-administrator', ['metrics' => $this->metrics])
 @else
     @include('pages.dashboard.partials.default')

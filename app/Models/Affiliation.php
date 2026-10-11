@@ -16,7 +16,6 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -156,15 +155,7 @@ class Affiliation extends Model
             || TemplateVersion::query()->where('uploaded_by_affiliation_id', $this->id)->orWhere('validated_by_affiliation_id', $this->id)->exists()
             || EmailDeliveryAttempt::query()->where('requested_by_affiliation_id', $this->id)->exists()
             || $this->notifications()->exists()
-            || Media::query()->where('model_type', $this->getMorphClass())->where('model_id', $this->id)->exists()
-            || Activity::causedBy($this)->where(function (Builder $query): void {
-                $query->whereNotIn('subject_type', [$this->getMorphClass(), (new User)->getMorphClass()])
-                    ->orWhere(function (Builder $query): void {
-                        $query->where('subject_type', $this->getMorphClass())->where('subject_id', '!=', $this->id);
-                    })->orWhere(function (Builder $query): void {
-                        $query->where('subject_type', (new User)->getMorphClass())->where('subject_id', '!=', $this->user_id);
-                    });
-            })->exists();
+            || Media::query()->where('model_type', $this->getMorphClass())->where('model_id', $this->id)->exists();
     }
 
     public function markAsUsed(): bool

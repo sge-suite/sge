@@ -24,31 +24,36 @@ class AdministrativeAffiliationTransaction
      * @param  Closure(?int): TResult  $write
      * @return TResult
      */
-    public function handle(?User $actor, Closure $write): Model
+    public function handle(?User $actor, Closure $write, bool $allowCampusActor = false): Model
     {
         $selectedId = $actor === null ? null : $this->context->currentFor($actor, app('session.store'))?->id;
 
-        return DB::transaction(function () use ($actor, $selectedId, $write): Model {
+        return DB::transaction(function () use ($actor, $selectedId, $write, $allowCampusActor): Model {
             Affiliation::query()->where('type', AffiliationType::SystemAdministrator)->orderBy('id')->lockForUpdate()->first();
 
             if ($actor === null) {
                 return Context::scope(fn (): Model => $write($selectedId), ['audit_actor' => 'terminal']);
             }
 
-            $current = $this->authorizeActor($actor, $selectedId);
+            $current = $this->authorizeActor($actor, $selectedId, $allowCampusActor);
+            if ($allowCampusActor && $current->type === AffiliationType::InternshipOffice) {
+                $current = Affiliation::query()->lockForUpdate()->findOrFail($current->id);
+                $current->campus()->lockForUpdate()->firstOrFail()->assertWritable();
+                $this->authorizeActor($actor, $selectedId, $allowCampusActor);
+            }
 
             return $this->causerResolver->withCauser($current, fn (): Model => $write($selectedId));
         });
     }
 
-    public function authorizeActor(?User $actor, ?int $selectedId): ?Affiliation
+    public function authorizeActor(?User $actor, ?int $selectedId, bool $allowCampusActor = false): ?Affiliation
     {
         if ($actor === null) {
             return null;
         }
         $current = $this->context->currentFor($actor, app('session.store'));
         abort_unless($selectedId !== null && $current?->id === $selectedId, 403);
-        Gate::forUser($actor)->authorize('create', User::class);
+        Gate::forUser($actor)->authorize($allowCampusActor ? 'create' : 'viewAdministration', User::class);
 
         return $current;
     }

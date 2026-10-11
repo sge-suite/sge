@@ -5,6 +5,7 @@ use App\Models\Affiliation;
 use App\Support\ActivityAccess;
 use App\Support\ActivityHistory;
 use App\Support\ActiveAffiliationContext;
+use App\Support\UserManagementScope;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
@@ -46,7 +47,7 @@ new #[Title('Detalhes do usuário')] class extends Component
     #[Computed]
     public function account(): User
     {
-        $user = User::with(['affiliations' => fn ($query) => $query->administrative()->with('campus')->orderBy('id')])->findOrFail($this->userId);
+        $user = User::with(['affiliations' => fn ($query) => app(UserManagementScope::class)->affiliations($query->getQuery(), auth()->user())->with(['campus', 'course'])->orderBy('id')])->findOrFail($this->userId);
         Gate::authorize('view', $user);
 
         return $user;
@@ -130,7 +131,9 @@ new #[Title('Detalhes do usuário')] class extends Component
                 <flux:heading id="account-access-heading" size="lg" level="2">Dados de acesso</flux:heading>
                 <flux:text class="mt-1">Identificação da pessoa e endereço usado para entrar no sistema.</flux:text>
             </div>
-            <flux:button icon="pencil-square" :href="route('users.edit', $account)" wire:navigate>Editar dados de acesso</flux:button>
+            @can('update', $account)
+                <flux:button icon="pencil-square" :href="route('users.edit', $account)" wire:navigate>Editar dados de acesso</flux:button>
+            @endcan
         </div>
         <dl class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <div><dt class="text-sm text-zinc-500">Nome completo</dt><dd class="mt-1 font-medium">{{ $account->name }}</dd></div>
@@ -142,10 +145,12 @@ new #[Title('Detalhes do usuário')] class extends Component
     <section class="space-y-5" aria-labelledby="administrative-affiliations-heading">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <flux:heading id="administrative-affiliations-heading" size="lg" level="2">Vínculos administrativos</flux:heading>
-                <flux:text class="mt-1">Gerencie função, campus, matrícula e contato institucional.</flux:text>
+                <flux:heading id="administrative-affiliations-heading" size="lg" level="2">{{ auth()->user()->can('viewAdministration', \App\Models\User::class) ? 'Vínculos administrativos' : 'Vínculos no campus' }}</flux:heading>
+                <flux:text class="mt-1">{{ auth()->user()->can('viewAdministration', \App\Models\User::class) ? 'Gerencie função, campus, matrícula e contato institucional.' : 'Consulte função, curso, matrícula e contato institucional no seu campus.' }}</flux:text>
             </div>
-            <flux:button icon="plus" variant="primary" :href="route('users.affiliations.create', $account)" wire:navigate>Adicionar vínculo</flux:button>
+            @can('create', [\App\Models\Affiliation::class, $account])
+                <flux:button icon="plus" variant="primary" :href="route('users.affiliations.create', $account)" wire:navigate>Adicionar vínculo</flux:button>
+            @endcan
         </div>
         <flux:table>
             <flux:table.columns>
@@ -157,6 +162,9 @@ new #[Title('Detalhes do usuário')] class extends Component
                         <flux:table.cell class="whitespace-normal">
                             <div class="font-medium">{{ $affiliation->type->label() }}</div>
                             <flux:text size="sm">{{ $affiliation->campus?->name ?? 'Todos os campi' }}</flux:text>
+                            @if ($affiliation->course !== null)
+                                <flux:text size="sm">{{ $affiliation->course->name }}</flux:text>
+                            @endif
                             @if ($this->activeAffiliationId === $affiliation->id)
                                 <flux:badge size="sm" class="mt-2">Vínculo em uso</flux:badge>
                             @endif
@@ -165,19 +173,25 @@ new #[Title('Detalhes do usuário')] class extends Component
                         <flux:table.cell>{{ $affiliation->email }}</flux:table.cell>
                         <flux:table.cell><flux:badge :color="$affiliation->deactivated_at === null ? 'green' : 'zinc'" size="sm">{{ $affiliation->deactivated_at === null ? 'Ativo' : 'Desativado' }}</flux:badge></flux:table.cell>
                         <flux:table.cell>
-                            @can('update', $affiliation)
+                            @canany(['update', 'deactivate', 'reactivate', 'delete'], $affiliation)
                                 <div class="flex flex-wrap gap-2">
-                                    <flux:button size="sm" icon="pencil-square" :href="route('users.affiliations.edit', [$account, $affiliation])" wire:navigate>Editar vínculo</flux:button>
+                                    @can('update', $affiliation)
+                                        <flux:button size="sm" icon="pencil-square" :href="route('users.affiliations.edit', [$account, $affiliation])" wire:navigate>Editar vínculo</flux:button>
+                                    @endcan
                                     @if ($affiliation->deactivated_at === null)
                                         @can('deactivate', $affiliation)
                                             <flux:button size="sm" icon="no-symbol" wire:click="openConfirmation({{ $affiliation->id }}, 'deactivate')">Desativar</flux:button>
-                                        @else
-                                            <flux:tooltip content="Este vínculo está em uso. Outro Administrador do Sistema pode desativá-lo.">
-                                                <flux:button size="sm" icon="no-symbol" disabled>Desativar</flux:button>
-                                            </flux:tooltip>
+                                        @elsecan('update', $affiliation)
+                                            @if ($this->activeAffiliationId === $affiliation->id)
+                                                <flux:tooltip :content="$affiliation->type === \App\Enums\AffiliationType::SystemAdministrator ? 'Este vínculo está em uso. Outro Administrador do Sistema pode desativá-lo.' : 'Este vínculo está em uso. Outro Administrador do Sistema ou servidor com vínculo de Setor de Estágio pode desativá-lo.'">
+                                                    <flux:button size="sm" icon="no-symbol" disabled>Desativar</flux:button>
+                                                </flux:tooltip>
+                                            @endif
                                         @endcan
                                     @else
-                                        <flux:button size="sm" icon="check-circle" wire:click="openConfirmation({{ $affiliation->id }}, 'reactivate')">Reativar</flux:button>
+                                        @can('reactivate', $affiliation)
+                                            <flux:button size="sm" icon="check-circle" wire:click="openConfirmation({{ $affiliation->id }}, 'reactivate')">Reativar</flux:button>
+                                        @endcan
                                     @endif
                                     @can('delete', $affiliation)
                                         <flux:button size="sm" icon="trash" variant="danger" wire:click="openConfirmation({{ $affiliation->id }}, 'delete')">Excluir vínculo</flux:button>
@@ -185,7 +199,7 @@ new #[Title('Detalhes do usuário')] class extends Component
                                 </div>
                             @else
                                 <flux:text size="sm">Somente leitura</flux:text>
-                            @endcan
+                            @endcanany
                         </flux:table.cell>
                     </flux:table.row>
                 @endforeach
@@ -194,7 +208,9 @@ new #[Title('Detalhes do usuário')] class extends Component
         @if ($account->affiliations->isEmpty())
             <flux:text>Nenhum vínculo administrativo. Adicione um vínculo ou exclua a conta se não houver registros associados.</flux:text>
         @endif
-        <flux:text size="sm">Para mudar a função ou o campus, adicione outro vínculo. Campi desativados ficam somente para leitura. O vínculo em uso e o último Administrador do Sistema ativo não podem ser removidos.</flux:text>
+        @can('viewAdministration', \App\Models\User::class)
+            <flux:text size="sm">Para mudar a função ou o campus, adicione outro vínculo. Campi desativados ficam somente para leitura. O vínculo em uso e o último Administrador do Sistema ativo não podem ser removidos.</flux:text>
+        @endcan
     </section>
 
     @can('delete', $account)
@@ -213,7 +229,7 @@ new #[Title('Detalhes do usuário')] class extends Component
                 @if ($operation === 'delete_account')
                     <flux:text>A conta de {{ $account->name }} e seus vínculos serão removidos. A exclusão só será permitida sem registros associados. Enviaremos um aviso aos e-mails cadastrados.</flux:text>
                 @else
-                    <flux:text>{{ $this->selectedAffiliation->type->label() }} · matrícula {{ $this->selectedAffiliation->registration_number }}</flux:text>
+                    <flux:text>{{ $this->selectedAffiliation->type->label() }}@if ($this->selectedAffiliation->registration_number !== null) · matrícula {{ $this->selectedAffiliation->registration_number }}@endif</flux:text>
                     <flux:text>{{ match ($operation) { 'deactivate' => 'O acesso por este vínculo será encerrado, mantendo o histórico. Enviaremos um aviso à conta e ao e-mail do vínculo.', 'delete' => 'O vínculo será removido se não possuir registros associados. Enviaremos um aviso à conta e ao e-mail do vínculo.', default => 'O acesso por este vínculo será restabelecido.' } }}</flux:text>
                 @endif
                 @if ($operation !== 'reactivate')

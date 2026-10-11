@@ -27,7 +27,7 @@ class ManageAdministrativeUser
         return $this->transaction->handle($actor, function (?int $selectedId) use ($actor, $target, $operation, $data): User {
             $user = User::query()->lockForUpdate()->findOrFail($target->id);
             $affiliations = $user->affiliations()->orderBy('id')->lockForUpdate()->get();
-            $this->transaction->authorizeActor($actor, $selectedId);
+            $this->transaction->authorizeActor($actor, $selectedId, $operation === 'update');
             Gate::forUser($actor)->authorize($operation, $user);
 
             if ($operation === 'update') {
@@ -80,6 +80,6 @@ class ManageAdministrativeUser
             $user->delete();
 
             return $user;
-        });
+        }, $operation === 'update');
     }
 }

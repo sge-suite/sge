@@ -80,7 +80,8 @@ test('index rows and sidebar follow campus navigation patterns and account editi
     expect($sidebar)->toContain('icon="users"')->toContain('icon="link"')
         ->and($desktopUserMenu)->toContain('icon="link"')
         ->and($dashboard)->toContain('icon="link"');
-    $this->get(route('users.show', $this->actor))->assertOk()->assertSee('Vínculo em uso')->assertSee('Outro Administrador do Sistema pode desativá-lo');
+    $this->get(route('users.show', $this->actor))->assertOk()->assertSee('Vínculo em uso')
+        ->assertSee('Outro Administrador do Sistema pode desativá-lo');
 });
 
 test('deactivation sends snapshot notices to deduplicated account and affiliation emails', function (bool $sameEmail) {
@@ -146,9 +147,13 @@ test('personal data or nonadministrative history prevent account deletion', func
     $this->assertModelExists($this->target);
 })->with([true, false]);
 
-test('administrative activity on another record prevents deleting the responsible affiliation', function () {
-    app(CauserResolver::class)->withCauser($this->affiliation, fn () => Campus::factory()->create());
-    $this->delete(route('users.affiliations.destroy', [$this->target, $this->affiliation]), ['confirmed' => 1, 'current_password' => 'password'])->assertSessionHasErrors('affiliation');
+test('audit activity on another record survives deleting the responsible affiliation', function () {
+    $campus = app(CauserResolver::class)->withCauser($this->affiliation, fn () => Campus::factory()->create());
+    $audit = Activity::forSubject($campus)->where('event', 'created')->sole();
+    $this->delete(route('users.affiliations.destroy', [$this->target, $this->affiliation]), ['confirmed' => 1, 'current_password' => 'password'])->assertSessionHasNoErrors();
+    $this->assertModelMissing($this->affiliation);
+    expect($audit->fresh()->causer_id)->toBe($this->affiliation->id);
+    $this->assertModelExists($campus);
 });
 
 test('reservation failure rolls back account edit deletion or deactivation', function (string $operation) {

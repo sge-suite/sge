@@ -3,6 +3,7 @@
 use App\Enums\AffiliationType;
 use App\Models\User;
 use App\Helpers\DigitsHelper;
+use App\Support\UserManagementScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
@@ -42,10 +43,10 @@ new #[Title('Usuários')] class extends Component
 
             return [$user->id => [
                 'total' => $affiliations->count(),
-                'summary' => collect([
+                'summary' => auth()->user()->can('viewAdministration', User::class) ? collect([
                     $globalCount > 0 ? $globalCount.' '.($globalCount === 1 ? 'global' : 'globais') : null,
                     $campusCount > 0 ? $campusCount.' vínculo'.($campusCount === 1 ? '' : 's').' de campus' : null,
-                ])->filter()->implode(' · '),
+                ])->filter()->implode(' · ') : $affiliations->map(fn ($affiliation) => $affiliation->type->label())->unique()->implode(' · '),
                 'active' => $affiliations->whereNull('deactivated_at')->count(),
                 'inactive' => $affiliations->whereNotNull('deactivated_at')->count(),
             ]];
@@ -56,12 +57,17 @@ new #[Title('Usuários')] class extends Component
     public function users(): LengthAwarePaginator
     {
         $search = mb_substr(trim($this->search), 0, 255);
-        $query = User::query()->whereHas('affiliations', fn (Builder $query) => $query->administrative())
-            ->with(['affiliations' => fn ($query) => $query->administrative()->with('campus')]);
+        $scope = app(UserManagementScope::class);
+        $visibleAffiliations = fn (Builder $query) => $scope->affiliations($query, auth()->user());
+        $query = User::query()->whereHas('affiliations', $visibleAffiliations)
+            ->with(['affiliations' => fn ($query) => $visibleAffiliations($query->getQuery())->with('campus')]);
         if ($search !== '' && ! str_contains($search, '@') && ! preg_match('/^[\d.\s-]+$/', $search)) {
+            if (auth()->user()->cannot('viewAdministration', User::class)) {
+                return $query->whereLike('name', '%'.addcslashes($search, '%_\\').'%')->orderBy('name')->orderBy('id')->paginate(15);
+            }
             return User::search($search)->query(fn (Builder $builder) => $builder
-                ->whereHas('affiliations', fn (Builder $query) => $query->administrative())
-                ->with(['affiliations' => fn ($query) => $query->administrative()->with('campus')]))
+                ->whereHas('affiliations', $visibleAffiliations)
+                ->with(['affiliations' => fn ($query) => $visibleAffiliations($query->getQuery())->with('campus')]))
                 ->paginate(15, 'page', $this->getPage());
         }
         if (str_contains($search, '@')) {
@@ -79,8 +85,10 @@ new #[Title('Usuários')] class extends Component
         <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     <div class="flex flex-wrap items-start justify-between gap-4">
-        <div><flux:heading size="xl" level="1">Usuários</flux:heading><flux:text>Contas com vínculos administrativos, incluindo desativados.</flux:text></div>
-        <flux:button variant="primary" icon="plus" :href="route('users.create')" wire:navigate>Cadastrar usuário</flux:button>
+        <div><flux:heading size="xl" level="1">Usuários</flux:heading><flux:text>{{ auth()->user()->can('viewAdministration', \App\Models\User::class) ? 'Contas com vínculos administrativos, incluindo desativados.' : 'Contas com vínculos no seu campus, incluindo desativados.' }}</flux:text></div>
+        @can('create', \App\Models\User::class)
+            <flux:button variant="primary" icon="plus" :href="route('users.create')" wire:navigate>Cadastrar usuário</flux:button>
+        @endcan
     </div>
     <flux:input wire:model.live.debounce.300ms="search" label="Buscar usuário" placeholder="Nome, CPF completo ou e-mail de login completo" maxlength="255" type="search" />
     @php($users = $this->users)

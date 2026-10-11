@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\CreateAdministrativeAffiliation;
+use App\Actions\CreateCampusAffiliation;
 use App\Actions\ManageAdministrativeUser;
 use App\Http\Requests\DeleteAdministrativeUserRequest;
 use App\Http\Requests\StoreAdministrativeUserRequest;
@@ -32,8 +33,13 @@ class UserController extends Controller
         return redirect()->route('users.index')->with('status', 'Conta excluída. Os avisos foram enfileirados.');
     }
 
-    public function store(StoreAdministrativeUserRequest $request, CreateAdministrativeAffiliation $create): RedirectResponse
+    public function store(StoreAdministrativeUserRequest $request, CreateAdministrativeAffiliation $create, CreateCampusAffiliation $createOnCampus): RedirectResponse
     {
+        if ($request->user()->can('createOnCampus', User::class)) {
+            $affiliation = $createOnCampus->handle($request->user(), $request->campusCreationData());
+
+            return redirect()->route('users.show', $affiliation->user_id)->with('status', 'Vínculo cadastrado com sucesso. Os avisos foram enfileirados.');
+        }
         $affiliation = $create->handle($request->safe()->except('consulted_cpf'), $request->user());
 
         return redirect()->route('users.show', $affiliation->user_id)->with('status', 'Vínculo administrativo cadastrado com sucesso. Os avisos foram enfileirados.');

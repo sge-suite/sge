@@ -12,7 +12,7 @@ new #[Title('Cadastrar vínculo')] class extends Component
 {
     public function boot(): void
     {
-        Gate::authorize('create', User::class);
+        Gate::authorize('create', Affiliation::class);
     }
 
     #[Locked]
@@ -20,13 +20,17 @@ new #[Title('Cadastrar vínculo')] class extends Component
 
     public function mount(User $user): void
     {
+        Gate::authorize('create', [Affiliation::class, $user]);
         $this->userId = $user->id;
     }
 
     #[Computed]
     public function account(): User
     {
-        return User::findOrFail($this->userId);
+        $user = User::findOrFail($this->userId);
+        Gate::authorize('create', [Affiliation::class, $user]);
+
+        return $user;
     }
 }; ?>
 

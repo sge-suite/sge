@@ -18,12 +18,12 @@
                     <flux:sidebar.item icon="building-office-2" :href="route('campuses.index')" :current="request()->routeIs('campuses.*')" wire:navigate>
                         Campi
                     </flux:sidebar.item>
-                    @can('viewAny', \App\Models\User::class)
-                        <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>Usuários</flux:sidebar.item>
-                    @endcan
                 @endcan
                 @can('viewOwn', \App\Models\Campus::class)
                     <flux:sidebar.item icon="building-office-2" :href="route('campuses.own')" :current="request()->routeIs('campuses.own')" wire:navigate>Meu campus</flux:sidebar.item>
+                @endcan
+                @can('viewAny', \App\Models\User::class)
+                    <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>Usuários</flux:sidebar.item>
                 @endcan
                 @can('viewAny', \App\Models\Course::class)
                     <flux:sidebar.item icon="academic-cap" :href="route('courses.index')" :current="request()->routeIs('courses.*')" wire:navigate>Cursos</flux:sidebar.item>

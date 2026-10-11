@@ -8,7 +8,9 @@ Um vínculo foi criado para sua conta no Sistema de Gestão de Estágios. Agora 
 
 **Campus:** {{ $campusName }}
 
+@if ($registrationNumber !== null)
 **Matrícula:** {{ $registrationNumber }}
+@endif
 </x-mail::panel>
 
 <x-mail::button :url="$loginUrl">

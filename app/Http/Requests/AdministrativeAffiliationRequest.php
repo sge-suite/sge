@@ -54,9 +54,29 @@ abstract class AdministrativeAffiliationRequest extends FormRequest
         }];
     }
 
+    /** @return array{cpf: string, name: string, email: string, type: string, campus_id: int|null, course_id: int|null, registration_number: string|null, job_role: string|null, qualification: string|null, training: string|null, professional_experience: string|null} */
+    public function campusCreationData(): array
+    {
+        $data = $this->safe();
+
+        return [
+            'cpf' => $data->string('cpf')->toString(),
+            'name' => $data->string('name')->toString(),
+            'email' => $data->string('email')->toString(),
+            'type' => $data->string('type')->toString(),
+            'campus_id' => $data->filled('campus_id') ? $data->integer('campus_id') : null,
+            'course_id' => $data->filled('course_id') ? $data->integer('course_id') : null,
+            'registration_number' => $data->filled('registration_number') ? $data->string('registration_number')->toString() : null,
+            'job_role' => $data->filled('job_role') ? $data->string('job_role')->toString() : null,
+            'qualification' => $data->filled('qualification') ? $data->string('qualification')->toString() : null,
+            'training' => $data->filled('training') ? $data->string('training')->toString() : null,
+            'professional_experience' => $data->filled('professional_experience') ? $data->string('professional_experience')->toString() : null,
+        ];
+    }
+
     /** @return array<string, string> */
     public function attributes(): array
     {
-        return ['name' => 'nome completo', 'cpf' => 'CPF', 'email' => 'e-mail', 'type' => 'tipo de vínculo', 'campus_id' => 'campus', 'registration_number' => 'matrícula', 'current_password' => 'senha atual', 'confirmed' => 'confirmação'];
+        return ['name' => 'nome completo', 'cpf' => 'CPF', 'email' => 'e-mail', 'type' => 'tipo de vínculo', 'campus_id' => 'campus', 'registration_number' => 'matrícula', 'course_id' => 'curso', 'job_role' => 'cargo', 'qualification' => 'qualificação', 'training' => 'formação', 'professional_experience' => 'experiência profissional', 'current_password' => 'senha atual', 'confirmed' => 'confirmação'];
     }
 }
