@@ -81,7 +81,7 @@ test('accepts integer weights, decimal concept values and workload limits above 
         'good_value' => 2,
         'satisfactory_value' => 1.5,
         'unsatisfactory_value' => 1,
-        'max_daily_hours' => 8,
+        'max_daily_hours' => 24,
         'max_weekly_hours' => 40,
         'safety_margin_days' => 0,
     ]);
@@ -90,18 +90,21 @@ test('accepts integer weights, decimal concept values and workload limits above 
         ->and($internshipType->fresh()->very_good_value)->toBe('3.5')
         ->and($internshipType->fresh()->satisfactory_value)->toBe('1.5')
         ->and($internshipType->fresh()->unsatisfactory_value)->toBe('1.0')
-        ->and($internshipType->fresh()->max_daily_hours)->toBe(8)
+        ->and($internshipType->fresh()->max_daily_hours)->toBe(24)
         ->and($internshipType->fresh()->max_weekly_hours)->toBe(40)
         ->and($internshipType->fresh()->safety_margin_days)->toBe(0);
 });
 
-test('rejects invalid internship type values through Laravel validation', function (string $attribute, mixed $value) {
+test('rejects invalid internship type values through Laravel validation', function (string $attribute, mixed $value, array $otherAttributes = []) {
     $internshipType = InternshipType::factory()->create();
 
-    expect(fn () => $internshipType->update([$attribute => $value]))->toThrow(ValidationException::class);
+    expect(fn () => $internshipType->update([...$otherAttributes, $attribute => $value]))->toThrow(ValidationException::class);
 })->with([
     'required hours must be positive' => ['required_hours', 0],
     'required hours must be an integer' => ['required_hours', 300.5],
+    'daily maximum is 24 hours' => ['max_daily_hours', 25],
+    'daily cannot exceed weekly' => ['max_weekly_hours', 23, ['max_daily_hours' => 24]],
+    'weekly maximum is 40 hours' => ['max_weekly_hours', 41],
     'missing evaluation weight' => ['report_weight', null],
     'weights must sum to ten' => ['report_weight', 4],
     'weights must be numbers' => ['report_weight', 'three'],

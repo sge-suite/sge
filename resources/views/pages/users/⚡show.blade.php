@@ -241,7 +241,7 @@ new #[Title('Detalhes do usuário')] class extends Component
                 <flux:error name="affiliation" />
                 <flux:error name="account" />
                 <div class="flex justify-end gap-3">
-                    <flux:button type="button" wire:click="$set('showConfirmation', false)">Cancelar</flux:button>
+                    <flux:button type="button" variant="outline" wire:click="$set('showConfirmation', false)">Cancelar</flux:button>
                     <flux:button type="submit" :variant="in_array($operation, ['delete', 'delete_account'], true) ? 'danger' : 'primary'" x-bind:disabled="submitting">Confirmar</flux:button>
                 </div>
             </form>

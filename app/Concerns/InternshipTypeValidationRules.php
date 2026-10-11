@@ -28,8 +28,8 @@ trait InternshipTypeValidationRules
             'good_value' => ['required', 'numeric', 'decimal:0,1', 'min:0'],
             'satisfactory_value' => ['required', 'numeric', 'decimal:0,1', 'min:0'],
             'unsatisfactory_value' => ['required', 'numeric', 'decimal:0,1', 'min:0'],
-            'max_daily_hours' => ['required', 'integer', 'min:6'],
-            'max_weekly_hours' => ['required', 'integer', 'min:30'],
+            'max_daily_hours' => ['required', 'integer', 'min:6', 'max:24'],
+            'max_weekly_hours' => ['required', 'integer', 'min:30', 'max:40'],
             'safety_margin_days' => ['required', 'integer', 'min:0'],
             'deactivated_at' => ['nullable', 'date'],
         ];
@@ -68,6 +68,7 @@ trait InternshipTypeValidationRules
             'very_good_value' => 'valor do conceito Muito bom',
             'good_value' => 'valor do conceito Bom',
             'satisfactory_value' => 'valor do conceito Satisfatório',
+            'unsatisfactory_value' => 'valor do conceito Insatisfatório',
             'max_daily_hours' => 'limite diário de horas',
             'max_weekly_hours' => 'limite semanal de horas',
             'safety_margin_days' => 'margem de segurança em dias',
@@ -80,6 +81,12 @@ trait InternshipTypeValidationRules
      */
     protected function validateInternshipTypeValues(Validator $validator, array $attributes): void
     {
+        if (is_numeric($attributes['max_daily_hours'] ?? null)
+            && is_numeric($attributes['max_weekly_hours'] ?? null)
+            && (int) $attributes['max_daily_hours'] > (int) $attributes['max_weekly_hours']) {
+            $validator->errors()->add('max_daily_hours', 'O limite diário não pode ser maior que o limite semanal.');
+        }
+
         if ($validator->errors()->isNotEmpty()) {
             return;
         }
@@ -89,6 +96,7 @@ trait InternshipTypeValidationRules
             (int) $attributes['report_weight'],
             (int) $attributes['presentation_weight'],
         ];
+        /** @var array<string, float> $conceptValues */
         $conceptValues = [];
 
         foreach (EvaluationConcept::cases() as $concept) {

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Validator as LaravelValidator;
@@ -88,6 +89,23 @@ class InternshipType extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    /** @return HasMany<Internship, $this> */
+    public function internships(): HasMany
+    {
+        return $this->hasMany(Internship::class);
+    }
+
+    /** @return HasMany<InternshipRequest, $this> */
+    public function internshipRequests(): HasMany
+    {
+        return $this->hasMany(InternshipRequest::class);
+    }
+
+    public function hasLinkedRecords(): bool
+    {
+        return $this->internships()->exists() || $this->internshipRequests()->exists();
     }
 
     /**

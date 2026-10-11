@@ -4,11 +4,13 @@ use App\Http\Controllers\AdministrativeAffiliationController;
 use App\Http\Controllers\AffiliationSelectionController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\InternshipTypeController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RequireActiveAffiliation;
 use App\Models\Campus;
 use App\Models\Course;
 use App\Models\EmailDeliveryAttempt;
+use App\Models\InternshipType;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Spatie\Activitylog\Models\Activity;
@@ -34,6 +36,17 @@ Route::middleware(['auth'])->group(function () {
             Route::put('courses/{course}', [CourseController::class, 'update'])->name('courses.update');
             Route::patch('courses/{course}/deactivate', [CourseController::class, 'deactivate'])->name('courses.deactivate');
             Route::patch('courses/{course}/reactivate', [CourseController::class, 'reactivate'])->name('courses.reactivate');
+        });
+
+        Route::middleware('can:viewAny,'.InternshipType::class)->group(function (): void {
+            Route::livewire('internship-types', 'pages::internship-types.index')->name('internship-types.index');
+            Route::livewire('internship-types/create', 'pages::internship-types.create')->name('internship-types.create');
+            Route::livewire('internship-types/{internshipType}/edit', 'pages::internship-types.edit')->name('internship-types.edit');
+            Route::livewire('internship-types/{internshipType}', 'pages::internship-types.show')->name('internship-types.show');
+            Route::post('internship-types', [InternshipTypeController::class, 'store'])->name('internship-types.store');
+            Route::put('internship-types/{internshipType}', [InternshipTypeController::class, 'update'])->name('internship-types.update');
+            Route::patch('internship-types/{internshipType}/deactivate', [InternshipTypeController::class, 'deactivate'])->name('internship-types.deactivate');
+            Route::patch('internship-types/{internshipType}/reactivate', [InternshipTypeController::class, 'reactivate'])->name('internship-types.reactivate');
         });
 
         Route::livewire('email-logs', 'pages::email-logs.index')
