@@ -77,7 +77,7 @@ test('required campus registration fields cannot be omitted or cleared', functio
     'legal_representative_position', 'insurance_company_name', 'insurance_policy_number',
 ]);
 
-test('campus registration keeps postal code optional and rejects duplicate cnpj', function () {
+test('campus registration requires postal code and rejects duplicate cnpj', function () {
     $user = User::factory()->create();
     systemAdministratorFor($user);
     Campus::factory()->create(['cnpj' => '04252011000110']);
@@ -89,10 +89,12 @@ test('campus registration keeps postal code optional and rejects duplicate cnpj'
 
     $payload['cnpj'] = '11222333000181';
     $payload['phone'] = '(55) 3333-4444';
+    $this->postJson(route('campuses.store'), $payload)->assertUnprocessable()->assertJsonValidationErrors('address.zip_code');
+    $payload['address']['zip_code'] = '01.234-567';
     $this->postJson(route('campuses.store'), $payload)->assertRedirect();
 
     expect(Campus::count())->toBe(2)
-        ->and(Campus::query()->latest('id')->first()->address->zip_code)->toBeNull();
+        ->and(Campus::query()->latest('id')->first()->address->getRawOriginal('zip_code'))->toBe('01234567');
 });
 
 test('campus registration rejects duplicate phone', function () {
@@ -312,6 +314,7 @@ test('campus address updates reject references from other owners and historical 
     $payload = ['address' => [
         'city_id' => $city->id,
         'street' => 'Tentativa de alteração',
+        'zip_code' => '01234567',
         'number' => '10',
         'neighborhood' => 'Centro',
     ]];

@@ -362,3 +362,13 @@ test('does not allow transferring a registration request to another campus', fun
 
     expect($request->fresh()->campus_id)->not->toBe($otherCampus->id);
 });
+
+test('registration request stores CEP digits without accepting arbitrary characters', function (string $cep) {
+    $request = GrantingPartyRegistrationRequest::factory()->create(['zip_code' => $cep]);
+    expect($request->fresh()->getRawOriginal('zip_code'))->toBe('01234567');
+})->with(['01234567', '01234-567', '01.234-567']);
+
+test('registration request rejects CEP with invalid characters even in drafts', function () {
+    expect(fn () => GrantingPartyRegistrationRequest::factory()->create(['zip_code' => 'a01234567']))
+        ->toThrow(ValidationException::class);
+});

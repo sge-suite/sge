@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\BrazilianState;
+use App\Helpers\BrazilianAddressHelper;
+use App\Models\Address;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\City;
@@ -206,4 +208,13 @@ test('company lookup response is locked and a stale cnpj cannot apply its previe
     $component->set('values.cnpj', '11222333000181')->call('applyCompanyLookup')
         ->assertHasErrors('values.cnpj')->assertSet('values.name', 'Nome manual')
         ->assertSet('selectedCityId', null);
+});
+
+test('address from company lookup persists CEP as digits', function () {
+    Http::fake(['brasilapi.com.br/api/cnpj/v1/*' => Http::response(companyLookupPayload())]);
+    $data = app(BrasilApiCompanyLookup::class)->lookup('04252011000110');
+    $address = Address::factory()->create([
+        'zip_code' => BrazilianAddressHelper::formatCep($data['address']['zip_code']),
+    ]);
+    expect($address->fresh()->getRawOriginal('zip_code'))->toBe('98780000');
 });

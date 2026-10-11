@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Concerns\AddressValidationRules;
+use App\Helpers\BrazilianAddressHelper;
+use App\Helpers\DigitsHelper;
 use Database\Factories\AddressFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $street
  * @property string $number
  * @property string $neighborhood
- * @property string|null $zip_code
+ * @property string $zip_code
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read City $city
@@ -89,11 +91,10 @@ class Address extends Model
     protected static function booted(): void
     {
         static::saving(function (self $address): void {
-            Validator::make($address->getAttributes(), $address->addressRules())->validate();
-
-            if (blank($address->zip_code)) {
-                $address->zip_code = null;
-            }
+            $attributes = $address->getAttributes();
+            $attributes['zip_code'] = BrazilianAddressHelper::cepForValidation($attributes['zip_code'] ?? null);
+            Validator::make($attributes, $address->addressRules())->validate();
+            $address->zip_code = DigitsHelper::only($attributes['zip_code']);
         });
     }
 }

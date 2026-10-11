@@ -3,14 +3,17 @@
 namespace App\Http\Requests;
 
 use App\Casts\PhoneCast;
+use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\DigitsHelper;
 use App\Models\Campus;
 use Closure;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\Validator;
 use InvalidArgumentException;
+use LaravelLegends\PtBrValidator\Rules\FormatoCep;
 
 abstract class CampusFormRequest extends FormRequest
 {
@@ -24,6 +27,12 @@ abstract class CampusFormRequest extends FormRequest
             if (is_string($value)) {
                 $normalized[$field] = DigitsHelper::only($value);
             }
+        }
+
+        $address = $this->input('address');
+        if (is_array($address) && array_key_exists('zip_code', $address)) {
+            $address['zip_code'] = BrazilianAddressHelper::cepForValidation($address['zip_code']);
+            $normalized['address'] = $address;
         }
 
         if ($normalized !== []) {
@@ -46,6 +55,8 @@ abstract class CampusFormRequest extends FormRequest
             'legal_representative_position.required' => 'Informe o cargo do representante legal.',
             'insurance_company_name.required' => 'Informe a seguradora.',
             'insurance_policy_number.required' => 'Informe o número da apólice.',
+            'address.zip_code.required' => 'Informe o CEP.',
+            'address.zip_code.required_with' => 'Informe o CEP.',
             'address.city_id.required' => 'Selecione a cidade do campus.',
             'address.city_id.required_with' => 'Selecione a cidade do campus.',
             'address.city_id.integer' => 'Selecione uma cidade válida.',
@@ -123,7 +134,7 @@ abstract class CampusFormRequest extends FormRequest
         };
     }
 
-    /** @return array<string, array<int, string>> */
+    /** @return array<string, array<int, ValidationRule|string>> */
     protected function addressRules(bool $partial = false): array
     {
         $presence = $partial ? ['required_with:address'] : ['required'];
@@ -133,7 +144,7 @@ abstract class CampusFormRequest extends FormRequest
             'address.street' => [...$presence, 'string', 'max:255'],
             'address.number' => [...$presence, 'string', 'max:255'],
             'address.neighborhood' => [...$presence, 'string', 'max:255'],
-            'address.zip_code' => ['nullable', 'string', 'max:255'],
+            'address.zip_code' => ['bail', ...$presence, 'string', new FormatoCep],
         ];
     }
 }

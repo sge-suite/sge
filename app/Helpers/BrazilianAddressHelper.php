@@ -8,6 +8,15 @@ use Illuminate\Support\Str;
 
 final class BrazilianAddressHelper
 {
+    public static function cepForValidation(mixed $value): mixed
+    {
+        if (is_string($value) && strlen($value) === 8 && ctype_digit($value)) {
+            return self::formatCep($value);
+        }
+
+        return $value;
+    }
+
     /**
      * Formata CEP (ex: 00000-000).
      */

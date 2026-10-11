@@ -32,7 +32,7 @@ test('creates the addresses schema with exact PostgreSQL types and constraints',
         'street' => ['character varying(255)', false],
         'number' => ['character varying(255)', false],
         'neighborhood' => ['character varying(255)', false],
-        'zip_code' => ['character varying(255)', true],
+        'zip_code' => ['character varying(255)', false],
         'created_at' => ['timestamp(0) without time zone', true],
         'updated_at' => ['timestamp(0) without time zone', true],
     ] as $name => [$type, $nullable]) {
@@ -80,7 +80,7 @@ test('enforces required columns in PostgreSQL even when model validation is bypa
 
     expect(fn () => DB::transaction(fn () => Address::query()->insert($attributes)))
         ->toThrow(QueryException::class);
-})->with(['city_id', 'street', 'number', 'neighborhood']);
+})->with(['city_id', 'street', 'number', 'neighborhood', 'zip_code']);
 
 test('allows nullable Laravel timestamps when inserting without Eloquent', function () {
     $attributes = Address::factory()->for(City::factory()->create())->raw();
@@ -143,36 +143,32 @@ test('accepts the default string limit including multibyte text', function () {
         'street' => str_repeat('á', 255),
         'number' => str_repeat('a', 255),
         'neighborhood' => str_repeat('ã', 255),
-        'zip_code' => '123456789',
+        'zip_code' => '01234567',
     ]);
     expect($address->fresh()->street)->toHaveLength(255)
         ->and($address->fresh()->number)->toHaveLength(255)
         ->and($address->fresh()->neighborhood)->toHaveLength(255)
-        ->and($address->fresh()->zip_code)->toBe('123456789');
+        ->and($address->fresh()->zip_code)->toBe('01234567');
 });
 
-test('normalizes an omitted or empty optional CEP to null', function (?string $zipCode) {
-    $attributes = [
-        'city_id' => City::factory()->create()->id,
-        'street' => 'Rua de Teste',
-        'number' => 's/n',
-        'neighborhood' => 'Centro',
-    ];
-    if ($zipCode !== null) {
+test('rejects an omitted or empty required CEP', function (?string $zipCode) {
+    $attributes = Address::factory()->raw();
+    if ($zipCode === null) {
+        unset($attributes['zip_code']);
+    } else {
         $attributes['zip_code'] = $zipCode;
     }
-    $address = Address::query()->create($attributes);
-
-    expect($address->fresh()->zip_code)->toBeNull()
-        ->and($address->fresh()->getRawOriginal('zip_code'))->toBeNull();
+    expect(fn () => Address::query()->create($attributes))->toThrow(ValidationException::class);
 })->with([null, '', '   ']);
 
-test('persists optional CEP values without format validation or sanitization', function (string $zipCode) {
+test('persists CEP as eight digits preserving leading zeros', function (string $zipCode) {
     $address = Address::factory()->create(['zip_code' => $zipCode]);
+    expect($address->fresh()->getRawOriginal('zip_code'))->toBe('01234567');
+})->with(['01234567', '01234-567', '01.234-567']);
 
-    expect($address->zip_code)->toBe($zipCode)
-        ->and($address->fresh()->zip_code)->toBe($zipCode);
-})->with(['1234567', '1234567a', 'abc', '0', '12-34567']);
+test('rejects malformed CEP without stripping invalid characters', function (string $zipCode) {
+    expect(fn () => Address::factory()->create(['zip_code' => $zipCode]))->toThrow(ValidationException::class);
+})->with(['1234567', '1234567a', 'abc', '0', '12-34567', 'a01234567', '012345678']);
 
 test('validates required address fields before persisting', function (string $field, mixed $value) {
     expect(fn () => Address::factory()->create([$field => $value]))->toThrow(ValidationException::class);
@@ -205,7 +201,7 @@ test('validates updates and leaves the persisted address unchanged after a failu
 
 test('copies persisted address data into independent rows with new identifiers and timestamps', function () {
     $this->freezeSecond();
-    $address = Address::factory()->create(['zip_code' => null]);
+    $address = Address::factory()->create(['zip_code' => '01234-567']);
     $original = $address->fresh()->getRawOriginal();
     $fields = $address->getFillable();
     $originalFields = $address->fresh()->only($fields);

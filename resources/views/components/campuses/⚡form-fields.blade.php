@@ -6,8 +6,12 @@ use App\Helpers\DigitsHelper;
 use App\Models\Campus;
 use App\Models\City;
 use App\Support\BrasilApiCompanyLookup;
+use App\Support\BrasilApiCepLookup;
+use Illuminate\Support\Str;
+use LaravelLegends\PtBrValidator\Rules\FormatoCep;
 use Flux\Flux;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use LaravelLegends\PtBrValidator\Rules\Cnpj;
 use Livewire\Attributes\Locked;
@@ -37,6 +41,84 @@ new class extends Component
 
     public string $cityLookupMessage = '';
 
+    /** @var array<string, mixed> */
+    #[Locked]
+    public array $pendingCepLookup = [];
+
+    public bool $showCepLookupPreview = false;
+
+    public function lookupCep(BrasilApiCepLookup $lookup): void
+    {
+        $this->cancelCepLookup();
+        $this->resetValidation(['address.zip_code', 'values.address.zip_code']);
+        $cep = BrazilianAddressHelper::cepForValidation($this->values['address']['zip_code'] ?? null);
+        Validator::make(['values' => ['address' => ['zip_code' => $cep]]], ['values.address.zip_code' => ['bail', 'required', 'string', new FormatoCep]], attributes: ['values.address.zip_code' => 'CEP'])->validate();
+
+        try {
+            $data = $lookup->lookup($cep);
+        } catch (ValidationException $exception) {
+            $this->addError('values.address.zip_code', $exception->validator->errors()->first('zip_code'));
+
+            return;
+        }
+
+        $normalize = static fn (string $name): string => Str::lower(Str::ascii(trim($name)));
+        $cities = City::query()->forState($data['state'])->get(['id', 'name', 'state'])
+            ->filter(fn (City $city): bool => $normalize($city->name) === $normalize($data['city_name']));
+        $city = $cities->count() === 1 ? $cities->first() : null;
+        $this->pendingCepLookup = [...$data, 'city_id' => $city?->id,
+            'city_display' => $city === null ? $data['city_name'].' ('.$data['state'].') — selecione no catálogo' : $city->name.' ('.$city->state->value.')'];
+        $this->showCepLookupPreview = true;
+    }
+
+    /** @return list<array{label: string, current: string, proposed: string}> */
+    public function cepLookupPreviewChanges(): array
+    {
+        if ($this->pendingCepLookup === []) {
+            return [];
+        }
+
+        $changes = [];
+        foreach (['street' => 'Logradouro', 'neighborhood' => 'Bairro'] as $field => $label) {
+            $this->addLookupPreviewChange($changes, $label, $this->values['address'][$field] ?? '', $this->pendingCepLookup[$field]);
+        }
+        $city = is_scalar($this->selectedCityId) ? City::find($this->selectedCityId) : null;
+        $this->addLookupPreviewChange($changes, 'Cidade', $city === null ? '' : $city->name.' ('.$city->state->value.')', $this->pendingCepLookup['city_display']);
+
+        return $changes;
+    }
+
+    public function cancelCepLookup(): void
+    {
+        $this->pendingCepLookup = [];
+        $this->showCepLookupPreview = false;
+    }
+
+    public function applyCepLookup(): void
+    {
+        $cep = BrazilianAddressHelper::cepForValidation($this->values['address']['zip_code'] ?? null);
+        $validCep = is_string($cep) && Validator::make(['cep' => $cep], ['cep' => ['required', new FormatoCep]])->passes();
+        if ($this->pendingCepLookup === [] || ! $validCep || ! hash_equals($this->pendingCepLookup['zip_code'], DigitsHelper::only($cep))) {
+            $this->cancelCepLookup();
+            $this->addError('values.address.zip_code', 'O CEP mudou desde a consulta. Consulte novamente antes de aplicar os dados.');
+
+            return;
+        }
+
+        foreach (['street', 'neighborhood'] as $field) {
+            if ($this->pendingCepLookup[$field] !== '') {
+                $this->values['address'][$field] = $this->pendingCepLookup[$field];
+            }
+        }
+        $this->values['address']['zip_code'] = BrazilianAddressHelper::formatCep($this->pendingCepLookup['zip_code']);
+        $this->selectedCityId = $this->pendingCepLookup['city_id'];
+        $this->citySelectionVersion++;
+        $this->cityLookupMessage = $this->selectedCityId === null ? 'Cidade não encontrada de forma única no catálogo. Selecione a UF e busque a cidade.' : '';
+        $this->resetValidation(['address.zip_code', 'values.address.zip_code']);
+        $this->cancelCepLookup();
+        Flux::toast(variant: 'success', text: 'Endereço aplicado ao formulário. Confira as informações antes de salvar.');
+    }
+
     public function hydrate(): void
     {
         Gate::authorize($this->campusId === null ? 'create' : 'update', $this->campusId === null ? Campus::class : Campus::findOrFail($this->campusId));
@@ -65,7 +147,7 @@ new class extends Component
             ? BrazilianContactHelper::formatPhone($this->values['phone'])
             : '';
         $this->values['address']['zip_code'] = filled($this->values['address']['zip_code'])
-            ? BrazilianAddressHelper::formatCep($this->values['address']['zip_code'])
+            ? BrazilianAddressHelper::cepForValidation($this->values['address']['zip_code'])
             : '';
         $this->selectedCityId = old('address.city_id', $campus?->address?->city_id);
     }
@@ -277,6 +359,26 @@ new class extends Component
             </div>
         </section>
     </div>
+
+    <flux:modal name="campus-cep-preview" wire:model.self="showCepLookupPreview" class="w-[calc(100vw_-_2rem)] max-w-2xl max-h-[calc(100dvh_-_2rem)] overflow-y-auto">
+        <flux:heading size="lg">Revise o endereço encontrado</flux:heading>
+        <flux:text class="mt-2">Confira as alterações antes de aplicar. O número será mantido e os campos não retornados serão preservados.</flux:text>
+        <div class="mt-5 space-y-4">
+            @forelse ($this->cepLookupPreviewChanges() as $change)
+                <div wire:key="cep-change-{{ $loop->index }}" class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+                    <flux:heading size="sm">{{ $change['label'] }}</flux:heading>
+                    <flux:text>Atual: {{ $change['current'] }}</flux:text>
+                    <flux:text>Proposto: {{ $change['proposed'] }}</flux:text>
+                </div>
+            @empty
+                <flux:text>O endereço encontrado já corresponde ao formulário.</flux:text>
+            @endforelse
+        </div>
+        <div class="mt-5 flex justify-end gap-3">
+            <flux:button type="button" wire:click="cancelCepLookup">Cancelar</flux:button>
+            <flux:button type="button" variant="primary" wire:click="applyCepLookup">Aplicar</flux:button>
+        </div>
+    </flux:modal>
 
     @if ($canEditCnpj)
     <flux:modal

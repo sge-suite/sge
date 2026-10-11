@@ -100,7 +100,7 @@ test('own campus form preserves allowed input after a validation error', functio
 
 test('own campus address validation preserves historical references', function () {
     $address = $this->campus->address;
-    $input = ['city_id' => $address->city_id, 'street' => 'Outra rua', 'number' => '10', 'neighborhood' => 'Centro'];
+    $input = ['city_id' => $address->city_id, 'street' => 'Outra rua', 'number' => '10', 'neighborhood' => 'Centro', 'zip_code' => $address->zip_code];
     $this->put(route('campuses.update', $this->campus), ['address' => [...$input, 'city_id' => 99999999]])
         ->assertSessionHasErrors('address.city_id');
     UserPersonalData::factory()->create(['address_id' => $address->id]);

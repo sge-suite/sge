@@ -8,6 +8,7 @@ use App\Casts\PhoneCast;
 use App\Enums\BrazilianState;
 use App\Enums\PartyDocumentType;
 use App\Enums\RegistrationRequestStatus;
+use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\DigitsHelper;
 use Database\Factories\GrantingPartyRegistrationRequestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use LaravelLegends\PtBrValidator\Rules\FormatoCep;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -113,12 +115,10 @@ class GrantingPartyRegistrationRequest extends Model
                 $registrationRequest->document_number = $cast->set($registrationRequest, 'document_number', $attributes['document_number'], $attributes);
             }
 
-            if (filled($registrationRequest->zip_code)) {
-                $zipCode = DigitsHelper::only($registrationRequest->zip_code);
-                $registrationRequest->zip_code = $zipCode === '' ? null : $zipCode;
-            }
+            $validationAttributes = $registrationRequest->getAttributes();
+            $validationAttributes['zip_code'] = BrazilianAddressHelper::cepForValidation($validationAttributes['zip_code'] ?? null);
 
-            Validator::make($registrationRequest->getAttributes(), [
+            Validator::make($validationAttributes, [
                 'campus_id' => ['required', 'integer', Rule::exists(Campus::class, 'id')],
                 'document_type' => [$requiredWhenSubmitted, Rule::in(PartyDocumentType::values())],
                 'document_number' => [$requiredWhenSubmitted, 'string'],
@@ -128,7 +128,7 @@ class GrantingPartyRegistrationRequest extends Model
                 'neighborhood' => [$requiredWhenSubmitted, 'string', 'max:255'],
                 'city' => [$requiredWhenSubmitted, 'string', 'max:255'],
                 'uf' => [$requiredWhenSubmitted, Rule::in(BrazilianState::values())],
-                'zip_code' => [$requiredWhenSubmitted, 'digits:8'],
+                'zip_code' => ['bail', $requiredWhenSubmitted, 'string', new FormatoCep],
                 'representative_name' => [$requiredWhenSubmitted, 'string', 'max:255'],
                 'representative_role' => [$requiredWhenSubmitted, 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:20'],
@@ -150,6 +150,10 @@ class GrantingPartyRegistrationRequest extends Model
                     Rule::requiredIf($requiresDecisionReason), 'nullable', 'string',
                 ],
             ])->validate();
+
+            if (filled($validationAttributes['zip_code'])) {
+                $registrationRequest->zip_code = DigitsHelper::only($validationAttributes['zip_code']);
+            }
         });
 
         static::deleting(function (): void {

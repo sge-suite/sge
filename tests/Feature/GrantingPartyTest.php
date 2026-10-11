@@ -310,11 +310,8 @@ test('requires an address and restricts deletion while referenced', function () 
     expect($party->fresh()->address->is($replacement))->toBeTrue();
 });
 
-test('accepts an address without a ZIP code', function () {
-    $address = Address::factory()->create(['zip_code' => null]);
-    $party = GrantingParty::factory()->for($address)->create();
-
-    expect($party->fresh()->address->zip_code)->toBeNull();
+test('requires a ZIP code when creating the granting party address', function () {
+    expect(fn () => Address::factory()->create(['zip_code' => null]))->toThrow(ValidationException::class);
 });
 
 test('validates details and address references before saving', function (string $field, mixed $value) {
