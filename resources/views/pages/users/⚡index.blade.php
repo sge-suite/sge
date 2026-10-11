@@ -38,7 +38,7 @@ new #[Title('Usuários')] class extends Component
         return $this->users->getCollection()->mapWithKeys(function (User $user): array {
             $affiliations = $user->affiliations;
             $globalCount = $affiliations->where('type', AffiliationType::SystemAdministrator)->count();
-            $campusCount = $affiliations->where('type', AffiliationType::CampusAdministrator)->count();
+            $campusCount = $affiliations->where('type', AffiliationType::InternshipOffice)->count();
 
             return [$user->id => [
                 'total' => $affiliations->count(),

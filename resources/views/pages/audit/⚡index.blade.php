@@ -99,7 +99,7 @@ new #[Title('Auditoria')] class extends Component
 <div class="w-full space-y-8">
     <div>
         <flux:heading size="xl" level="1">Auditoria</flux:heading>
-        <flux:text>Histórico de campi, contas com vínculos administrativos e vínculos de Administrador do Sistema e Administrador do Campus.</flux:text>
+        <flux:text>Histórico de campi, contas com vínculos administrativos e vínculos de Administrador do Sistema e Setor de Estágios.</flux:text>
     </div>
 
     <div class="flex flex-wrap items-end gap-4">

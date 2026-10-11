@@ -178,8 +178,8 @@ new class extends Component
                 <flux:text>{{ $affiliation->type->label() }} · {{ $affiliation->campus?->name ?? 'Todos os campi' }}</flux:text>
                 <flux:text size="sm">Para mudar a função ou o campus, cadastre outro vínculo e desative o anterior.</flux:text>
             @else
-                <x-select name="type" label="Tipo de vínculo" wire:model.live="type" :value="$type" :options="['system_administrator' => 'Administrador do Sistema', 'campus_administrator' => 'Administrador do Campus']" :error="$errors->first('type')" />
-                @if ($type === AffiliationType::CampusAdministrator->value)
+                <x-select name="type" label="Tipo de vínculo" wire:model.live="type" :value="$type" :options="['system_administrator' => 'Administrador do Sistema', 'internship_office' => 'Setor de Estágios']" :error="$errors->first('type')" />
+                @if ($type === AffiliationType::InternshipOffice->value)
                     <x-select name="campus_id" label="Campus ativo" wire:model="campusId" :value="$campusId" :options="$this->campusOptions" :error="$errors->first('campus_id')" searchable />
                 @endif
             @endif
