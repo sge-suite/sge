@@ -199,6 +199,7 @@ test('invalid course submissions preserve filled fields and render validation me
     ])->assertRedirect(route('courses.create'))->assertSessionHasErrors(['name', 'secondary_coordinator_affiliation_id']);
     $this->withCookie(config('session.cookie'), session()->getId());
     $response = $this->get(route('courses.create'))->assertOk()
+        ->assertSee('class="grid items-start gap-6 md:grid-cols-2"', false)
         ->assertSee('data-selected-value="'.$coordinator->id.'"', false);
     expect(substr_count($response->getContent(), 'Informe o nome do curso.'))->toBe(1)
         ->and(substr_count($response->getContent(), 'Os coordenadores principal e secundário devem ser distintos.'))->toBe(1);

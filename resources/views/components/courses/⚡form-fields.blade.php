@@ -76,7 +76,7 @@ new class extends Component
 <div class="space-y-6 border-t border-zinc-200 pt-6 dark:border-zinc-700">
     <flux:heading size="lg" level="2">Dados do curso</flux:heading>
     <flux:input name="name" :value="$values['name']" wire:model="values.name" label="Nome" required maxlength="255" :invalid="$errors->has('name')" />
-    <div class="grid gap-6 md:grid-cols-2">
+    <div class="grid items-start gap-6 md:grid-cols-2">
         <x-select name="primary_coordinator_affiliation_id" wire:model="values.primary_coordinator_affiliation_id" label="Coordenador principal (opcional)"
             :value="$values['primary_coordinator_affiliation_id']" :options="$this->coordinatorOptions" :searchable="true"
             :selected-label="$this->historicalLabels['primary_coordinator_affiliation_id'] ?? ''" :invalid="$errors->has('primary_coordinator_affiliation_id')" :error="$errors->first('primary_coordinator_affiliation_id')" />
