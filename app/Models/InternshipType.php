@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Validator as LaravelValidator;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -115,6 +116,12 @@ class InternshipType extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->whereNull('deactivated_at');
+    }
+
+    public function beforeActivityLogged(Activity $activity, string $eventName): void
+    {
+        $activity->properties = ($activity->properties ?? collect())->put('campus_id',
+            Course::query()->whereKey($this->course_id)->value('campus_id'));
     }
 
     public function getActivitylogOptions(): LogOptions

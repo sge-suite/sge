@@ -3,18 +3,29 @@
 namespace App\Support;
 
 use App\Enums\AffiliationType;
+use App\Enums\PartyDocumentType;
 use App\Models\Address;
 use App\Models\Affiliation;
 use App\Models\Campus;
+use App\Models\City;
 use App\Models\Course;
+use App\Models\GrantingParty;
+use App\Models\InternshipType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Activity;
 
 class AdministrativeActivityPresenter
 {
-    public function __construct(private ActiveAffiliationContext $context) {}
+    public function __construct(private ActiveAffiliationContext $context, private AddressActivityContext $addresses) {}
+
+    /** @param Collection<int, Activity> $activities */
+    public function prepare(Collection $activities): void
+    {
+        $this->addresses->prepare($activities);
+    }
 
     /** @return array{actor: string, subject: string, event: string, occurred_at: string, is_creation: bool, changes: list<array{field: string, before: string, after: string}>} */
     public function present(Activity $activity): array
@@ -77,9 +88,25 @@ class AdministrativeActivityPresenter
 
     private function subject(Activity $activity): string
     {
+        if ($activity->subject_type === (new Address)->getMorphClass()) {
+            $owners = collect($this->addresses->forActivity($activity))->map(function (array $owner): string {
+                $label = match ($owner['type']) {
+                    (new Campus)->getMorphClass() => 'Campus',
+                    (new GrantingParty)->getMorphClass() => 'Parte concedente',
+                    default => 'Cadastro',
+                };
+
+                return $label.' #'.$owner['id'].($owner['name'] !== '' ? ' · '.$owner['name'].' (nome registrado)' : '');
+            })->implode('; ');
+
+            return 'Endereço #'.$activity->subject_id.($owners !== '' ? ' · '.$owners : ' (cadastro indisponível)');
+        }
+
         $label = match ($activity->subject_type) {
             (new Campus)->getMorphClass() => 'Campus',
             (new Course)->getMorphClass() => 'Curso',
+            (new InternshipType)->getMorphClass() => 'Tipo de estágio',
+            (new GrantingParty)->getMorphClass() => 'Parte concedente',
             (new User)->getMorphClass() => 'Conta',
             (new Affiliation)->getMorphClass() => 'Vínculo',
             default => 'Registro',
@@ -92,7 +119,7 @@ class AdministrativeActivityPresenter
             return $label.' #'.$activity->subject_id.' · '.$name.' (nome registrado)';
         }
 
-        if ($subject instanceof Campus || $subject instanceof Course || $subject instanceof User) {
+        if ($subject instanceof Campus || $subject instanceof Course || $subject instanceof User || $subject instanceof GrantingParty || $subject instanceof InternshipType) {
             return $label.' #'.$activity->subject_id.' · '.$subject->name.' (nome atual)';
         }
 
@@ -113,6 +140,25 @@ class AdministrativeActivityPresenter
                 'legal_representative_name' => 'Representante legal', 'legal_representative_position' => 'Cargo do representante',
                 'insurance_company_name' => 'Seguradora', 'insurance_policy_number' => 'Apólice de seguro',
                 'deactivated_at' => 'Desativação',
+            ],
+            (new Address)->getMorphClass() => [
+                'city_id' => 'Cidade', 'street' => 'Logradouro', 'number' => 'Número', 'neighborhood' => 'Bairro', 'zip_code' => 'CEP',
+            ],
+            (new GrantingParty)->getMorphClass() => [
+                'campus_id' => 'Campus', 'document_type' => 'Tipo de documento', 'document_number' => 'CPF/CNPJ',
+                'name' => 'Nome / razão social', 'address_id' => 'Endereço', 'representative_name' => 'Representante',
+                'representative_role' => 'Cargo do representante', 'phone' => 'Telefone', 'email' => 'E-mail',
+                'field_of_activity' => 'Área de atuação', 'professional_council' => 'Conselho profissional',
+                'council_registration_number' => 'Registro no conselho', 'credentialing_process_number' => 'Processo de credenciamento',
+                'deactivated_at' => 'Desativação',
+            ],
+            (new InternshipType)->getMorphClass() => [
+                'course_id' => 'Curso', 'name' => 'Nome', 'required_hours' => 'Carga horária obrigatória',
+                'supervisor_evaluation_weight' => 'Peso da avaliação do supervisor', 'report_weight' => 'Peso do relatório',
+                'presentation_weight' => 'Peso da apresentação', 'very_good_value' => 'Conceito muito bom', 'good_value' => 'Conceito bom',
+                'satisfactory_value' => 'Conceito satisfatório', 'unsatisfactory_value' => 'Conceito insatisfatório',
+                'max_daily_hours' => 'Limite de horas diárias', 'max_weekly_hours' => 'Limite de horas semanais',
+                'safety_margin_days' => 'Margem de segurança em dias', 'deactivated_at' => 'Desativação',
             ],
             (new User)->getMorphClass() => ['name' => 'Nome', 'cpf' => 'CPF', 'email' => 'E-mail de login'],
             (new Course)->getMorphClass() => [
@@ -161,6 +207,7 @@ class AdministrativeActivityPresenter
             'campus_id' => ['model' => Campus::class, 'label' => 'Campus'],
             'course_id' => ['model' => Course::class, 'label' => 'Curso'],
             'address_id' => ['model' => Address::class, 'label' => 'Endereço'],
+            'city_id' => ['model' => City::class, 'label' => 'Cidade'],
             'primary_coordinator_affiliation_id' => ['model' => Affiliation::class, 'label' => 'Vínculo'],
             'secondary_coordinator_affiliation_id' => ['model' => Affiliation::class, 'label' => 'Vínculo'],
         ];
@@ -203,6 +250,7 @@ class AdministrativeActivityPresenter
             $query = $model::query();
             $query->whereKey(array_values($modelIds))->select(match ($model) {
                 Affiliation::class => ['id', 'user_id'],
+                City::class => ['id', 'name', 'state'],
                 Address::class => ['id', 'street', 'number', 'neighborhood', 'city_id'],
                 default => ['id', 'name'],
             });
@@ -218,7 +266,8 @@ class AdministrativeActivityPresenter
                     Affiliation::class => $query->where('campus_id', $selected->campus_id)->where('type', '!=', AffiliationType::SystemAdministrator->value),
                     User::class => $query->whereHas('affiliations', fn (Builder $query): Builder => $query
                         ->where('campus_id', $selected->campus_id)->where('type', '!=', AffiliationType::SystemAdministrator->value)),
-                    Address::class => $query->whereIn('id', Campus::query()->whereKey($selected->campus_id)->select('address_id')),
+                    Address::class => $query->whereIn('id', $this->visibleAddressIds($selected->campus_id)),
+                    City::class => $query,
                     default => $query->whereRaw('1 = 0'),
                 };
             }
@@ -227,6 +276,7 @@ class AdministrativeActivityPresenter
                     $reference instanceof Affiliation => $reference->user->name,
                     $reference instanceof Address => $reference->street.', '.$reference->number.' · '.$reference->neighborhood
                         .' · '.$reference->city->name.'/'.$reference->city->state->value,
+                    $reference instanceof City => $reference->name.'/'.$reference->state->value,
                     default => $reference->getAttribute('name'),
                 };
                 if (is_string($name) && $name !== '') {
@@ -236,6 +286,15 @@ class AdministrativeActivityPresenter
         }
 
         return $values;
+    }
+
+    /** @return Builder<Activity> */
+    private function visibleAddressIds(int $campusId): Builder
+    {
+        $query = Activity::query();
+        $this->addresses->apply($query, $campusId);
+
+        return $query->select('subject_id');
     }
 
     private function referenceId(mixed $value): ?int
@@ -283,6 +342,10 @@ class AdministrativeActivityPresenter
 
         if ($field === 'deactivated_at') {
             return formatDateTime((string) $value);
+        }
+
+        if ($field === 'document_type') {
+            return PartyDocumentType::tryFrom((string) $value)?->label() ?? 'Tipo não reconhecido';
         }
 
         if ($field === 'type') {

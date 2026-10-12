@@ -27,7 +27,9 @@ test('permanently deleting an unreferenced catalog owner removes its address and
     $this->assertModelMissing($owner);
     expect(Address::query()->find($address->id))->toBeNull();
     $entry = Activity::forSubject($address)->where('event', 'deleted')->sole();
-    expect($entry->subject_id)->toBe($address->id);
+    expect($entry->properties->get('address_context')['owners'][0])->toMatchArray([
+        'type' => $owner->getMorphClass(), 'id' => $owner->id, 'name' => 'Cadastro removido',
+    ]);
 })->with(['campus' => [Campus::class], 'granting party' => [GrantingParty::class]]);
 
 test('deleting personal data or its account also removes its exclusive address', function (bool $deleteAccount) {

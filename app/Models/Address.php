@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Concerns\AddressValidationRules;
 use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\DigitsHelper;
+use App\Support\AddressActivityContext;
 use Database\Factories\AddressFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -36,6 +38,9 @@ class Address extends Model
     use HasFactory;
 
     use LogsActivity;
+
+    /** @var list<array{type: string, id: int, name: string, campus_id: int|null}>|null */
+    public ?array $auditOwners = null;
 
     /**
      * @return array<string, string>
@@ -88,6 +93,11 @@ class Address extends Model
             || UserPersonalData::query()->where('address_id', $this->id)->exists()
             || Internship::query()->where(fn ($query) => $query->where('student_address_id', $this->id)
                 ->orWhere('workplace_address_id', $this->id))->exists();
+    }
+
+    public function beforeActivityLogged(Activity $activity, string $eventName): void
+    {
+        app(AddressActivityContext::class)->record($activity, $this);
     }
 
     public function getActivitylogOptions(): LogOptions

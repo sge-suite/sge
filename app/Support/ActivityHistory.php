@@ -51,6 +51,8 @@ class ActivityHistory
             },
         ])->orderByDesc('created_at')->orderByDesc('id')->paginate(5, pageName: 'auditHistoryPage');
 
+        $this->presenter->prepare($activities->getCollection());
+
         return $activities->through(fn (Activity $activity): array => [
             'id' => $activity->id,
             ...$this->presenter->summary($activity),

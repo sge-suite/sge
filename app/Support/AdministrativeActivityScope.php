@@ -13,6 +13,8 @@ use Spatie\Activitylog\Models\Activity;
 
 class AdministrativeActivityScope
 {
+    public function __construct(private AddressActivityContext $addresses) {}
+
     /**
      * @param  Builder<Activity>  $query
      * @return Builder<Activity>
@@ -21,6 +23,9 @@ class AdministrativeActivityScope
     {
         return $query->where(function (Builder $query): void {
             $query->where('subject_type', (new Campus)->getMorphClass())
+                ->orWhere(function (Builder $query): void {
+                    $this->addresses->apply($query);
+                })
                 ->orWhere(function (Builder $query): void {
                     $query->where('subject_type', (new Affiliation)->getMorphClass())
                         ->where(function (Builder $query): void {

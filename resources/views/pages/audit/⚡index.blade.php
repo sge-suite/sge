@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Address;
 use App\Models\Affiliation;
+use App\Models\GrantingParty;
+use App\Models\InternshipType;
 use App\Models\Campus;
 use App\Models\Course;
 use App\Models\User;
@@ -78,7 +81,7 @@ new #[Title('Auditoria')] class extends Component
     {
         $query = app(ActivityAccess::class)->forCurrentContext(auth()->user(), app('session.store'));
         abort_if($query === null, 403);
-        $types = ['campus' => new Campus, 'course' => new Course, 'user' => new User, 'affiliation' => new Affiliation];
+        $types = ['campus' => new Campus, 'course' => new Course, 'internship_type' => new InternshipType, 'granting_party' => new GrantingParty, 'address' => new Address, 'user' => new User, 'affiliation' => new Affiliation];
 
         if (isset($types[$this->entity], $this->entityOptions[$this->entity])) {
             $query->where('subject_type', $types[$this->entity]->getMorphClass());
@@ -94,6 +97,7 @@ new #[Title('Auditoria')] class extends Component
             'causer' => fn (MorphTo $relation) => $relation->morphWith([Affiliation::class => ['user']]),
         ])->orderByDesc('created_at')->orderByDesc('id')->paginate(15);
         $presenter = app(AdministrativeActivityPresenter::class);
+        $presenter->prepare($activities->getCollection());
 
         return $activities->through(fn (Activity $activity): array => [
             'id' => $activity->id,

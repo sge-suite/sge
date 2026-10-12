@@ -43,8 +43,8 @@ class ActivityAccess
     public function entityOptionsForCurrentContext(User $user, Store $session): array
     {
         return match ($this->context->currentFor($user, $session)?->type) {
-            AffiliationType::SystemAdministrator => ['campus' => 'Campi', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos administrativos'],
-            AffiliationType::InternshipOffice => ['campus' => 'Meu campus', 'course' => 'Cursos', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos no campus'],
+            AffiliationType::SystemAdministrator => ['campus' => 'Campi', 'address' => 'Endereços de campi', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos administrativos'],
+            AffiliationType::InternshipOffice => ['campus' => 'Meu campus', 'course' => 'Cursos', 'internship_type' => 'Tipos de estágio', 'granting_party' => 'Partes concedentes', 'address' => 'Endereços de cadastros', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos no campus'],
             default => [],
         };
     }

@@ -6,6 +6,8 @@ use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\Course;
+use App\Models\GrantingParty;
+use App\Models\InternshipType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +17,8 @@ use Spatie\Activitylog\Models\Activity;
 
 class CampusActivityScope
 {
+    public function __construct(private AddressActivityContext $addresses) {}
+
     /**
      * @param  Builder<Activity>  $query
      * @return Builder<Activity>
@@ -28,6 +32,21 @@ class CampusActivityScope
                 $query->where('subject_type', (new Course)->getMorphClass());
                 $this->recordedFieldIn($query, new Course, 'campus_id', [(string) $campusId]);
             })->orWhere(function (Builder $query) use ($campusId): void {
+                $query->where('subject_type', (new GrantingParty)->getMorphClass());
+                $this->recordedFieldIn($query, new GrantingParty, 'campus_id', [(string) $campusId]);
+            })->orWhere(function (Builder $query) use ($campusId): void {
+                $query->where('subject_type', (new InternshipType)->getMorphClass())
+                    ->where(function (Builder $query) use ($campusId): void {
+                        $query->where('properties->campus_id', $campusId)
+                            ->orWhere(function (Builder $query) use ($campusId): void {
+                                $query->whereNull('properties->campus_id');
+                                $courseIds = $this->localCourseIds($campusId);
+                                $this->recordedFieldIn($query, new InternshipType, 'course_id', $courseIds);
+                            });
+                    });
+            })->orWhere(function (Builder $query) use ($campusId): void {
+                $this->addresses->apply($query, $campusId);
+            })->orWhere(function (Builder $query) use ($campusId): void {
                 $query->where('subject_type', (new Affiliation)->getMorphClass());
                 $this->localAffiliation($query, $campusId);
             })->orWhere(function (Builder $query) use ($campusId, $actor): void {
@@ -40,6 +59,21 @@ class CampusActivityScope
                     });
             });
         });
+    }
+
+    /** @return list<string> */
+    private function localCourseIds(int $campusId): array
+    {
+        $foreignEvidence = Activity::query()->where('subject_type', (new Course)->getMorphClass())
+            ->where(fn (Builder $query) => $query->where('attribute_changes->attributes->campus_id', '!=', $campusId)
+                ->orWhere('attribute_changes->old->campus_id', '!=', $campusId))->select('subject_id');
+        $historicalIds = Activity::query()->where('subject_type', (new Course)->getMorphClass())
+            ->whereNotIn('subject_id', $foreignEvidence)
+            ->where(fn (Builder $query) => $query->where('attribute_changes->attributes->campus_id', $campusId)
+                ->orWhere('attribute_changes->old->campus_id', $campusId))->pluck('subject_id');
+        $currentIds = Course::query()->where('campus_id', $campusId)->whereNotIn('id', $foreignEvidence)->pluck('id');
+
+        return array_values($currentIds->merge($historicalIds)->unique()->map(fn (int $id): string => (string) $id)->all());
     }
 
     /** @param Builder<Activity> $query */
