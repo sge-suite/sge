@@ -34,17 +34,18 @@ class AffiliationPolicy
 
     public function deactivate(User $user, Affiliation $affiliation): bool
     {
-        return $this->canManageOtherAffiliation($user, $affiliation) && $affiliation->deactivated_at === null;
+        return $this->canRemoveAffiliation($user, $affiliation) && $affiliation->deactivated_at === null;
     }
 
     public function delete(User $user, Affiliation $affiliation): bool
     {
-        return $this->canManageOtherAffiliation($user, $affiliation);
+        return $this->canRemoveAffiliation($user, $affiliation);
     }
 
     public function reactivate(User $user, Affiliation $affiliation): bool
     {
-        return $user->can('viewAdministration', User::class) && $this->update($user, $affiliation) && $affiliation->deactivated_at !== null;
+        return ($user->can('viewAdministration', User::class) || $affiliation->user_id === $user->id)
+            && $this->update($user, $affiliation) && $affiliation->deactivated_at !== null;
     }
 
     public function viewNotifications(User $user, Affiliation $affiliation): bool
@@ -52,9 +53,9 @@ class AffiliationPolicy
         return $this->context->currentFor($user, app('session.store'))?->is($affiliation) === true;
     }
 
-    private function canManageOtherAffiliation(User $user, Affiliation $affiliation): bool
+    private function canRemoveAffiliation(User $user, Affiliation $affiliation): bool
     {
-        if ($affiliation->user_id === $user->id) {
+        if ($this->context->currentFor($user, app('session.store'))?->is($affiliation) === true) {
             return false;
         }
 

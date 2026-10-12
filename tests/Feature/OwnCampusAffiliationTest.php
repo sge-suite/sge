@@ -1,11 +1,15 @@
 <?php
 
 use App\Actions\UpdateAdministrativeAffiliation;
+use App\Enums\AffiliationType;
 use App\Models\Affiliation;
+use App\Models\Course;
 use App\Models\EmailDeliveryAttempt;
+use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
@@ -43,7 +47,7 @@ test('own affiliation editing rejects invalid contact registration ownership and
     expect($this->office->fresh()->email)->toBe('office@example.test')->and($this->office->fresh()->registration_number)->toBe('OFFICE-001');
 })->with(['email', 'registration_number', 'type', 'campus_id', 'course_id', 'user_id', 'deactivated_at']);
 
-test('office cannot deactivate delete or reactivate its own affiliation', function (string $operation) {
+test('office cannot remove its selected affiliation or reactivate an already active one', function (string $operation) {
     $data = ['confirmed' => 1, 'current_password' => 'password'];
     $route = route('users.affiliations.'.($operation === 'delete' ? 'destroy' : $operation), [$this->actor, $this->office]);
     if ($operation === 'delete') {
@@ -102,4 +106,61 @@ test('own affiliation update reauthorizes after acquiring record locks', functio
     });
     $this->put(route('users.affiliations.update', [$this->actor, $this->office]), ['email' => 'new@example.test', 'registration_number' => 'NEW'])->assertForbidden();
     expect($this->office->fresh()->email)->toBe('office@example.test')->and($this->office->fresh()->registration_number)->toBe('OFFICE-001');
+});
+
+test('office deactivates its own coordinator affiliation while preserving its current affiliation and course references', function () {
+    $coordinator = Affiliation::factory()->for($this->actor)->for($this->office->campus)->create(['type' => AffiliationType::Coordinator]);
+    $course = Course::factory()->for($this->office->campus)->create(['primary_coordinator_affiliation_id' => $coordinator->id]);
+    Livewire::test('pages::users.show', ['user' => $this->actor])->call('openConfirmation', $coordinator->id, 'deactivate')
+        ->assertSet('showConfirmation', true);
+    $this->patch(route('users.affiliations.deactivate', [$this->actor, $coordinator]), ['confirmed' => 1, 'current_password' => 'password'])
+        ->assertSessionHasNoErrors();
+    expect($coordinator->fresh()->deactivated_at)->not->toBeNull()
+        ->and($this->office->fresh()->deactivated_at)->toBeNull()
+        ->and(session('active_affiliation_id'))->toBe($this->office->id)
+        ->and($course->fresh()->primary_coordinator_affiliation_id)->toBe($coordinator->id)
+        ->and(Activity::forSubject($coordinator)->where('event', 'updated')->sole()->causer_id)->toBe($this->office->id);
+});
+
+test('office deletes an unreferenced own coordinator affiliation through the action', function () {
+    $coordinator = Affiliation::factory()->for($this->actor)->for($this->office->campus)->create(['type' => AffiliationType::Coordinator]);
+    app(UpdateAdministrativeAffiliation::class)->handle($this->actor, $this->actor, $coordinator, 'delete', ['confirmed' => 1, 'current_password' => 'password']);
+    $this->assertModelMissing($coordinator);
+    $this->assertModelExists($this->office);
+    $this->assertModelExists($this->actor);
+});
+
+test('office reactivates its own coordinator affiliation using confirmation without a password', function () {
+    $coordinator = Affiliation::factory()->deactivated()->for($this->actor)->for($this->office->campus)->create(['type' => AffiliationType::Coordinator]);
+    Livewire::test('pages::users.show', ['user' => $this->actor])->call('openConfirmation', $coordinator->id, 'reactivate')
+        ->assertSet('showConfirmation', true);
+    $this->patch(route('users.affiliations.reactivate', [$this->actor, $coordinator]), ['confirmed' => 1])->assertSessionHasNoErrors();
+    expect($coordinator->fresh()->deactivated_at)->toBeNull()->and(EmailDeliveryAttempt::count())->toBe(0);
+});
+
+test('own affiliation reactivation still checks active duplicates and ownership scope', function () {
+    $active = Affiliation::factory()->for($this->actor)->for($this->office->campus)->create(['type' => AffiliationType::Coordinator]);
+    $inactive = Affiliation::factory()->deactivated()->for($this->actor)->for($this->office->campus)->create(['type' => AffiliationType::Coordinator]);
+    $this->patch(route('users.affiliations.reactivate', [$this->actor, $inactive]), ['confirmed' => 1])->assertSessionHasErrors('type');
+    expect(fn () => app(UpdateAdministrativeAffiliation::class)->handle($this->actor, $this->actor, $inactive, 'reactivate', ['confirmed' => 1]))
+        ->toThrow(ValidationException::class);
+    expect($inactive->fresh()->deactivated_at)->not->toBeNull();
+    $foreign = Affiliation::factory()->deactivated()->for($this->actor)->create(['type' => AffiliationType::Coordinator]);
+    $this->patch(route('users.affiliations.reactivate', [$this->actor, $foreign]), ['confirmed' => 1])->assertForbidden();
+    $otherUser = User::factory()->create();
+    $other = Affiliation::factory()->deactivated()->for($otherUser)->for($this->office->campus)->create(['type' => AffiliationType::Coordinator]);
+    $this->patch(route('users.affiliations.reactivate', [$otherUser, $other]), ['confirmed' => 1])->assertForbidden();
+    $this->assertModelExists($active);
+});
+
+test('own coordinator deletion still respects course references and context changes after opening confirmation', function () {
+    $coordinator = Affiliation::factory()->for($this->actor)->for($this->office->campus)->create(['type' => AffiliationType::Coordinator]);
+    Course::factory()->for($this->office->campus)->create(['primary_coordinator_affiliation_id' => $coordinator->id]);
+    $this->delete(route('users.affiliations.destroy', [$this->actor, $coordinator]), ['confirmed' => 1, 'current_password' => 'password'])
+        ->assertSessionHasErrors('affiliation');
+    $component = Livewire::test('pages::users.show', ['user' => $this->actor])->call('openConfirmation', $coordinator->id, 'deactivate');
+    session()->put('active_affiliation_id', $coordinator->id);
+    $component->call('$refresh')->assertForbidden();
+    $this->patch(route('users.affiliations.deactivate', [$this->actor, $coordinator]), ['confirmed' => 1, 'current_password' => 'password'])->assertForbidden();
+    expect($coordinator->fresh()->deactivated_at)->toBeNull();
 });

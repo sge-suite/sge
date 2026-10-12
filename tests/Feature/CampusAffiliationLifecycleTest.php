@@ -89,17 +89,30 @@ test('both administrative roles require current password and confirmation for li
     expect($this->local->fresh()->deactivated_at)->toBeNull()->and(EmailDeliveryAttempt::count())->toBe(0);
 })->with([false, true])->with(['deactivate', 'delete'])->with(['no password', 'wrong password', 'no confirmation']);
 
-test('both administrative roles cannot remove any affiliation of their own account', function (bool $systemAdministrator, string $operation, bool $selectedTarget) {
+test('both administrative roles protect only the selected affiliation of their own account', function (bool $systemAdministrator, string $operation, bool $selectedTarget) {
     $selected = $systemAdministrator ? Affiliation::factory()->global()->for($this->office->user)->create() : $this->office;
     $this->withSession(['active_affiliation_id' => $selected->id]);
     $target = $selectedTarget ? $selected : Affiliation::factory()->server()->for($this->office->user)->for($this->office->campus)->create();
     $payload = ['confirmed' => 1, 'current_password' => 'password'];
     $url = route('users.affiliations.'.($operation === 'delete' ? 'destroy' : $operation), [$target->user, $target]);
-    $this->{$operation === 'delete' ? 'delete' : 'patch'}($url, $payload)->assertForbidden();
-    expect(fn () => app(UpdateAdministrativeAffiliation::class)->handle($target->user, $target->user, $target, $operation, $payload))
-        ->toThrow(AuthorizationException::class);
-    $this->assertModelExists($target);
-    expect($target->fresh()->deactivated_at)->toBeNull();
+    if ($selectedTarget) {
+        $this->{$operation === 'delete' ? 'delete' : 'patch'}($url, $payload)->assertForbidden();
+        expect(fn () => app(UpdateAdministrativeAffiliation::class)->handle($target->user, $target->user, $target, $operation, $payload))
+            ->toThrow(AuthorizationException::class);
+        $this->assertModelExists($target);
+        expect($target->fresh()->deactivated_at)->toBeNull();
+    } else {
+        Livewire::test('pages::users.show', ['user' => $target->user])->call('openConfirmation', $target->id, $operation)
+            ->assertSet('showConfirmation', true);
+        $this->{$operation === 'delete' ? 'delete' : 'patch'}($url, $payload)->assertSessionHasNoErrors();
+        if ($operation === 'delete') {
+            $this->assertModelMissing($target);
+        } else {
+            expect($target->fresh()->deactivated_at)->not->toBeNull();
+        }
+        expect(session('active_affiliation_id'))->toBe($selected->id);
+        $this->assertModelExists($selected);
+    }
 })->with([false, true])->with(['deactivate', 'delete'])->with([true, false]);
 
 test('office rejects foreign campus and global administrator affiliations', function (bool $global, string $operation) {

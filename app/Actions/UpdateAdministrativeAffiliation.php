@@ -23,7 +23,8 @@ class UpdateAdministrativeAffiliation
     public function handle(User $actor, User $target, Affiliation $affiliation, string $operation, array $data): Affiliation
     {
         abort_unless(in_array($operation, ['update', 'deactivate', 'delete', 'reactivate'], true), 404);
-        $allowCampusActor = in_array($operation, ['update', 'deactivate', 'delete'], true);
+        $allowCampusActor = in_array($operation, ['update', 'deactivate', 'delete'], true)
+            || ($operation === 'reactivate' && $affiliation->user_id === $actor->id);
 
         return $this->transaction->handle($actor, function (?int $selectedId) use ($actor, $target, $affiliation, $operation, $data, $allowCampusActor): Affiliation {
             $user = User::query()->lockForUpdate()->findOrFail($target->id);
