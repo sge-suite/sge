@@ -29,7 +29,7 @@
                     <flux:sidebar.item icon="academic-cap" :href="route('courses.index')" :current="request()->routeIs('courses.*')" wire:navigate>Cursos</flux:sidebar.item>
                 @endcan
                 @can('viewAny', \App\Models\InternshipType::class)
-                    <flux:sidebar.item icon="academic-cap" :href="route('internship-types.index')" :current="request()->routeIs('internship-types.*')" wire:navigate>Tipos de estágio</flux:sidebar.item>
+                    <flux:sidebar.item icon="briefcase" :href="route('internship-types.index')" :current="request()->routeIs('internship-types.*')" wire:navigate>Tipos de estágio</flux:sidebar.item>
                 @endcan
                 @if (auth()->user()->can('viewAny', \Spatie\Activitylog\Models\Activity::class) || auth()->user()->can('viewAny', \App\Models\EmailDeliveryAttempt::class))
                     <flux:sidebar.group heading="Logs">
