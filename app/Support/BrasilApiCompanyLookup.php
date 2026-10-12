@@ -12,7 +12,7 @@ use LaravelLegends\PtBrValidator\Rules\Cnpj;
 class BrasilApiCompanyLookup
 {
     /**
-     * @return array{legal_name: string, trade_name: string, phone: string, address: array{street: string, number: string, neighborhood: string, zip_code: string, ibge_code: string, city_name: string, state: string}}
+     * @return array{legal_name: string, trade_name: string, phone: string, email: string, field_of_activity: string, address: array{street: string, number: string, neighborhood: string, zip_code: string, ibge_code: string, city_name: string, state: string}}
      */
     public function lookup(string $cnpj): array
     {
@@ -40,10 +40,16 @@ class BrasilApiCompanyLookup
         $text = static fn (string $key): string => is_string($data[$key] ?? null) ? mb_substr(trim($data[$key]), 0, 255) : '';
         $street = trim($text('descricao_tipo_de_logradouro').' '.$text('logradouro'));
         $ibgeCode = $data['codigo_municipio_ibge'] ?? null;
+        $email = is_string($data['email'] ?? null) ? trim($data['email']) : '';
+        if (! Validator::make(['email' => $email], ['email' => ['nullable', 'email', 'max:254']])->passes()) {
+            $email = '';
+        }
 
         return [
             'legal_name' => $text('razao_social'),
             'trade_name' => $text('nome_fantasia'),
+            'email' => mb_strtolower($email),
+            'field_of_activity' => $text('cnae_fiscal_descricao'),
             'phone' => DigitsHelper::only($text('ddd_telefone_1') ?: $text('ddd_telefone_2')),
             'address' => [
                 'street' => mb_substr($street, 0, 255),

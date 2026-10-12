@@ -22,6 +22,7 @@ function companyLookupPayload(): array
         'nome_fantasia' => 'Instituto Federal Farroupilha',
         'ddd_telefone_1' => '5533334444',
         'email' => 'campus@example.test',
+        'cnae_fiscal_descricao' => 'Educação profissional de nível técnico',
         'descricao_tipo_de_logradouro' => 'RUA',
         'logradouro' => 'DAS FLORES',
         'numero' => '123',
@@ -53,6 +54,8 @@ test('company lookup normalizes cnpj and maps the legal trade and address names'
     expect($data)->toBe([
         'legal_name' => 'Instituto de Ensino',
         'trade_name' => 'Instituto Federal Farroupilha',
+        'email' => 'campus@example.test',
+        'field_of_activity' => 'Educação profissional de nível técnico',
         'phone' => '5533334444',
         'address' => ['street' => 'RUA DAS FLORES', 'number' => '123', 'neighborhood' => 'Centro', 'zip_code' => '98780000', 'ibge_code' => '4317202', 'city_name' => 'Santa Rosa', 'state' => 'RS'],
     ]);
@@ -215,4 +218,10 @@ test('address from company lookup persists CEP as digits', function () {
         'zip_code' => BrazilianAddressHelper::formatCep($data['address']['zip_code']),
     ]);
     expect($address->fresh()->getRawOriginal('zip_code'))->toBe('98780000');
+});
+
+test('company lookup maps useful domain fields with valid email and bounded activity', function () {
+    Http::fake(['*cnpj/v1/*' => Http::response([...companyLookupPayload(), 'email' => '  CONTATO@EXAMPLE.TEST  ', 'cnae_fiscal_descricao' => str_repeat('á', 300)])]);
+    $data = app(BrasilApiCompanyLookup::class)->lookup('04252011000110');
+    expect($data['email'])->toBe('contato@example.test')->and(mb_strlen($data['field_of_activity']))->toBe(255);
 });
