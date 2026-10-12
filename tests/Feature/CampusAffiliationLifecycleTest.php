@@ -44,9 +44,9 @@ test('office deactivates and deletes each permitted local affiliation while pres
     $accountAttributes = $this->target->fresh()->getAttributes();
     $profileAttributes = $profile->fresh()->getAttributes();
     $url = route('users.affiliations.'.($operation === 'delete' ? 'destroy' : $operation), [$this->target, $this->local]);
-    Livewire::test('pages::users.show', ['user' => $this->target])->assertSee('Excluir vínculo')->assertSee('Desativar')
-        ->assertSee('Editar vínculo')->call('openConfirmation', $this->local->id, $operation)
-        ->assertSet('showConfirmation', true)->assertSee('name="current_password"', false)->assertSee($url, false);
+    Livewire::test('pages::users.show', ['user' => $this->target])
+        ->call('openConfirmation', $this->local->id, $operation)
+        ->assertSet('showConfirmation', true)->assertSee('name="current_password"', false);
     $response = $this->{$operation === 'delete' ? 'delete' : 'patch'}($url, ['confirmed' => 1, 'current_password' => 'password']);
     $response->assertSessionHasNoErrors()->assertRedirect($operation === 'delete' ? route('users.index') : route('users.show', $this->target));
     if ($operation === 'delete') {

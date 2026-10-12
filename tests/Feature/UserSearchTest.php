@@ -41,7 +41,9 @@ test('meilisearch indexes only minimal administrative identity and supports typo
     expect($user->toSearchableArray())->toBe(['id' => $user->id, 'name' => 'Ada Lovelace'])
         ->and(app(Client::class)->index($user->searchableAs())->getDocument($user->id))->toEqual(['id' => $user->id, 'name' => 'Ada Lovelace'])
         ->and($hidden->shouldBeSearchable())->toBeFalse();
-    Livewire::test('pages::users.index')->set('search', 'Lovelacce')->assertSee($user->name)->assertDontSee($hidden->name);
+    $component = Livewire::test('pages::users.index')->set('search', 'Lovelacce');
+    expect($component->instance()->users->getCollection()->pluck('id'))->toContain($user->id)
+        ->not->toContain($hidden->id);
 });
 
 test('eligibility follows affiliation creation removal and inactive history after commit', function () {

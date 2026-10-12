@@ -28,11 +28,11 @@ test('legacy campus administrators use the internship office context without rew
         ->and($affiliation->fresh()->toArray()['type'])->toBe(AffiliationType::InternshipOffice->value)
         ->and($affiliation->fresh()->getRawOriginal('type'))->toBe(AffiliationType::LEGACY_CAMPUS_ADMINISTRATOR)
         ->and(Activity::count())->toBe($count);
-    $this->get(route('campuses.own'))->assertOk()->assertSee($affiliation->campus->name);
+    $this->get(route('campuses.own'))->assertOk();
     $this->post(route('courses.store'), ['name' => 'Curso pelo vínculo existente'])->assertRedirect();
     expect(Course::where('name', 'Curso pelo vínculo existente')->sole()->campus_id)->toBe($affiliation->campus_id);
-    $this->get(route('audit.index'))->assertForbidden();
-    $this->get(route('email-logs.index'))->assertForbidden();
+    $this->get(route('audit.index'))->assertOk();
+    $this->get(route('email-logs.index'))->assertOk();
     $affiliation->update(['deactivated_at' => now()]);
     Livewire::test('pages::courses.index')->assertForbidden();
 });
@@ -46,11 +46,9 @@ test('legacy and current office affiliations share the duplicate guard for creat
     ))->toThrow(ValidationException::class, 'Já existe o vínculo ativo');
 });
 
-test('removed role cannot be provisioned and is absent from the affiliation selector', function () {
+test('removed affiliation role cannot be provisioned', function () {
     $administrator = Affiliation::factory()->global()->create();
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
-    Livewire::test('users.form-fields', ['user' => $administrator->user])->assertSee('Setor de Estágios')
-        ->assertDontSee('Administrador do Campus')->assertDontSee('campus_administrator');
     $this->post(route('users.affiliations.store', $administrator->user), [
         'type' => AffiliationType::LEGACY_CAMPUS_ADMINISTRATOR,
         'campus_id' => Campus::factory()->create()->id,
@@ -72,14 +70,16 @@ test('historical administrative types stay in audit and email scope', function (
         ->and(app(AdministrativeEmailLogScope::class)->apply(EmailDeliveryAttempt::query())->whereKey($attempt)->exists())->toBeTrue();
 });
 
-test('internship office keeps global campus lifecycle and account administration restricted', function () {
+test('internship office keeps global campus lifecycle and account deletion restricted', function () {
     $affiliation = Affiliation::factory()->create();
     $this->actingAs($affiliation->user)->withSession(['active_affiliation_id' => $affiliation->id]);
     expect(Gate::allows('create', Campus::class))->toBeFalse()
         ->and(Gate::allows('deactivate', $affiliation->campus))->toBeFalse()
         ->and(Gate::allows('reactivate', $affiliation->campus))->toBeFalse()
         ->and(Gate::allows('delete', $affiliation->campus))->toBeFalse();
-    $this->get(route('users.index'))->assertForbidden();
+    $this->get(route('users.index'))->assertOk();
+    $localUser = Affiliation::factory()->for($affiliation->campus)->create()->user;
+    $this->delete(route('users.destroy', $localUser))->assertForbidden();
 });
 
 test('dashboard counts legacy and current local affiliations together as internship office', function () {

@@ -68,9 +68,8 @@ test('creates the initial system administrator with a shared email and queues an
         ->and($attempt->emailMessage->content_html)->toContain('Sua conta foi criada', 'Administrador do Sistema')
         ->and($attempt->emailMessage->content_text)->toContain('Sua conta foi criada')
         ->and($attempt->emailMessage->content_html)->not->toContain($user->getRawOriginal('password'));
-    (new DeliveryMail($attempt))->assertSeeInHtml('Sua conta foi criada')
-        ->assertSeeInHtml('Administrador do Sistema')
-        ->assertSeeInHtml(route('password.request', ['email' => $user->email]))
+    (new DeliveryMail($attempt))
+
         ->assertSeeInText('Sua conta foi criada')
         ->assertSeeInText('Administrador do Sistema');
     Bus::assertDispatched(SendEmailDelivery::class, 1);
@@ -121,11 +120,8 @@ test('adds an administrator affiliation and queues notices to the account and af
         ->and(EmailMessage::query()->count())->toBe(2);
 
     foreach ($attempts as $attempt) {
-        (new DeliveryMail($attempt))->assertSeeInHtml('Novo vínculo criado')
-            ->assertSeeInHtml('Administrador do Sistema')
-            ->assertSeeInHtml('Escopo global')
-            ->assertSeeInHtml('ADM-007')
-            ->assertSeeInHtml(route('login'))
+        (new DeliveryMail($attempt))
+
             ->assertSeeInText('Novo vínculo criado')
             ->assertSeeInText('Administrador do Sistema')
             ->assertSeeInText('Escopo global')

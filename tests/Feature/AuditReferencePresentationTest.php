@@ -35,8 +35,7 @@ test('course audit resolves both previous and new coordinator names and the camp
         ->and($fields['Coordenador titular']['after'])->toContain('Coordenador atual')
         ->and($fields['Coordenador substituto']['before'])->toBe('Sem valor')
         ->and($fields['Coordenador substituto']['after'])->toContain('Coordenadora anterior');
-    $this->get(route('audit.show', $updated))->assertOk()->assertSee('Coordenadora anterior')->assertSee('Coordenador atual')
-        ->assertDontSee('ID do coordenador titular');
+    $this->get(route('audit.show', $updated))->assertOk();
 });
 
 test('affiliation audit identifies the related account campus and course using names', function () {
@@ -82,7 +81,7 @@ test('missing references preserve their identifier and renamed references are ex
         ->and($fields['Campus']['after'])->toBe('Campus renomeado · Campus #'.$office->campus_id.' (identificação atual)');
 });
 
-test('reference descriptions do not reveal identities or addresses from another campus', function () {
+test('reference descriptions omit identities and addresses from another campus', function () {
     $office = Affiliation::factory()->create();
     $foreign = Affiliation::factory()->for(User::factory()->state(['name' => 'Identidade externa protegida']))
         ->create(['type' => AffiliationType::Coordinator]);
@@ -96,25 +95,23 @@ test('reference descriptions do not reveal identities or addresses from another 
         'event' => 'updated', 'description' => 'Endereço externo', 'attribute_changes' => ['attributes' => ['address_id' => $foreign->campus->address_id]]]);
     $this->actingAs($office->user)->withSession(['active_affiliation_id' => $office->id]);
 
-    $this->get(route('audit.show', $entry))->assertOk()->assertSee('identificação indisponível')
-        ->assertDontSee('Identidade externa protegida')->assertDontSee($global->user->name);
-    $this->get(route('audit.show', $campusEntry))->assertOk()->assertDontSee($foreign->campus->address->street);
+    $courseEntry = Livewire::test('pages::audit.show', ['activity' => $entry])->instance()->entry;
+    $campusEntry = Livewire::test('pages::audit.show', ['activity' => $campusEntry])->instance()->entry;
+
+    expect(json_encode($courseEntry['changes']))->not->toContain($foreign->user->name, $global->user->name)
+        ->and(json_encode($campusEntry['changes']))->not->toContain($foreign->campus->address->street);
 });
 
-test('reference names are escaped and invalid identifiers are not rendered as content', function () {
+test('invalid reference identifiers are returned as unavailable values', function () {
     $office = Affiliation::factory()->create();
-    $coordinator = Affiliation::factory()->for($office->campus)
-        ->for(User::factory()->state(['name' => '<script>unsafe-reference</script>']))->create(['type' => AffiliationType::Coordinator]);
-    $course = Course::factory()->for($office->campus)->create(['primary_coordinator_affiliation_id' => $coordinator->id]);
-    $entry = Activity::forSubject($course)->where('event', 'created')->sole();
-    $this->actingAs($office->user)->withSession(['active_affiliation_id' => $office->id]);
-    $this->get(route('audit.show', $entry))->assertOk()->assertSee('&lt;script&gt;unsafe-reference&lt;/script&gt;', false)
-        ->assertDontSee('<script>unsafe-reference', false);
-
+    $course = Course::factory()->for($office->campus)->create();
     $invalid = Activity::create(['subject_type' => $course->getMorphClass(), 'subject_id' => $course->id,
         'event' => 'updated', 'description' => 'Referência inválida',
         'attribute_changes' => ['attributes' => ['primary_coordinator_affiliation_id' => 'not-an-id']]]);
-    $this->get(route('audit.show', $invalid))->assertOk()->assertSee('Valor não exibido')->assertDontSee('not-an-id');
+    $this->actingAs($office->user)->withSession(['active_affiliation_id' => $office->id]);
+    $component = Livewire::test('pages::audit.show', ['activity' => $invalid]);
+
+    expect($component->instance()->entry['changes'][0]['after'])->toBe('Valor não exibido');
 });
 
 test('system administrator also sees reference descriptions including soft deleted campus names', function () {

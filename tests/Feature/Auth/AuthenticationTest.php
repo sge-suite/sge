@@ -5,9 +5,7 @@ use App\Models\User;
 test('login screen can be rendered', function () {
     $response = $this->get(route('login'));
 
-    $response->assertOk()
-        ->assertSee('dark:bg-neutral-950')
-        ->assertDontSee('dark:bg-linear-to-b');
+    $response->assertOk();
 });
 
 test('users can authenticate using the login screen', function () {

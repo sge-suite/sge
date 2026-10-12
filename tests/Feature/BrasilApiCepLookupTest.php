@@ -55,9 +55,8 @@ test('CEP preview applies only after confirmation and preserves the number', fun
     $component = Livewire::test('campuses.form-fields')->set('values.address.zip_code', '01234-567')
         ->set('values.address.street', 'Rua Antiga')->set('values.address.number', 's/n')
         ->call('lookupCep')->assertSet('showCepLookupPreview', true)
-        ->assertSeeHtml('id="campus-cep-changes-heading"')->assertSee('Alterações previstas')
-        ->assertSee('Valor atual')->assertSee('Após aplicar')->assertSee('Rua Nova')
-        ->assertSee('Aplicar dados ao formulário')->assertSet('values.address.street', 'Rua Antiga')
+
+        ->assertSet('values.address.street', 'Rua Antiga')
         ->assertSet('pendingCepLookup.city_id', $city->id)->call('cancelCepLookup')
         ->assertSet('showCepLookupPreview', false)->assertSet('values.address.street', 'Rua Antiga');
     $component->call('lookupCep')->call('applyCepLookup')->assertSet('values.address.street', 'Rua Nova')

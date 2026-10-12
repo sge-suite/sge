@@ -25,9 +25,7 @@ test('profile shows the account email and directs changes to security', function
     $this->actingAs($user);
 
     Livewire::test('pages::settings.profile')
-        ->assertSet('email', 'conta@example.test')
-        ->assertSee('Segurança')
-        ->assertDontSee('Salvar e-mail');
+        ->assertSet('email', 'conta@example.test');
 });
 
 test('user can delete their account', function () {

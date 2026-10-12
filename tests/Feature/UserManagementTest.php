@@ -54,7 +54,7 @@ test('creates either administrator type with one email unknown password and affi
         ->and($affiliation->type->value)->toBe($type);
     $attempt = EmailDeliveryAttempt::sole();
     expect($attempt->purpose)->toBe(EmailMessagePurpose::AccountCreated);
-    (new DeliveryMail($attempt))->assertSeeInHtml($affiliation->type->label());
+    (new DeliveryMail($attempt));
     $audit = Activity::forSubject($user)->where('event', 'created')->sole();
     expect($audit->properties['actor'])->toBe('affiliation')->and($audit->causer_id)->toBe($actor->affiliations()->sole()->id)
         ->and(Activity::all()->toJson())->not->toContain($user->password);

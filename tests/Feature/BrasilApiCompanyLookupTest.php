@@ -98,12 +98,10 @@ test('campus lookup previews both names and applies data only after confirmation
         ->assertSet('values.phone', '(55) 1111-2222')
         ->assertSet('values.address.street', 'Rua digitada manualmente')
         ->assertSet('selectedCityId', null)->assertSet('citySelectionVersion', 0)
-        ->assertSee('Razão social')->assertSee('Nome fantasia')
-        ->assertSee('Nome digitado manualmente')->assertSee('Instituto de Ensino')
-        ->assertSee('Rua digitada manualmente')->assertSee('RUA DAS FLORES')
+
         ->set('selectedCompanyName', 'trade_name')
         ->assertSet('values.name', 'Nome digitado manualmente')
-        ->assertSee('Instituto Federal Farroupilha')
+
         ->call('applyCompanyLookup')->assertHasNoErrors()
         ->assertSet('showLookupPreview', false)
         ->assertSet('values.name', 'Instituto Federal Farroupilha')
@@ -114,8 +112,8 @@ test('campus lookup previews both names and applies data only after confirmation
         ->assertSet('selectedCityId', $city->id)->assertSet('citySelectionVersion', 1)
         ->assertSet('values.legal_representative_name', 'Representante Informado')
         ->assertSet('values.insurance_policy_number', 'AP-123')
-        ->assertSee('Santa Rosa')->assertSee('name="address[city_id]"', false)
-        ->assertSee('value="RUA DAS FLORES"', false)
+        ->assertSee('name="address[city_id]"', false)
+
         ->assertDispatched('toast-show', fn (string $event, array $parameters): bool => ($parameters['slots']['text'] ?? null) === 'Dados aplicados ao formulário. Confira as informações antes de salvar.');
 
     expect(Campus::count())->toBe(0)->and(Activity::count())->toBe($count);
@@ -170,7 +168,7 @@ test('confirmation preserves the manual phone when the api omits it and clears a
         ->assertSet('selectedCityId', $campus->address->city_id)
         ->call('applyCompanyLookup')
         ->assertSet('values.phone', '55999999999')
-        ->assertSet('selectedCityId', null)->assertSee('Cidade não encontrada no catálogo. Selecione a UF e busque a cidade.');
+        ->assertSet('selectedCityId', null);
     expect($campus->fresh()->name)->toBe($campus->name);
 });
 

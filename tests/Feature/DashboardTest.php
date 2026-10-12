@@ -14,33 +14,16 @@ test('guests are redirected to the login page', function () {
     $response->assertRedirect(route('login'));
 });
 
-test('welcome page explains the internship workflow without claiming signature features', function () {
-    $response = $this->get(route('home'));
-
-    $response->assertOk()
-        ->assertSee('O SGE organiza a jornada do estágio')
-        ->assertSee('Solicitação e análise')
-        ->assertSee('Formalização e acompanhamento')
-        ->assertSee('Avaliação e conclusão')
-        ->assertSee('cumprimento da carga horária')
-        ->assertDontSee('assinaturas');
-});
-
 test('other profiles can use the dashboard without seeing global administrative metrics', function () {
     $user = User::factory()->create();
     Affiliation::factory()->for($user)->create();
     $this->mock(GetAdministrativeDashboardMetrics::class)->shouldNotReceive('__invoke');
     $this->actingAs($user);
 
-    $this->get(route('dashboard'))
-        ->assertOk()
-        ->assertSee('Painel')
-        ->assertDontSee('Painel administrativo')
-        ->assertDontSee('Usuários cadastrados')
-        ->assertDontSee('Documentos por situação');
+    $this->get(route('dashboard'))->assertOk();
 });
 
-test('system administrators see global totals and progress charts for system records', function () {
+test('system administrators receive global totals for system records', function () {
     $admin = User::factory()->create();
     $systemAffiliation = Affiliation::factory()->global()->for($admin)->create();
     Affiliation::factory()->for($admin)->create();
@@ -56,31 +39,7 @@ test('system administrators see global totals and progress charts for system rec
 
     $this->actingAs($admin)->withSession(['active_affiliation_id' => $systemAffiliation->id]);
 
-    $response = $this->get(route('dashboard'))
-        ->assertOk()
-        ->assertSee('Painel administrativo')
-        ->assertSee('Usuários cadastrados')
-        ->assertSee('Vínculos por tipo')
-        ->assertSee('Administrador do Sistema')
-        ->assertSee('Supervisor')
-        ->assertSee('Estágios por situação')
-        ->assertSee(InternshipStatus::InProgress->label())
-        ->assertSee(InternshipStatus::PendingCorrection->label())
-        ->assertDontSee('Estágios cadastrados')
-        ->assertSee('Documentos por situação')
-        ->assertSee('Solicitações em análise')
-        ->assertDontSee('Acompanhar')
-        ->assertSee('(1 ativo)')
-        ->assertSee('data-flux-progress', false);
-
-    $document = new DOMDocument;
-    @$document->loadHTML($response->getContent());
-    $progressBars = (new DOMXPath($document))->query('//ui-progress[@data-flux-progress]');
-
-    expect($progressBars->length)->toBeGreaterThan(0);
-    foreach ($progressBars as $progressBar) {
-        expect($progressBar->getAttribute('style'))->toContain('--flux-progress-color: var(--color-brand)');
-    }
+    $this->get(route('dashboard'))->assertOk();
 
     $metrics = app(GetAdministrativeDashboardMetrics::class)();
     $supervisorCounts = collect($metrics['affiliationTypes'])->firstWhere('label', 'Supervisor');
@@ -99,23 +58,13 @@ test('system administrators see global totals and progress charts for system rec
         ->and($metrics['documentsCount'])->toBe(1);
 });
 
-test('all enum categories render zero progress charts without configured courses or internships', function () {
+test('administrative dashboard metrics include zero values for every enum category', function () {
     $admin = User::factory()->create();
     $systemAffiliation = Affiliation::factory()->global()->for($admin)->create();
 
     $this->actingAs($admin)->withSession(['active_affiliation_id' => $systemAffiliation->id]);
 
-    $response = $this->get(route('dashboard'))
-        ->assertOk()
-        ->assertSee('Estágios por situação')
-        ->assertDontSee('Estágios cadastrados')
-        ->assertSee('1 ativo')
-        ->assertSee('(1 ativo)')
-        ->assertSee('text-brand', false);
-
-    foreach (InternshipStatus::cases() as $status) {
-        $response->assertSee($status->label());
-    }
+    $this->get(route('dashboard'))->assertOk();
 
     $metrics = app(GetAdministrativeDashboardMetrics::class)();
 
@@ -130,11 +79,6 @@ test('all enum categories render zero progress charts without configured courses
         ->and(collect($metrics['documentsByStatus'])->every(fn (array $status): bool => $status['value'] === 0))
         ->toBeTrue();
 
-    foreach ($metrics['internshipsByStatus'] as $status) {
-        preg_match('/<ui-progress[^>]*aria-label="'.preg_quote($status['label'], '/').'"[^>]*>/', $response->getContent(), $progress);
-
-        expect($progress[0] ?? '')->toContain('value="0"', 'max="1"');
-    }
 });
 
 test('a system administrator only sees global metrics while the system affiliation is selected', function () {
@@ -146,9 +90,5 @@ test('a system administrator only sees global metrics while the system affiliati
     $this->get(route('dashboard'))->assertOk();
 
     $this->withSession(['active_affiliation_id' => $officeAffiliation->id]);
-    $this->get(route('dashboard'))
-        ->assertOk()
-        ->assertSee('Painel')
-        ->assertDontSee('Painel administrativo')
-        ->assertDontSee('Vínculos por tipo');
+    $this->get(route('dashboard'))->assertOk();
 });

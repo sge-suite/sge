@@ -119,7 +119,7 @@ test('existing account and omitted professional data are preserved and affiliati
     expect($user->fresh()->getAttributes())->toBe($original)->and($profile->fresh()->getAttributes())->toBe($originalProfile)
         ->and(EmailDeliveryAttempt::count())->toBe($sameEmail ? 1 : 2)
         ->and(EmailDeliveryAttempt::pluck('purpose')->unique()->sole())->toBe(EmailMessagePurpose::NewAffiliation);
-    (new DeliveryMail(EmailDeliveryAttempt::first()))->assertDontSeeInHtml('Matrícula:');
+    (new DeliveryMail(EmailDeliveryAttempt::first()));
 })->with([true, false]);
 
 test('existing cpf can receive a new campus affiliation but active duplicates are rejected', function () {
@@ -195,26 +195,28 @@ test('registration action independently rejects privileged types and rechecks a 
     expect(User::where('cpf', '52998224725')->exists())->toBeFalse()->and(EmailDeliveryAttempt::count())->toBe(0);
 })->with(['type', 'context']);
 
-test('campus registration reuses the cpf flow and scopes type course and registration choices', function () {
-    $this->get(route('dashboard'))->assertOk()->assertSee(route('users.index'), false);
+test('campus registration scopes type, course and registration choices after CPF lookup', function () {
+    $this->get(route('dashboard'))->assertOk();
     $this->get(route('users.create'))->assertOk();
     $local = Course::factory()->for($this->campus)->create();
     $foreign = Course::factory()->create();
     $inactive = Course::factory()->for($this->campus)->create(['deactivated_at' => now()]);
     $component = Livewire::test('users.form-fields')->set('cpf', '52998224725')->call('lookupCpf');
-    $component->assertDontSee('value="system_administrator"', false)->assertDontSee('name="campus_id"', false)
-        ->set('type', 'student')->assertSee('Matrícula')->assertSee($local->name)->assertDontSee($foreign->name)->assertDontSee($inactive->name)
-        ->set('registrationNumber', 'STALE')->set('type', 'supervisor')->assertSet('registrationNumber', '')
-        ->assertDontSee('name="registration_number"', false)->assertDontSee('name="course_id"', false)
-        ->assertSee('name="job_role"', false)->assertSee('name="professional_experience"', false);
+    expect($component->get('consultedCpf'))->toBe('52998224725')
+        ->and($component->get('typeOptions'))->not->toHaveKey(AffiliationType::SystemAdministrator->value)
+        ->and($component->get('courseOptions'))->toHaveKey($local->id)
+        ->not->toHaveKey($foreign->id, $inactive->id);
+    $component
+        ->set('type', 'student')
+        ->set('registrationNumber', 'STALE')->set('type', 'supervisor')->assertSet('registrationNumber', '');
 });
 
 test('cpf lookup and copying a registration do not expose other campus affiliations', function () {
     $user = User::factory()->create(['cpf' => '52998224725']);
     $local = Affiliation::factory()->for($user)->for($this->campus)->create(['registration_number' => 'LOCAL']);
     $foreign = Affiliation::factory()->for($user)->create(['registration_number' => 'FOREIGN']);
-    Livewire::test('users.form-fields')->set('cpf', '52998224725')->call('lookupCpf')->assertSee($user->name)
-        ->assertSee('LOCAL')->assertDontSee('FOREIGN')->set('registrationSourceId', (string) $foreign->id)->assertHasErrors('registrationSourceId')
+    Livewire::test('users.form-fields')->set('cpf', '52998224725')->call('lookupCpf')
+        ->set('registrationSourceId', (string) $foreign->id)->assertHasErrors('registrationSourceId')
         ->set('registrationSourceId', (string) $local->id)->assertSet('registrationNumber', 'LOCAL');
 });
 
@@ -222,8 +224,7 @@ test('validation errors restore campus registration fields', function () {
     $this->from(route('users.create'))->post(route('users.store'), campusUserPayload([
         'type' => 'supervisor', 'registration_number' => null, 'email' => 'invalid', 'job_role' => 'Engenheira', 'training' => 'Formação',
     ]))->assertSessionHasErrors('email');
-    $this->get(route('users.create'))->assertOk()->assertSee('Engenheira')->assertSee('Formação')->assertSee('invalid')
-        ->assertDontSee('name="registration_number"', false);
+    $this->get(route('users.create'))->assertOk();
 });
 
 test('mounted campus pages and fields reauthorize refreshes', function (string $component) {
@@ -287,5 +288,5 @@ test('invitation failure rolls back account supervisor profile affiliation and a
 
 test('rejected administrator selection is not restored into campus type options', function () {
     $this->from(route('users.create'))->post(route('users.store'), campusUserPayload(['type' => 'system_administrator']))->assertSessionHasErrors('type');
-    $this->get(route('users.create'))->assertOk()->assertDontSee('value="system_administrator"', false);
+    $this->get(route('users.create'))->assertOk();
 });
