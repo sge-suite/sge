@@ -103,7 +103,7 @@ new class extends Component
             :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
             :disabled="$state === ''" :invalid="$cityError !== ''" :error="$cityError" required wire:key="city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId">
             <x-slot:search>
-                <flux:input :name="null" wire:model.live.debounce.500ms="citySearch" x-bind:disabled="!open" placeholder="Buscar cidade…" aria-label="Buscar cidade" icon="magnifying-glass" size="sm" maxlength="255"
+                <flux:input name="" wire:model.live.debounce.500ms="citySearch" wire:ignore.self placeholder="Buscar cidade…" aria-label="Buscar cidade" icon="magnifying-glass" size="sm" maxlength="255"
                     role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="$refs.list.id" x-bind:aria-activedescendant="activeId()" />
                 <span wire:loading wire:target="citySearch" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando cidades…</span>
             </x-slot:search>

@@ -39,7 +39,7 @@
                     const options = this.options();
                     if (!options.some(option => option.dataset.value === this.activeValue)) {
                         this.activeValue = options.find(option => option.dataset.value === String(this.value))?.dataset.value
-                            ?? options[0]?.dataset.value ?? '';
+                            ?? '';
                     }
                     this.measureLabel();
                 });
@@ -140,6 +140,31 @@
             const next = options[nextIndex];
             this.activeValue = next.dataset.value;
             next.scrollIntoView({ block: 'nearest' });
+            next.focus();
+        },
+
+        tab(event) {
+            if (!this.open) return;
+            const options = this.options();
+            const index = options.indexOf(event.target);
+            if (!event.shiftKey && index < options.length - 1 && options.length) {
+                event.preventDefault();
+                const next = options[index + 1];
+                this.activeValue = next.dataset.value;
+                next.focus();
+                next.scrollIntoView({ block: 'nearest' });
+            } else if (event.shiftKey && index >= 0) {
+                event.preventDefault();
+                if (index > 0) {
+                    this.activeValue = options[index - 1].dataset.value;
+                    options[index - 1].focus();
+                } else {
+                    this.activeValue = '';
+                    (this.$refs.search?.querySelector('input') ?? this.$refs.trigger).focus();
+                }
+            } else {
+                this.close(false);
+            }
         },
 
         choose(option) {
@@ -167,7 +192,7 @@
             else if ($event.key === 'ArrowUp') { $event.preventDefault(); move(-1); }
         "
         x-on:keydown.enter="if (open) { $event.preventDefault(); $event.stopPropagation(); chooseActive(); }"
-        x-on:keydown.tab="close(false)"
+        x-on:keydown.tab="tab($event)"
     >
         <select name="{{ $name }}" x-model="value" tabindex="-1" aria-hidden="true" class="sr-only" @required($required) @disabled($disabled)
             x-on:invalid.prevent="missing = true; show()">
@@ -220,11 +245,11 @@
             x-bind:class="upwards ? 'bottom-full mb-1' : 'top-full mt-1'"
             class="select-panel absolute inset-x-0 z-30 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-700 motion-reduce:transition-none">
             @if ($searchable || isset($search))
-                <div x-ref="search" class="select-search border-b border-zinc-200/80 px-1 py-1 dark:border-zinc-600" x-on:input="activeValue = ''">
+                <div x-ref="search" wire:key="{{ $selectId }}-search" class="select-search border-b border-zinc-200/80 px-1 py-1 dark:border-zinc-600" x-on:input="activeValue = ''">
                     @isset($search)
                         {{ $search }}
                     @else
-                        <flux:input x-model="query" size="sm" icon="magnifying-glass" placeholder="Buscar opção…" aria-label="Buscar {{ mb_strtolower($label) }}"
+                        <flux:input x-model="query" wire:ignore.self size="sm" icon="magnifying-glass" placeholder="Buscar opção…" aria-label="Buscar {{ mb_strtolower($label) }}"
                             role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
                     @endisset
                 </div>
@@ -237,8 +262,8 @@
                         aria-selected="{{ (string) $value === (string) $optionValue ? 'true' : 'false' }}"
                         x-bind:aria-selected="String(value) === @js((string) $optionValue)" x-show="matches(@js($optionLabel))"
                         x-bind:class="{ 'bg-zinc-200 dark:bg-white/15': activeValue === @js((string) $optionValue) }"
-                        class="flex w-full min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-start text-sm text-zinc-800 hover:bg-zinc-200 dark:text-zinc-100 dark:hover:bg-white/15"
-                        x-on:mouseenter="activeValue = @js((string) $optionValue)" x-on:click="choose($el)">
+                        class="flex w-full min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-start text-sm text-zinc-800 outline-none hover:bg-zinc-200 focus:outline-none focus-visible:outline-none focus-visible:ring-0 dark:text-zinc-100 dark:hover:bg-white/15"
+                        x-on:focus="activeValue = @js((string) $optionValue)" x-on:mouseenter="activeValue = @js((string) $optionValue)" x-on:click="choose($el)">
                         <span class="flex min-w-0 flex-1 items-start gap-2">
                             @if (isset($optionIcons[$optionValue]))
                                 <flux:icon :name="$optionIcons[$optionValue]" variant="mini" class="shrink-0 text-zinc-500 dark:text-zinc-300" />
