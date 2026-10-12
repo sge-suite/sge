@@ -213,6 +213,10 @@ class Internship extends Model
     {
         static::saving(function (self $internship): void {
             $attributes = $internship->getAttributes();
+            $partyExists = Rule::exists(GrantingParty::class, 'id');
+            if (! $internship->exists || $internship->isDirty('granting_party_id')) {
+                $partyExists->whereNull('deactivated_at');
+            }
             $assignsStudent = ! $internship->exists || $internship->isDirty(['student_affiliation_id', 'course_id']);
             $assignsType = ! $internship->exists || $internship->isDirty(['internship_type_id', 'course_id']);
             $studentExists = Rule::exists(Affiliation::class, 'id');
@@ -243,7 +247,7 @@ class Internship extends Model
                 'student_address_id' => ['nullable', 'integer', Rule::exists(Address::class, 'id')],
                 'course_id' => ['required', 'integer', Rule::exists(Course::class, 'id')],
                 'internship_type_id' => ['required', 'integer', $typeExists],
-                'granting_party_id' => ['required', 'integer', Rule::exists(GrantingParty::class, 'id')],
+                'granting_party_id' => ['required', 'integer', $partyExists],
                 'workplace_address_id' => ['required', 'integer', Rule::exists(Address::class, 'id')],
                 'student_snapshot' => ['required', 'array'],
                 'internship_type_snapshot' => ['required', 'array'],

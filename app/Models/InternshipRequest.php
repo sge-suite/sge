@@ -157,6 +157,10 @@ class InternshipRequest extends Model
             }
 
             $attributes = $request->getAttributes();
+            $partyExists = Rule::exists(GrantingParty::class, 'id');
+            if (! $request->exists || $request->isDirty('granting_party_id')) {
+                $partyExists->whereNull('deactivated_at');
+            }
             $status = InternshipRequestStatus::tryFrom($attributes['status'] ?? '');
             $declaration = LegalCapacityDeclaration::tryFrom($attributes['legal_capacity_declaration'] ?? '');
             $isIncomplete = in_array($status, [InternshipRequestStatus::Draft, InternshipRequestStatus::Withdrawn], true);
@@ -182,7 +186,7 @@ class InternshipRequest extends Model
                 'course_id' => [$required, 'integer', $courseExists],
                 'internship_type_id' => [$required, 'integer', $typeExists],
                 'advisor_affiliation_id' => [$isAccepted ? 'required' : 'nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Advisor->value)],
-                'granting_party_id' => ['nullable', 'integer', Rule::exists(GrantingParty::class, 'id')],
+                'granting_party_id' => ['nullable', 'integer', $partyExists],
                 'granting_party_registration_request_id' => ['nullable', 'integer', Rule::exists(GrantingPartyRegistrationRequest::class, 'id')],
                 'supervisor_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Supervisor->value)],
                 'supervisor_registration_request_id' => ['nullable', 'integer', Rule::exists(SupervisorRegistrationRequest::class, 'id')],

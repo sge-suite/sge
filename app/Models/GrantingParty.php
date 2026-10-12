@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\CnpjCast;
 use App\Casts\CpfCast;
 use App\Casts\PhoneCast;
+use App\Concerns\GrantingPartyValidationRules;
 use App\Concerns\HasOwnedAddresses;
 use App\Enums\PartyDocumentType;
 use Database\Factories\GrantingPartyFactory;
@@ -14,20 +15,29 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property int $id
+ * @property int $campus_id
+ * @property int $address_id
+ * @property Carbon|null $deactivated_at
+ */
 #[Fillable([
     'campus_id', 'document_type', 'document_number', 'name', 'address_id',
     'representative_name', 'representative_role', 'phone', 'email',
     'field_of_activity', 'professional_council', 'council_registration_number',
-    'credentialing_process_number',
+    'credentialing_process_number', 'deactivated_at',
 ])]
 class GrantingParty extends Model
 {
+    use GrantingPartyValidationRules;
+
     /** @use HasFactory<GrantingPartyFactory> */
     use HasFactory;
 
@@ -38,6 +48,7 @@ class GrantingParty extends Model
     protected function casts(): array
     {
         return [
+            'deactivated_at' => 'datetime',
             'campus_id' => 'integer',
             'document_type' => PartyDocumentType::class,
             'document_number' => 'string',
@@ -66,7 +77,10 @@ class GrantingParty extends Model
         return $this->belongsTo(Campus::class);
     }
 
-    /** @param Builder<GrantingParty> $query */
+    /**
+     * @param  Builder<GrantingParty>  $query
+     * @return Builder<GrantingParty>
+     */
     public function scopeForCampus(Builder $query, Campus|int $campus): Builder
     {
         return $query->where('campus_id', $campus instanceof Campus ? $campus->getKey() : $campus);
@@ -78,6 +92,33 @@ class GrantingParty extends Model
         return $this->hasMany(GrantingPartyRegistrationRequest::class);
     }
 
+    /** @return HasMany<Internship, $this> */
+    public function internships(): HasMany
+    {
+        return $this->hasMany(Internship::class);
+    }
+
+    /** @return HasMany<InternshipRequest, $this> */
+    public function internshipRequests(): HasMany
+    {
+        return $this->hasMany(InternshipRequest::class);
+    }
+
+    public function hasLinkedRecords(): bool
+    {
+        return $this->internships()->exists() || $this->internshipRequests()->exists()
+            || $this->grantingPartyRegistrationRequests()->exists();
+    }
+
+    /**
+     * @param  Builder<GrantingParty>  $query
+     * @return Builder<GrantingParty>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNull('deactivated_at');
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logFillable()->logOnlyDirty();
@@ -85,6 +126,11 @@ class GrantingParty extends Model
 
     protected static function booted(): void
     {
+        static::deleting(function (self $party): void {
+            if ($party->hasLinkedRecords()) {
+                throw ValidationException::withMessages(['granting_party' => 'Não é possível excluir uma concedente com registros vinculados.']);
+            }
+        });
         static::saving(function (self $party): void {
             if ($party->exists && $party->isDirty('campus_id')) {
                 throw ValidationException::withMessages([
@@ -114,19 +160,10 @@ class GrantingParty extends Model
             }
 
             Validator::make($party->getAttributes(), [
+                ...$party->grantingPartyRules(),
                 'campus_id' => ['required', 'integer', Rule::exists(Campus::class, 'id')],
-                'document_type' => ['required', Rule::in(PartyDocumentType::values())],
-                'document_number' => ['required', 'string', 'max:14'],
-                'name' => ['required', 'string', 'max:255'],
-                'address_id' => ['bail', 'required', 'integer', Rule::exists(Address::class, 'id')],
-                'representative_name' => ['required', 'string', 'max:255'],
-                'representative_role' => ['required', 'string', 'max:255'],
-                'phone' => ['nullable', 'string', 'max:20'],
-                'email' => ['nullable', 'string', 'email', 'max:254'],
-                'field_of_activity' => ['required', 'string', 'max:255'],
-                'professional_council' => ['nullable', 'string', 'max:120'],
-                'council_registration_number' => ['nullable', 'string', 'max:64'],
-                'credentialing_process_number' => ['nullable', 'string', 'max:100'],
+                'address_id' => ['required', 'integer', Rule::exists(Address::class, 'id')],
+                'deactivated_at' => ['nullable', 'date'],
             ])->validate();
         });
     }

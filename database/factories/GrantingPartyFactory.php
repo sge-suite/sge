@@ -37,6 +37,11 @@ class GrantingPartyFactory extends Factory
         ];
     }
 
+    public function deactivated(): static
+    {
+        return $this->state(fn (): array => ['deactivated_at' => now()]);
+    }
+
     public function cpf(): static
     {
         return $this->state(fn (): array => [

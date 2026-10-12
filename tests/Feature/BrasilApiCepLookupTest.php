@@ -141,7 +141,7 @@ test('shared address preview explains when CEP lookup has no changes', function 
     expect($component->instance()->cepLookupPreviewChanges())->toBe([]);
     $component->call('cancelCepLookup')->assertSet('showCepLookupPreview', false)
         ->assertSet('values.address.number', '123')->assertSet('values.address.street', 'Rua Nova');
-})->with(['campuses.form-fields']);
+})->with(['campuses.form-fields', 'granting-parties.form-fields']);
 
 test('shared address preview exposes independent proposed field changes', function (string $componentName) {
     $user = User::factory()->create();
@@ -160,4 +160,4 @@ test('shared address preview exposes independent proposed field changes', functi
     $component->call('applyCepLookup')->assertSet('values.address.street', 'Rua Nova')
         ->assertSet('values.address.neighborhood', 'Centro')->assertSet('values.address.number', '123')
         ->assertSet('selectedCityId', $city->id)->assertSet('showCepLookupPreview', false);
-})->with(['campuses.form-fields']);
+})->with(['campuses.form-fields', 'granting-parties.form-fields']);

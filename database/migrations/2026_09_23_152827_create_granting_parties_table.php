@@ -27,6 +27,8 @@ return new class extends Migration
             $table->string('professional_council')->nullable();
             $table->string('council_registration_number')->nullable();
             $table->string('credentialing_process_number')->nullable();
+            $table->timestamp('deactivated_at')->nullable();
+
             $table->timestamps();
         });
     }

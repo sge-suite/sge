@@ -4,12 +4,14 @@ use App\Http\Controllers\AdministrativeAffiliationController;
 use App\Http\Controllers\AffiliationSelectionController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\GrantingPartyController;
 use App\Http\Controllers\InternshipTypeController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RequireActiveAffiliation;
 use App\Models\Campus;
 use App\Models\Course;
 use App\Models\EmailDeliveryAttempt;
+use App\Models\GrantingParty;
 use App\Models\InternshipType;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +38,17 @@ Route::middleware(['auth'])->group(function () {
             Route::put('courses/{course}', [CourseController::class, 'update'])->name('courses.update');
             Route::patch('courses/{course}/deactivate', [CourseController::class, 'deactivate'])->name('courses.deactivate');
             Route::patch('courses/{course}/reactivate', [CourseController::class, 'reactivate'])->name('courses.reactivate');
+        });
+
+        Route::middleware('can:viewAny,'.GrantingParty::class)->group(function (): void {
+            Route::livewire('granting-parties', 'pages::granting-parties.index')->name('granting-parties.index');
+            Route::livewire('granting-parties/create', 'pages::granting-parties.create')->name('granting-parties.create');
+            Route::livewire('granting-parties/{grantingParty}/edit', 'pages::granting-parties.edit')->name('granting-parties.edit');
+            Route::livewire('granting-parties/{grantingParty}', 'pages::granting-parties.show')->name('granting-parties.show');
+            Route::post('granting-parties', [GrantingPartyController::class, 'store'])->name('granting-parties.store');
+            Route::put('granting-parties/{grantingParty}', [GrantingPartyController::class, 'update'])->name('granting-parties.update');
+            Route::patch('granting-parties/{grantingParty}/deactivate', [GrantingPartyController::class, 'deactivate'])->name('granting-parties.deactivate');
+            Route::patch('granting-parties/{grantingParty}/reactivate', [GrantingPartyController::class, 'reactivate'])->name('granting-parties.reactivate');
         });
 
         Route::middleware('can:viewAny,'.InternshipType::class)->group(function (): void {

@@ -28,6 +28,9 @@
                 @can('viewAny', \App\Models\Course::class)
                     <flux:sidebar.item icon="academic-cap" :href="route('courses.index')" :current="request()->routeIs('courses.*')" wire:navigate>Cursos</flux:sidebar.item>
                 @endcan
+                @can('viewAny', \App\Models\GrantingParty::class)
+                    <flux:sidebar.item icon="building-office" :href="route('granting-parties.index')" :current="request()->routeIs('granting-parties.*')" wire:navigate>Partes concedentes</flux:sidebar.item>
+                @endcan
                 @can('viewAny', \App\Models\InternshipType::class)
                     <flux:sidebar.item icon="briefcase" :href="route('internship-types.index')" :current="request()->routeIs('internship-types.*')" wire:navigate>Tipos de estágio</flux:sidebar.item>
                 @endcan

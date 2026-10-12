@@ -19,7 +19,7 @@ test('creates the granting parties schema with the contracted PostgreSQL types',
         'id', 'campus_id', 'document_type', 'document_number', 'name', 'address_id',
         'representative_name', 'representative_role', 'phone', 'email',
         'field_of_activity', 'professional_council', 'council_registration_number',
-        'credentialing_process_number', 'created_at', 'updated_at',
+        'credentialing_process_number', 'deactivated_at', 'created_at', 'updated_at',
     ]);
 
     foreach ([
@@ -37,6 +37,7 @@ test('creates the granting parties schema with the contracted PostgreSQL types',
         'professional_council' => ['character varying(255)', true],
         'council_registration_number' => ['character varying(255)', true],
         'credentialing_process_number' => ['character varying(255)', true],
+        'deactivated_at' => ['timestamp(0) without time zone', true],
         'created_at' => ['timestamp(0) without time zone', true],
         'updated_at' => ['timestamp(0) without time zone', true],
     ] as $name => [$type, $nullable]) {
