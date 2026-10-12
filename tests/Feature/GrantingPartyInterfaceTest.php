@@ -41,6 +41,54 @@ test('list isolates campus paginates searches and filters', function () {
     expect($component->get('grantingParties')->total())->toBe(18);
 });
 
+test('list searches cities by selected UF and filters by the selected city within campus scope', function () {
+    $rsSantaRosa = City::factory()->create(['name' => 'Santa Rosa', 'state' => BrazilianState::RioGrandeDoSul]);
+    $rsIjui = City::factory()->create(['name' => 'Ijuí', 'state' => BrazilianState::RioGrandeDoSul]);
+    $scSantaRosa = City::factory()->create(['name' => 'Santa Rosa', 'state' => BrazilianState::SantaCatarina]);
+    $this->party->address->update(['city_id' => $rsIjui->id]);
+
+    $rsParty = GrantingParty::factory()->for($this->office->campus)
+        ->for(Address::factory()->for($rsSantaRosa), 'address')->create();
+    $scParty = GrantingParty::factory()->for($this->office->campus)
+        ->for(Address::factory()->for($scSantaRosa), 'address')->create();
+    GrantingParty::factory()->for(Address::factory()->for($rsSantaRosa), 'address')->create();
+
+    $allStates = Livewire::test('pages::granting-parties.index')->set('citySearch', 'Santa');
+    expect($allStates->instance()->cities->pluck('id')->all())->toContain($rsSantaRosa->id, $scSantaRosa->id);
+    $allStates->set('cityId', (string) $scSantaRosa->id)->assertSet('state', 'all');
+    expect($allStates->get('grantingParties')->pluck('id')->all())->toBe([$scParty->id]);
+    $allStates->call('clearFilters')->assertSet('cityId', '')->assertSet('citySearch', '');
+
+    $component = Livewire::test('pages::granting-parties.index')
+        ->call('gotoPage', 2)
+        ->set('state', 'RS')->assertSet('paginators.page', 1)
+        ->set('citySearch', 'S');
+    expect($component->instance()->cities)->toBeEmpty();
+
+    $component->set('citySearch', 'Santa');
+    expect($component->instance()->cities->pluck('id')->all())->toContain($rsSantaRosa->id)
+        ->not->toContain($scSantaRosa->id);
+    $component->set('cityId', (string) $rsSantaRosa->id);
+    expect($component->get('grantingParties')->pluck('id')->all())->toBe([$rsParty->id]);
+
+    $component->set('state', 'SC')->assertSet('cityId', '')->set('citySearch', 'Santa');
+    expect($component->instance()->cities->pluck('id')->all())->toContain($scSantaRosa->id)
+        ->not->toContain($rsSantaRosa->id);
+    $component->set('cityId', (string) $scSantaRosa->id);
+    expect($component->get('grantingParties')->pluck('id')->all())->toBe([$scParty->id]);
+
+    $fromUrl = Livewire::withQueryParams(['state' => 'RS', 'city' => (string) $rsSantaRosa->id])->test('pages::granting-parties.index');
+    expect($fromUrl->get('grantingParties')->pluck('id')->all())->toBe([$rsParty->id]);
+
+    $component->set('state', 'RS')->set('cityId', (string) $scSantaRosa->id)->assertSet('cityId', '');
+    expect($component->get('grantingParties')->pluck('id')->sort()->values()->all())
+        ->toBe(collect([$this->party->id, $rsParty->id])->sort()->values()->all());
+
+    $component->set('state', 'invalid')->assertSet('state', 'all')->assertSet('cityId', '')
+        ->call('clearFilters')->assertSet('state', 'all')->assertSet('cityId', '')->assertSet('citySearch', '');
+    Livewire::withQueryParams(['state' => 'invalid'])->test('pages::granting-parties.index')->assertSet('state', 'all');
+});
+
 test('mounted pages and fields reauthorize context and inactive campus', function (string $componentName, string $change) {
     $component = Livewire::test($componentName, ['grantingParty' => $this->party]);
     if ($change === 'campus') {
@@ -195,10 +243,12 @@ test('company lookup reauthorizes query and application after context changes', 
 test('company preview includes principal activity and email and applies them only after confirmation', function () {
     Http::fake(['*cnpj/v1/*' => Http::response(grantingPartyCompanyPayload())]);
     $component = Livewire::test('granting-parties.form-fields', ['grantingParty' => $this->party])
+        ->set('values.phone', '5533334444')->set('values.address.zip_code', '98780000')
         ->set('values.email', 'manual@example.test')->set('values.field_of_activity', 'Atividade manual')
         ->set('values.professional_council', 'Conselho informado')->call('lookupCnpj')
         ->assertSet('values.email', 'manual@example.test')->assertSet('values.field_of_activity', 'Atividade manual');
-    expect(collect($component->instance()->lookupPreviewChanges())->pluck('label')->all())->toContain('E-mail', 'Área de atuação');
+    expect(collect($component->instance()->lookupPreviewChanges())->pluck('label')->all())
+        ->toContain('E-mail', 'Área de atuação')->not->toContain('Telefone', 'CEP');
     $component->call('applyCompanyLookup')->assertSet('values.email', 'contato@example.test')
         ->assertSet('values.field_of_activity', 'Serviços de engenharia')->assertSet('values.professional_council', 'Conselho informado');
     expect($this->party->fresh()->field_of_activity)->not->toBe('Serviços de engenharia');
@@ -211,3 +261,59 @@ test('missing or malformed API activity and email preserve manual input', functi
         ->call('lookupCnpj')->call('applyCompanyLookup')
         ->assertSet('values.email', 'manual@example.test')->assertSet('values.field_of_activity', 'Atividade manual');
 })->with([[null, null], ['', ''], ['not-an-email', ['invalid']]]);
+
+test('native granting party form submits its rendered field values', function () {
+    $data = $this->party->only(['document_number', 'name', 'representative_name', 'representative_role', 'phone', 'email', 'field_of_activity', 'professional_council', 'council_registration_number', 'credentialing_process_number']);
+    $data['document_type'] = $this->party->document_type->value;
+    $data['address'] = $this->party->address->only(['city_id', 'street', 'number', 'neighborhood', 'zip_code']);
+    $response = $this->withSession(['_old_input' => $data])->get(route('granting-parties.create'))->assertSuccessful();
+    $dom = new DOMDocument;
+    @$dom->loadHTML($response->getContent(), LIBXML_NONET);
+    $xpath = new DOMXPath($dom);
+    $form = $xpath->query('//form[@action="'.route('granting-parties.store').'"]')->item(0);
+    $fields = [];
+    foreach ($xpath->query('.//input[@name]', $form) as $input) {
+        if ($input->getAttribute('name') !== '' && ! $input->hasAttribute('disabled') && ! in_array($input->getAttribute('type'), ['radio', 'checkbox', 'submit'], true)) {
+            $fields[$input->getAttribute('name')] = $input->getAttribute('value');
+        }
+    }
+    foreach ($xpath->query('.//select[@name]', $form) as $select) {
+        if ($select->getAttribute('name') !== '' && ! $select->hasAttribute('disabled')) {
+            $selected = $xpath->query('.//option[@selected]', $select)->item(0) ?? $xpath->query('.//option', $select)->item(0);
+            $fields[$select->getAttribute('name')] = $selected?->getAttribute('value') ?? '';
+        }
+    }
+    parse_str(http_build_query($fields), $payload);
+    $this->post(route('granting-parties.store'), $payload)->assertSessionHasNoErrors()->assertRedirect();
+    expect(GrantingParty::count())->toBe(2);
+});
+
+test('a granting party can be created after applying Brasil API values with masked phone and CEP', function () {
+    $city = City::factory()->create(['name' => 'Santa Rosa', 'state' => BrazilianState::RioGrandeDoSul, 'ibge_code' => '4317202']);
+    Http::fake(['*cnpj/v1/*' => Http::response(grantingPartyCompanyPayload())]);
+
+    $component = Livewire::test('granting-parties.form-fields')
+        ->set('values.document_type', 'cnpj')
+        ->set('values.document_number', '04.252.011/0001-10')
+        ->set('values.representative_name', 'Representante informado')
+        ->set('values.representative_role', 'Responsável técnico')
+        ->call('lookupCnpj')
+        ->call('applyCompanyLookup')
+        ->assertHasNoErrors();
+
+    $values = $component->get('values');
+    $data = [
+        ...$values,
+        'document_type' => 'cnpj',
+        'document_number' => '04.252.011/0001-10',
+        'address' => [...$values['address'], 'city_id' => $city->id],
+    ];
+
+    $this->post(route('granting-parties.store'), $data)->assertSessionHasNoErrors()->assertRedirect();
+
+    $created = GrantingParty::query()->latest('id')->firstOrFail();
+    expect($created->phone)->toBe('5533334444')
+        ->and($created->address->zip_code)->toBe('98780000')
+        ->and($created->address->city_id)->toBe($city->id)
+        ->and($created->representative_name)->toBe('Representante informado');
+});

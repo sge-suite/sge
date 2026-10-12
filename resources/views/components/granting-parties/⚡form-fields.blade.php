@@ -326,7 +326,13 @@ new class extends Component
         $current = is_scalar($current) ? trim((string) $current) : '';
         $proposed = is_scalar($proposed) ? trim((string) $proposed) : '';
 
-        if ($proposed === '' || $current === $proposed) {
+        $currentDigits = DigitsHelper::only($current);
+        $proposedDigits = DigitsHelper::only($proposed);
+        $sameValue = in_array($label, ['CPF', 'CNPJ', 'CPF/CNPJ', 'Telefone', 'CEP'], true)
+            ? ($currentDigits !== '' && $currentDigits === $proposedDigits) || $current === $proposed
+            : $current === $proposed;
+
+        if ($proposed === '' || $sameValue) {
             return;
         }
 
@@ -347,8 +353,8 @@ new class extends Component
                         <x-select name="document_type" wire:model.live="values.document_type" label="Tipo de documento" :value="$values['document_type']" :options="['' => 'Selecione'] + \App\Enums\PartyDocumentType::options()" required :error="$errors->first('document_type')" />
                     </div>
                     <div wire:key="document-input-{{ $values['document_type'] }}" class="min-w-0">
-                        <flux:input name="document_number" wire:model.blur="values.document_number" :value="$values['document_number']" :label="$this->documentField['label']" required :maxlength="$this->documentField['maxlength']" :placeholder="$this->documentField['placeholder']" inputmode="numeric" :disabled="$this->documentField['digits'] === 0" x-on:input="$el.value = $el.value.replace(/[^0-9.\/-]/g, ''); if ($el.value.replace(/\D/g, '').length > {{ $this->documentField['digits'] }}) $el.value = $el.value.replace(/\D/g, '').slice(0, {{ $this->documentField['digits'] }}); $wire.$set('values.document_number', $el.value, false)" :invalid="$errors->has('document_number') || $errors->has('values.document_number')" />
-                        <flux:error name="values.document_number" />
+                        <flux:input name="document_number" error:name="document_number" wire:model.blur="values.document_number" :value="$values['document_number']" :label="$this->documentField['label']" required :maxlength="$this->documentField['maxlength']" :placeholder="$this->documentField['placeholder']" inputmode="numeric" :disabled="$this->documentField['digits'] === 0" x-on:input="$el.value = $el.value.replace(/[^0-9.\/-]/g, ''); if ($el.value.replace(/\D/g, '').length > {{ $this->documentField['digits'] }}) $el.value = $el.value.replace(/\D/g, '').slice(0, {{ $this->documentField['digits'] }}); $wire.$set('values.document_number', $el.value, false)" :invalid="$errors->has('document_number') || $errors->has('values.document_number')" />
+                        <flux:error name="document_number" />
                     </div>
                     @if ($this->canLookupCnpj)
                         <div class="flex flex-wrap items-center gap-3 sm:col-span-2">
@@ -358,10 +364,10 @@ new class extends Component
                         </div>
                     @endif
                     <div class="sm:col-span-2">
-                        <flux:input name="name" wire:model="values.name" :value="$values['name']" :label="($values['document_type'] ?? '') === 'cpf' ? 'Nome completo' : 'Razão social / nome da unidade'" required maxlength="255" />
+                        <flux:input name="name" error:name="name" wire:model="values.name" :value="$values['name']" :label="($values['document_type'] ?? '') === 'cpf' ? 'Nome completo' : 'Razão social / nome da unidade'" required maxlength="255" />
                     </div>
                     <div class="sm:col-span-2">
-                        <flux:input name="field_of_activity" wire:model="values.field_of_activity" :value="$values['field_of_activity']" label="Área de atuação" maxlength="255" required />
+                        <flux:input name="field_of_activity" error:name="field_of_activity" wire:model="values.field_of_activity" :value="$values['field_of_activity']" label="Área de atuação" maxlength="255" required />
                     </div>
                 </div>
                 <flux:text class="mt-3">Identifique a unidade pelo nome e endereço. Unidades distintas podem usar o mesmo CPF/CNPJ.</flux:text>
@@ -370,10 +376,10 @@ new class extends Component
             <section aria-labelledby="granting-party-contact-heading">
                 <flux:heading id="granting-party-contact-heading" size="lg" level="2">Representante e contatos</flux:heading>
                 <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-                    <flux:input name="representative_name" wire:model="values.representative_name" :value="$values['representative_name']" label="Nome do representante" maxlength="255" required />
-                    <flux:input name="representative_role" wire:model="values.representative_role" :value="$values['representative_role']" label="Cargo do representante" maxlength="255" required />
-                    <flux:input name="phone" wire:model="values.phone" :value="$values['phone']" label="Telefone com DDD" maxlength="20" />
-                    <flux:input name="email" wire:model="values.email" :value="$values['email']" label="E-mail" maxlength="254" type="email" />
+                    <flux:input name="representative_name" error:name="representative_name" wire:model="values.representative_name" :value="$values['representative_name']" label="Nome do representante" maxlength="255" required />
+                    <flux:input name="representative_role" error:name="representative_role" wire:model="values.representative_role" :value="$values['representative_role']" label="Cargo do representante" maxlength="255" required />
+                    <flux:input name="phone" error:name="phone" wire:model="values.phone" :value="$values['phone']" label="Telefone com DDD" maxlength="20" />
+                    <flux:input name="email" error:name="email" wire:model="values.email" :value="$values['email']" label="E-mail" maxlength="254" type="email" />
                 </div>
             </section>
             <flux:separator />
@@ -381,10 +387,10 @@ new class extends Component
                 <flux:heading id="granting-party-credentialing-heading" size="lg" level="2">Credenciamento</flux:heading>
                 <flux:text class="mt-1">Dados opcionais. Preencha quando aplicável.</flux:text>
                 <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-                    <flux:input name="professional_council" wire:model="values.professional_council" :value="$values['professional_council']" label="Conselho profissional" maxlength="120" />
-                    <flux:input name="council_registration_number" wire:model="values.council_registration_number" :value="$values['council_registration_number']" label="Registro no conselho" maxlength="64" />
+                    <flux:input name="professional_council" error:name="professional_council" wire:model="values.professional_council" :value="$values['professional_council']" label="Conselho profissional" maxlength="120" />
+                    <flux:input name="council_registration_number" error:name="council_registration_number" wire:model="values.council_registration_number" :value="$values['council_registration_number']" label="Registro no conselho" maxlength="64" />
                     <div class="sm:col-span-2">
-                        <flux:input name="credentialing_process_number" wire:model="values.credentialing_process_number" :value="$values['credentialing_process_number']" label="Processo de credenciamento" maxlength="100" />
+                        <flux:input name="credentialing_process_number" error:name="credentialing_process_number" wire:model="values.credentialing_process_number" :value="$values['credentialing_process_number']" label="Processo de credenciamento" maxlength="100" />
                     </div>
                 </div>
             </section>

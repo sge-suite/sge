@@ -23,6 +23,19 @@ abstract class GrantingPartyFormRequest extends FormRequest
         }
     }
 
+    /** @return array<string, string> */
+    public function attributes(): array
+    {
+        return [
+            'document_type' => 'tipo de documento', 'document_number' => 'CPF/CNPJ',
+            'name' => 'nome ou razão social', 'representative_name' => 'nome do representante',
+            'representative_role' => 'cargo do representante', 'field_of_activity' => 'área de atuação',
+            'phone' => 'telefone', 'email' => 'e-mail', 'address' => 'endereço',
+            'address.city_id' => 'cidade', 'address.street' => 'logradouro',
+            'address.number' => 'número', 'address.neighborhood' => 'bairro', 'address.zip_code' => 'CEP',
+        ];
+    }
+
     /** @return list<callable(Validator): void> */
     public function after(): array
     {

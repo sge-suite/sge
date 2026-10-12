@@ -1,10 +1,13 @@
 <?php
 
+use App\Enums\BrazilianState;
 use App\Helpers\DigitsHelper;
+use App\Models\City;
 use App\Models\GrantingParty;
-use App\Support\PageSize;
 use App\Support\ActiveAffiliationContext;
+use App\Support\PageSize;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -23,9 +26,43 @@ new #[Title('Partes concedentes')] class extends Component
     #[Url(except: '')]
     public string $search = '';
 
+    #[Url(except: 'all')]
+    public string $state = 'all';
+
+    #[Url(except: '', as: 'city')]
+    public string $cityId = '';
+
+    public string $citySearch = '';
+
     public function updatedSearch(): void
     {
         $this->resetPage();
+    }
+
+    public function updatedState(): void
+    {
+        if ($this->state !== 'all' && BrazilianState::tryFrom($this->state) === null) {
+            $this->state = 'all';
+        }
+
+        $this->cityId = '';
+        $this->citySearch = '';
+        $this->resetPage();
+    }
+
+    public function updatedCityId(): void
+    {
+        if ($this->cityId !== '' && $this->selectedCity === null) {
+            $this->cityId = '';
+        }
+
+        $this->citySearch = '';
+        $this->resetPage();
+    }
+
+    public function updatedCitySearch(): void
+    {
+        $this->citySearch = mb_substr(trim($this->citySearch), 0, 255);
     }
 
     public function boot(): void
@@ -38,6 +75,14 @@ new #[Title('Partes concedentes')] class extends Component
         if (! in_array($this->status, ['all', 'active', 'inactive'], true)) {
             $this->status = 'all';
         }
+
+        if ($this->state !== 'all' && BrazilianState::tryFrom($this->state) === null) {
+            $this->state = 'all';
+        }
+
+        if ($this->selectedCity === null) {
+            $this->cityId = '';
+        }
     }
 
     public function updatedStatus(): void
@@ -47,8 +92,41 @@ new #[Title('Partes concedentes')] class extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('status', 'search');
+        $this->reset('status', 'search', 'state', 'cityId', 'citySearch');
         $this->resetPage();
+    }
+
+    #[Computed]
+    public function selectedCity(): ?City
+    {
+        $key = filter_var($this->cityId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $state = BrazilianState::tryFrom($this->state);
+
+        if ($key === false) {
+            return null;
+        }
+
+        return City::query()->when($state !== null, fn (Builder $query) => $query->forState($state))->find($key);
+    }
+
+    /** @return Collection<int, City> */
+    #[Computed]
+    public function cities(): Collection
+    {
+        $state = BrazilianState::tryFrom($this->state);
+        $search = mb_substr(trim($this->citySearch), 0, 255);
+
+        if (mb_strlen($search) < 2) {
+            return new Collection;
+        }
+
+        $query = City::search($search);
+
+        if ($state !== null) {
+            $query->where('state', $state->value);
+        }
+
+        return $query->take(20)->get();
     }
 
     #[Computed]
@@ -56,11 +134,24 @@ new #[Title('Partes concedentes')] class extends Component
     {
         Gate::authorize('viewAny', GrantingParty::class);
         $affiliation = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
+        $state = $this->state === 'all' ? null : BrazilianState::tryFrom($this->state);
+        $selectedCity = $this->selectedCity;
 
         return GrantingParty::query()->where('campus_id', $affiliation->campus_id)
             ->with('address.city')
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
+            ->when($state !== null || $selectedCity !== null, function (Builder $query) use ($state, $selectedCity): void {
+                $query->whereHas('address.city', function (Builder $query) use ($state, $selectedCity): void {
+                    if ($state !== null) {
+                        $query->where('state', $state->value);
+                    }
+
+                    if ($selectedCity !== null) {
+                        $query->whereKey($selectedCity->getKey());
+                    }
+                });
+            })
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $term = mb_substr(trim($this->search), 0, 255);
                 $query->where(fn (Builder $query) => $query->whereLike('name', '%'.addcslashes($term, '%_').'%', caseSensitive: false)->orWhere('document_number', DigitsHelper::only($term)));
@@ -83,16 +174,38 @@ new #[Title('Partes concedentes')] class extends Component
             <flux:badge>Campus somente para leitura</flux:badge>
         @endcan
     </div>
-    <div class="flex items-end gap-4">
-        <div class="min-w-0 flex-1">
-            <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome ou CPF/CNPJ completo" icon="magnifying-glass" />
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_14rem_12rem_9rem] xl:items-end">
+        <div class="min-w-0">
+            <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome ou CPF/CNPJ completo" icon="magnifying-glass" maxlength="255" type="search" />
         </div>
-        <div class="w-40 shrink-0 sm:w-48">
+        <div class="min-w-0">
+            <x-select wire:model.live="state" label="UF" :value="$state" :options="['all' => 'Todas as UFs'] + collect(BrazilianState::options())->map(fn ($label, $value) => $label.' ('.$value.')')->all()" searchable />
+        </div>
+        <div class="min-w-0">
+            <x-select wire:model.live="cityId" label="Cidade" icon="map-pin" placeholder="Todas as cidades"
+                :value="$cityId" :selected-label="$this->selectedCity ? $this->selectedCity->name.' / '.$this->selectedCity->state->value : ''" :options="($cityId !== '' ? ['' => 'Todas as cidades'] : []) + $this->cities->mapWithKeys(fn ($city) => [$city->id => $city->name.' / '.$city->state->value])->all()"
+                :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
+                searchable wire:key="granting-party-city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId,citySearch">
+                <x-slot:search>
+                    <flux:input name="" wire:model.live.debounce.500ms="citySearch" wire:ignore.self placeholder="Buscar cidade…" aria-label="Buscar cidade" icon="magnifying-glass" size="sm" maxlength="255"
+                        role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="$refs.list.id" x-bind:aria-activedescendant="activeId()" />
+                    <span wire:loading wire:target="citySearch" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando cidades…</span>
+                </x-slot:search>
+            </x-select>
+        </div>
+        <div class="min-w-0">
             <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']" />
+        </div>
+        <div class="min-w-0">
+            @if ($search !== '' || $status !== 'all' || $state !== 'all' || $cityId !== '')
+                <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
+            @else
+                <div aria-hidden="true" class="h-10"></div>
+            @endif
         </div>
     </div>
     @php($grantingParties = $this->grantingParties)
-    <x-loading-overlay target="search,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+    <x-loading-overlay target="search,state,cityId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($grantingParties->isNotEmpty())
             <flux:table :paginate="$grantingParties" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
@@ -118,9 +231,9 @@ new #[Title('Partes concedentes')] class extends Component
                 @if ($grantingParties->total() > 0)
                     <flux:heading size="lg">Nenhuma parte concedente nesta página</flux:heading>
                     <flux:button class="mt-5" variant="ghost" wire:click="resetPage">Ir para a primeira página</flux:button>
-                @elseif ($status !== 'all' || $search !== '')
+                @elseif ($status !== 'all' || $search !== '' || $state !== 'all' || $cityId !== '')
                     <flux:heading size="lg">Nenhuma parte concedente encontrada</flux:heading>
-                    <flux:text class="mt-2">Ajuste a busca ou a situação para encontrar uma parte concedente.</flux:text>
+                    <flux:text class="mt-2">Ajuste a busca, a localização ou a situação para encontrar uma parte concedente.</flux:text>
                     <flux:button class="mt-5" variant="ghost" wire:click="clearFilters">Limpar filtros</flux:button>
                 @else
                     <flux:heading size="lg">Nenhuma parte concedente cadastrada</flux:heading>
