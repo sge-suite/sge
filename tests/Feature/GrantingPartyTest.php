@@ -19,7 +19,7 @@ test('creates the granting parties schema with the contracted PostgreSQL types',
         'id', 'campus_id', 'document_type', 'document_number', 'name', 'address_id',
         'representative_name', 'representative_role', 'phone', 'email',
         'field_of_activity', 'professional_council', 'council_registration_number',
-        'credentialing_process_number', 'created_at', 'updated_at', 'deleted_at',
+        'credentialing_process_number', 'created_at', 'updated_at',
     ]);
 
     foreach ([
@@ -39,7 +39,6 @@ test('creates the granting parties schema with the contracted PostgreSQL types',
         'credentialing_process_number' => ['character varying(255)', true],
         'created_at' => ['timestamp(0) without time zone', true],
         'updated_at' => ['timestamp(0) without time zone', true],
-        'deleted_at' => ['timestamp(0) without time zone', true],
     ] as $name => [$type, $nullable]) {
         expect($columns->get($name))->toMatchArray(['type' => $type, 'nullable' => $nullable]);
     }
@@ -297,17 +296,14 @@ test('requires an address and restricts deletion while referenced', function () 
     $address = Address::factory()->create();
     $party = GrantingParty::factory()->for($address)->create();
     expect($party->fresh()->address->is($address))->toBeTrue();
-
     expect(fn () => DB::transaction(fn () => $address->delete()))->toThrow(QueryException::class);
-    $party->delete();
-    expect(fn () => DB::transaction(fn () => $address->delete()))->toThrow(QueryException::class);
-
-    $party->restore();
     $replacement = Address::factory()->create();
     $party->update(['address_id' => $replacement->id]);
     $address->delete();
     $this->assertModelMissing($address);
     expect($party->fresh()->address->is($replacement))->toBeTrue();
+    $party->delete();
+    $this->assertModelMissing($replacement);
 });
 
 test('requires a ZIP code when creating the granting party address', function () {
@@ -326,7 +322,7 @@ test('validates details and address references before saving', function (string 
     'long process' => ['credentialing_process_number', str_repeat('x', 101)],
 ]);
 
-test('soft deletes records and logs cadastral changes', function () {
+test('physically deletes records and preserves logged cadastral changes', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
     $party = GrantingParty::factory()->create();
@@ -335,10 +331,9 @@ test('soft deletes records and logs cadastral changes', function () {
     expect(Activity::forSubject($party)->count())->toBe(2)
         ->and(Activity::forSubject($party)->where('event', 'updated')->sole()->causer_id)->toBe($user->id);
 
+    $address = $party->address;
     $party->delete();
-    expect(GrantingParty::query()->whereKey($party->id)->exists())->toBeFalse()
-        ->and(GrantingParty::withTrashed()->whereKey($party->id)->exists())->toBeTrue();
-
-    $party->restore();
-    $this->assertModelExists($party);
+    $this->assertModelMissing($party);
+    $this->assertModelMissing($address);
+    expect(Activity::forSubject($party)->where('event', 'deleted')->sole()->causer_id)->toBe($user->id);
 });

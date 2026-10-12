@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\CnpjCast;
 use App\Casts\PhoneCast;
 use App\Concerns\CampusValidationRules;
+use App\Concerns\HasOwnedAddresses;
 use App\Enums\AffiliationType;
 use Database\Factories\CampusFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -14,7 +15,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -33,7 +33,6 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $insurance_company_name
  * @property string $insurance_policy_number
  * @property Carbon|null $deactivated_at
- * @property Carbon|null $deleted_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Address $address
@@ -58,9 +57,9 @@ class Campus extends Model
     /** @use HasFactory<CampusFactory> */
     use HasFactory;
 
+    use HasOwnedAddresses;
     use LogsActivity;
     use Searchable;
-    use SoftDeletes;
 
     /**
      * @return array<string, string>
@@ -131,7 +130,7 @@ class Campus extends Model
         return $this->affiliations()->exists()
             || $this->courses()->exists()
             || $this->documentTemplates()->exists()
-            || $this->grantingParties()->withTrashed()->exists()
+            || $this->grantingParties()->exists()
             || $this->grantingPartyRegistrationRequests()->exists()
             || $this->address->hasReferencesOutsideCampus($this);
     }
@@ -166,7 +165,7 @@ class Campus extends Model
 
     public function assertWritable(): void
     {
-        if (! $this->exists || $this->trashed() || $this->deactivated_at !== null) {
+        if (! $this->exists || $this->deactivated_at !== null) {
             throw ValidationException::withMessages([
                 'campus' => 'Este campus está desativado e não pode ser alterado.',
             ]);
@@ -175,7 +174,7 @@ class Campus extends Model
 
     public function deactivate(): bool
     {
-        if (! $this->exists || $this->trashed()) {
+        if (! $this->exists) {
             throw ValidationException::withMessages([
                 'campus' => 'Somente um campus persistido pode ser desativado.',
             ]);
@@ -193,7 +192,7 @@ class Campus extends Model
 
     public function reactivate(): bool
     {
-        if (! $this->exists || $this->trashed()) {
+        if (! $this->exists) {
             throw ValidationException::withMessages([
                 'campus' => 'Somente um campus persistido pode ser reativado.',
             ]);

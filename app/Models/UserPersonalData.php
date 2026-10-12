@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\PhoneCast;
+use App\Concerns\HasOwnedAddresses;
 use App\Concerns\UserPersonalDataValidationRules;
 use Database\Factories\UserPersonalDataFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -41,6 +42,7 @@ class UserPersonalData extends Model
     /** @use HasFactory<UserPersonalDataFactory> */
     use HasFactory;
 
+    use HasOwnedAddresses;
     use LogsActivity;
     use UserPersonalDataValidationRules;
 

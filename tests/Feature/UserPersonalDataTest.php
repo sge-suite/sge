@@ -117,6 +117,7 @@ test('cascades a profile deletion with its user and restricts deleting its curre
 
     $user->delete();
     $this->assertModelMissing($personalData);
+    expect(Address::query()->find($address->id))->toBeNull();
 });
 
 test('keeps personal data optional and preserves CPF on the user account', function () {

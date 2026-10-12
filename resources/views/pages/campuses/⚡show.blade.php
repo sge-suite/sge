@@ -3,7 +3,6 @@
 use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\BrazilianContactHelper;
 use App\Helpers\BrazilianDocumentHelper;
-use App\Models\Address;
 use App\Models\Campus;
 use App\Support\ActivityAccess;
 use App\Support\ActivityHistory;
@@ -118,14 +117,12 @@ new #[Title('Detalhes do campus')] class extends Component
         $deleted = DB::transaction(function (): bool {
             $campus = Campus::query()->lockForUpdate()->findOrFail($this->campusId);
             Gate::authorize('delete', $campus);
-            $address = Address::query()->lockForUpdate()->findOrFail($campus->address_id);
 
             if ($campus->hasLinkedRecords()) {
                 return false;
             }
 
-            $campus->forceDelete();
-            $address->delete();
+            $campus->delete();
 
             return true;
         });

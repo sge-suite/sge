@@ -16,7 +16,7 @@ trait AdministrativeAffiliationValidationRules
     {
         return [
             'type' => ['required', Rule::in([AffiliationType::SystemAdministrator->value, AffiliationType::InternshipOffice->value])],
-            'campus_id' => ['bail', 'required_if:type,internship_office', 'prohibited_unless:type,internship_office', 'nullable', 'integer', Rule::exists(Campus::class, 'id')->whereNull('deactivated_at')->whereNull('deleted_at')],
+            'campus_id' => ['bail', 'required_if:type,internship_office', 'prohibited_unless:type,internship_office', 'nullable', 'integer', Rule::exists(Campus::class, 'id')->whereNull('deactivated_at')],
             ...$this->administrativeAffiliationEditableRules($user),
         ];
     }

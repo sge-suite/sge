@@ -28,7 +28,6 @@ return new class extends Migration
             $table->string('council_registration_number')->nullable();
             $table->string('credentialing_process_number')->nullable();
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

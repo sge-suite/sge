@@ -114,16 +114,18 @@ test('invalid reference identifiers are returned as unavailable values', functio
     expect($component->instance()->entry['changes'][0]['after'])->toBe('Valor não exibido');
 });
 
-test('system administrator also sees reference descriptions including soft deleted campus names', function () {
+test('system administrator sees identifiers of physically deleted campuses without inventing current references', function () {
     $administrator = Affiliation::factory()->global()->create();
     $office = Affiliation::factory()->create();
     $entry = Activity::forSubject($office)->where('event', 'created')->sole();
-    $office->campus->delete();
+    $campus = $office->campus;
+    $office->delete();
+    $campus->delete();
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
     $component = Livewire::test('pages::audit.show', ['activity' => $entry]);
     $fields = collect($component->instance()->entry['changes'])->keyBy('field');
 
-    expect($fields['Campus']['after'])->toContain($office->campus->name)
+    expect($fields['Campus']['after'])->toBe('Campus #'.$campus->id.' (identificação indisponível)')
         ->and($fields['Usuário']['after'])->toContain($office->user->name);
 });
 

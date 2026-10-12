@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\HasOwnedAddresses;
 use App\Enums\AffiliationType;
 use App\Enums\InternshipStatus;
 use Database\Factories\InternshipFactory;
@@ -36,6 +37,7 @@ class Internship extends Model
     /** @use HasFactory<InternshipFactory> */
     use HasFactory;
 
+    use HasOwnedAddresses;
     use LogsActivity;
 
     protected $attributes = [

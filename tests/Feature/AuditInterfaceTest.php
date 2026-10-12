@@ -395,10 +395,14 @@ test('pagination and filters are scoped ordered stable and reset when changed', 
     $this->get(route('audit.index', ['entity' => 'campus', 'event' => 'updated']))->assertOk();
 });
 
-test('soft deleted campus is visible and current account without administrative affiliations stays outside scope', function () {
+test('physically deleted campus retains audit and current account without administrative affiliations stays outside scope', function () {
     $administrator = auditAdministrator();
     $campus = Campus::factory()->create(['name' => 'Campus excluído']);
     $campus->delete();
+    $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
+    foreach (Activity::forSubject($campus)->get() as $entry) {
+        $this->get(route('audit.show', $entry))->assertOk();
+    }
     $user = User::factory()->create(['name' => 'Conta sem vínculo administrativo atual']);
     $affiliation = Affiliation::factory()->global()->for($user)->create();
     $affiliation->delete();

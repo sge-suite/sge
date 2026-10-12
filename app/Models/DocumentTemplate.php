@@ -106,7 +106,7 @@ class DocumentTemplate extends Model
             $campusExists = Rule::exists(Campus::class, 'id');
 
             if ($requiresActiveCampus) {
-                $campusExists->whereNull('deactivated_at')->whereNull('deleted_at');
+                $campusExists->whereNull('deactivated_at');
             }
 
             Validator::make($attributes, [

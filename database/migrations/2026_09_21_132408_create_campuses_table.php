@@ -22,7 +22,6 @@ return new class extends Migration
             $table->string('insurance_company_name');
             $table->string('insurance_policy_number');
             $table->timestamp('deactivated_at')->nullable()->index();
-            $table->softDeletes('deleted_at');
             $table->timestamps();
         });
     }

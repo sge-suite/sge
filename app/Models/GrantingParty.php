@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\CnpjCast;
 use App\Casts\CpfCast;
 use App\Casts\PhoneCast;
+use App\Concerns\HasOwnedAddresses;
 use App\Enums\PartyDocumentType;
 use Database\Factories\GrantingPartyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -13,7 +14,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -31,8 +31,8 @@ class GrantingParty extends Model
     /** @use HasFactory<GrantingPartyFactory> */
     use HasFactory;
 
+    use HasOwnedAddresses;
     use LogsActivity;
-    use SoftDeletes;
 
     /** @return array<string, string> */
     protected function casts(): array

@@ -1,9 +1,7 @@
 <?php
 
 use App\Models\Affiliation;
-use App\Models\Campus;
 use App\Support\AdministrativeActivityPresenter;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -35,7 +33,6 @@ new #[Title('Detalhes da auditoria')] class extends Component
         Gate::authorize('view', $activity);
         $activity->load([
             'subject' => fn (MorphTo $relation) => $relation
-                ->constrain([Campus::class => fn (Builder $query) => $query->withTrashed()])
                 ->morphWith([Affiliation::class => ['user']]),
             'causer' => fn (MorphTo $relation) => $relation->morphWith([Affiliation::class => ['user']]),
         ]);

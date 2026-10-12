@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\Affiliation;
-use App\Models\Campus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -44,12 +43,6 @@ class ActivityHistory
         $activities = $query->with([
             'subject' => function ($relation): void {
                 /** @var MorphTo<Model, Activity> $relation */
-                $relation->constrain([
-                    Campus::class => function ($query): void {
-                        /** @var Builder<Campus> $query */
-                        $query->withTrashed();
-                    },
-                ]);
                 $relation->morphWith([Affiliation::class => ['user']]);
             },
             'causer' => function ($relation): void {

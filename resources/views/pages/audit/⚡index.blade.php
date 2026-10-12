@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Support\AdministrativeActivityPresenter;
 use App\Support\ActivityAccess;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -91,7 +90,6 @@ new #[Title('Auditoria')] class extends Component
 
         $activities = $query->with([
             'subject' => fn (MorphTo $relation) => $relation
-                ->constrain([Campus::class => fn (Builder $query) => $query->withTrashed()])
                 ->morphWith([Affiliation::class => ['user']]),
             'causer' => fn (MorphTo $relation) => $relation->morphWith([Affiliation::class => ['user']]),
         ])->orderByDesc('created_at')->orderByDesc('id')->paginate(15);

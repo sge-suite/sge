@@ -44,7 +44,7 @@ trait CampusAffiliationValidationRules
 
         return [
             'type' => ['required', Rule::enum(AffiliationType::class)->except(AffiliationType::SystemAdministrator)],
-            'campus_id' => ['bail', 'nullable', 'integer', Rule::in([$campusId]), Rule::exists(Campus::class, 'id')->whereNull('deactivated_at')->whereNull('deleted_at')],
+            'campus_id' => ['bail', 'nullable', 'integer', Rule::in([$campusId]), Rule::exists(Campus::class, 'id')->whereNull('deactivated_at')],
             'course_id' => ['bail', 'required_if:type,student', 'prohibited_unless:type,student', 'nullable', 'integer', Rule::exists(Course::class, 'id')->where('campus_id', $campusId)->whereNull('deactivated_at')],
             'email' => $this->administrativeAffiliationEditableRules($user)['email'],
             'registration_number' => $registrationRules,

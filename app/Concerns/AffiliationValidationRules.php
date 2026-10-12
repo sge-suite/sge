@@ -23,7 +23,7 @@ trait AffiliationValidationRules
             || ($this->getOriginal('deactivated_at') !== null && ($attributes['deactivated_at'] ?? null) === null)
         );
         $campusExists = $requiresActiveCampus
-            ? Rule::exists('campuses', 'id')->whereNull('deactivated_at')->whereNull('deleted_at')
+            ? Rule::exists('campuses', 'id')->whereNull('deactivated_at')
             : Rule::exists('campuses', 'id');
         $requiresActiveCourse = $courseId !== null && (
             ! $this->exists

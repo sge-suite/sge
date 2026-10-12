@@ -67,18 +67,27 @@ class Address extends Model
     {
         $addressId = $this->getKey();
 
-        return Campus::withTrashed()
+        return Campus::query()
             ->where('address_id', $addressId)
             ->where('id', '!=', $campus->getKey())
             ->exists()
             || UserPersonalData::query()->where('address_id', $addressId)->exists()
-            || GrantingParty::withTrashed()->where('address_id', $addressId)->exists()
+            || GrantingParty::query()->where('address_id', $addressId)->exists()
             || Internship::query()
                 ->where(function ($query) use ($addressId): void {
                     $query->where('student_address_id', $addressId)
                         ->orWhere('workplace_address_id', $addressId);
                 })
                 ->exists();
+    }
+
+    public function hasReferences(): bool
+    {
+        return Campus::query()->where('address_id', $this->id)->exists()
+            || GrantingParty::query()->where('address_id', $this->id)->exists()
+            || UserPersonalData::query()->where('address_id', $this->id)->exists()
+            || Internship::query()->where(fn ($query) => $query->where('student_address_id', $this->id)
+                ->orWhere('workplace_address_id', $this->id))->exists();
     }
 
     public function getActivitylogOptions(): LogOptions

@@ -119,7 +119,7 @@ class Course extends Model
             || (int) $campusId !== (int) $this->getOriginal('campus_id')
             || ($this->getOriginal('deactivated_at') !== null && ($attributes['deactivated_at'] ?? null) === null);
         $campusExists = $requiresActiveCampus
-            ? Rule::exists('campuses', 'id')->whereNull('deactivated_at')->whereNull('deleted_at')
+            ? Rule::exists('campuses', 'id')->whereNull('deactivated_at')
             : Rule::exists('campuses', 'id');
 
         $coordinatorRules = function (string $attribute) use ($campusId): array {

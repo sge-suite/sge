@@ -99,12 +99,11 @@ test('restricts physical deletion of users and campuses with affiliations', func
     expect(fn () => DB::transaction(fn () => $user->delete()))->toThrow(QueryException::class);
     $this->assertModelExists($user);
 
-    $campus->delete();
+    $address = $campus->address;
+    expect(fn () => $campus->delete())->toThrow(QueryException::class);
     $this->assertModelExists($campus);
     $this->assertModelExists($affiliation);
-
-    expect(fn () => DB::transaction(fn () => $campus->forceDelete()))->toThrow(QueryException::class);
-    $this->assertModelExists($campus);
+    $this->assertModelExists($address);
 });
 
 test('accepts every affiliation enum value with its required scope and registration data', function () {

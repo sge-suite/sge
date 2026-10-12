@@ -35,7 +35,7 @@ class CampusPolicy
 
     public function view(User $user, Campus $campus): bool
     {
-        if ($campus->trashed()) {
+        if (! $campus->exists) {
             return false;
         }
 
@@ -53,7 +53,7 @@ class CampusPolicy
 
     public function update(User $user, Campus $campus): bool
     {
-        if ($campus->deactivated_at !== null || $campus->trashed()) {
+        if ($campus->deactivated_at !== null || ! $campus->exists) {
             return false;
         }
 
@@ -71,19 +71,19 @@ class CampusPolicy
 
     public function deactivate(User $user, Campus $campus): bool
     {
-        return ! $campus->trashed()
+        return $campus->exists
             && $this->activeAffiliation($user)?->type === AffiliationType::SystemAdministrator;
     }
 
     public function delete(User $user, Campus $campus): bool
     {
-        return ! $campus->trashed()
+        return $campus->exists
             && $this->activeAffiliation($user)?->type === AffiliationType::SystemAdministrator;
     }
 
     public function reactivate(User $user, Campus $campus): bool
     {
-        return ! $campus->trashed()
+        return $campus->exists
             && $this->activeAffiliation($user)?->type === AffiliationType::SystemAdministrator;
     }
 

@@ -200,7 +200,7 @@ class AdministrativeActivityPresenter
         $values = [];
         foreach ($ids as $model => $modelIds) {
             /** @var Builder<Model> $query */
-            $query = $model === Campus::class ? Campus::withTrashed() : $model::query();
+            $query = $model::query();
             $query->whereKey(array_values($modelIds))->select(match ($model) {
                 Affiliation::class => ['id', 'user_id'],
                 Address::class => ['id', 'street', 'number', 'neighborhood', 'city_id'],
@@ -218,7 +218,7 @@ class AdministrativeActivityPresenter
                     Affiliation::class => $query->where('campus_id', $selected->campus_id)->where('type', '!=', AffiliationType::SystemAdministrator->value),
                     User::class => $query->whereHas('affiliations', fn (Builder $query): Builder => $query
                         ->where('campus_id', $selected->campus_id)->where('type', '!=', AffiliationType::SystemAdministrator->value)),
-                    Address::class => $query->whereIn('id', Campus::withTrashed()->whereKey($selected->campus_id)->select('address_id')),
+                    Address::class => $query->whereIn('id', Campus::query()->whereKey($selected->campus_id)->select('address_id')),
                     default => $query->whereRaw('1 = 0'),
                 };
             }

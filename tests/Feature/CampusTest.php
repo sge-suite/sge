@@ -24,7 +24,6 @@ test('creates the campuses schema with exact PostgreSQL types and constraints', 
         'insurance_company_name',
         'insurance_policy_number',
         'deactivated_at',
-        'deleted_at',
         'created_at',
         'updated_at',
     ]);
@@ -40,7 +39,6 @@ test('creates the campuses schema with exact PostgreSQL types and constraints', 
         'insurance_company_name' => ['character varying(255)', false],
         'insurance_policy_number' => ['character varying(255)', false],
         'deactivated_at' => ['timestamp(0) without time zone', true],
-        'deleted_at' => ['timestamp(0) without time zone', true],
         'created_at' => ['timestamp(0) without time zone', true],
         'updated_at' => ['timestamp(0) without time zone', true],
     ] as $name => [$type, $nullable]) {
@@ -103,18 +101,13 @@ test('enforces the required current address and its foreign key in PostgreSQL', 
         ->toThrow(QueryException::class);
 });
 
-test('restricts deletion of the current address until the campus is force deleted', function () {
+test('restricts deleting the current address and removes it with the campus', function () {
     $campus = Campus::factory()->create();
     $address = $campus->address()->sole();
-
     expect(fn () => DB::transaction(fn () => $address->delete()))->toThrow(QueryException::class);
     $this->assertModelExists($address);
-
     $campus->delete();
-    expect(fn () => DB::transaction(fn () => $address->delete()))->toThrow(QueryException::class);
-
-    $campus->forceDelete();
-    $address->delete();
+    $this->assertModelMissing($campus);
     $this->assertModelMissing($address);
 });
 
@@ -161,7 +154,7 @@ test('accepts an insurance policy number beyond the previous field limit', funct
     expect($campus->fresh()->insurance_policy_number)->toBe($policyNumber);
 });
 
-test('filters active campuses and soft deletes deactivated records independently', function () {
+test('filters active campuses and physically deletes records independently', function () {
     $activeCampus = Campus::factory()->create();
     $deactivatedCampus = Campus::factory()->deactivated()->create();
     $deletedCampus = Campus::factory()->create();
@@ -171,10 +164,9 @@ test('filters active campuses and soft deletes deactivated records independently
     expect(Campus::query()->active()->get()->sole()->is($activeCampus))->toBeTrue()
         ->and($deactivatedCampus->deactivated_at)->toBeInstanceOf(DateTimeInterface::class)
         ->and(Campus::count())->toBe(2)
-        ->and(Campus::withTrashed()->count())->toBe(3);
+        ->and(Campus::find($deletedCampus->id))->toBeNull();
 
-    $deletedCampus->restore();
-    $this->assertModelExists($deletedCampus);
+    $this->assertModelMissing($deletedCampus);
 });
 
 test('validates all campus fields before persisting', function (string $field, mixed $value) {
