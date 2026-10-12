@@ -3,10 +3,12 @@
 use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\Campus;
+use App\Models\Course;
 use App\Models\DocumentTemplate;
 use App\Models\GeneratedDocument;
 use App\Models\GrantingParty;
 use App\Models\Internship;
+use App\Models\InternshipType;
 use App\Models\User;
 use App\Models\UserPersonalData;
 use App\Support\AdministrativeActivityScope;
@@ -52,12 +54,66 @@ test('campus detail history is limited to events for that campus', function () {
     $otherCampus->update(['phone' => '5555555556']);
     $campusUpdate = Activity::forSubject($campus)->where('event', 'updated')->sole();
     $otherCampusUpdate = Activity::forSubject($otherCampus)->where('event', 'updated')->sole();
+    $campus->address->update(['street' => 'Rua auditada do campus']);
+    $otherCampus->address->update(['street' => 'Rua externa do campus']);
+    $campusAddressUpdate = Activity::forSubject($campus->address)->where('event', 'updated')->sole();
+    $otherAddressUpdate = Activity::forSubject($otherCampus->address)->where('event', 'updated')->sole();
     $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
 
     $component = Livewire::test('pages::campuses.show', ['campus' => $campus]);
     $historyIds = $component->instance()->activityHistory->getCollection()->pluck('id');
 
-    expect($historyIds)->toContain($campusUpdate->id)->not->toContain($otherCampusUpdate->id);
+    expect($historyIds)->toContain($campusUpdate->id, $campusAddressUpdate->id)
+        ->not->toContain($otherCampusUpdate->id, $otherAddressUpdate->id);
+    expect($component->instance()->activityHistory->perPage())->toBe(15);
+});
+
+test('internship office can inspect scoped history from campus and local catalog details', function () {
+    $office = Affiliation::factory()->server()->create();
+    $campus = $office->campus;
+    $course = Course::factory()->for($campus)->create();
+    $type = InternshipType::factory()->for($course)->create();
+    $party = GrantingParty::factory()->for($campus)->create();
+    $otherCourse = Course::factory()->create();
+    $campus->update(['name' => 'Campus com auditoria local']);
+    $course->update(['name' => 'Curso com auditoria local']);
+    $type->update(['name' => 'Tipo com auditoria local']);
+    $party->update(['name' => 'Concedente com auditoria local']);
+    $otherCourse->update(['name' => 'Curso de outro campus']);
+    $campus->address->update(['street' => 'Rua do campus com auditoria']);
+    $party->address->update(['street' => 'Rua da concedente com auditoria']);
+    $foreignParty = GrantingParty::factory()->create();
+    $foreignParty->address->update(['street' => 'Rua da concedente externa']);
+    $expected = [
+        'pages::campuses.own' => [
+            Activity::forSubject($campus)->where('event', 'updated')->sole()->id,
+            Activity::forSubject($campus->address)->where('event', 'updated')->sole()->id,
+        ],
+        'pages::courses.show' => [Activity::forSubject($course)->where('event', 'updated')->sole()->id],
+        'pages::internship-types.show' => [Activity::forSubject($type)->where('event', 'updated')->sole()->id],
+        'pages::granting-parties.show' => [
+            Activity::forSubject($party)->where('event', 'updated')->sole()->id,
+            Activity::forSubject($party->address)->where('event', 'updated')->sole()->id,
+        ],
+    ];
+    $outsideAddressActivity = Activity::forSubject($foreignParty->address)->where('event', 'updated')->sole();
+    $this->actingAs($office->user)->withSession(['active_affiliation_id' => $office->id]);
+
+    $pages = [
+        'pages::campuses.own' => [],
+        'pages::courses.show' => ['course' => $course],
+        'pages::internship-types.show' => ['internshipType' => $type],
+        'pages::granting-parties.show' => ['grantingParty' => $party],
+    ];
+
+    foreach ($pages as $componentName => $parameters) {
+        $component = Livewire::test($componentName, $parameters);
+        $history = $component->instance()->activityHistory;
+        expect($history->getCollection()->pluck('id')->all())->toContain(...$expected[$componentName])
+            ->not->toContain(Activity::forSubject($otherCourse)->where('event', 'updated')->sole()->id)
+            ->not->toContain($outsideAddressActivity->id)
+            ->and($history->perPage())->toBe(15);
+    }
 });
 
 test('user detail groups account and current or deleted administrative affiliation history', function () {
@@ -67,6 +123,9 @@ test('user detail groups account and current or deleted administrative affiliati
     $campusAffiliation = Affiliation::factory()->for($account)->create(['type' => AffiliationType::InternshipOffice]);
     $deletedAffiliation = Affiliation::factory()->global()->for($account)->create();
     $account->update(['name' => 'Conta com nome alterado']);
+    for ($index = 0; $index < 16; $index++) {
+        $account->update(['name' => 'Conta com alteração adicional '.$index]);
+    }
     $systemAffiliation->update(['email' => 'sistema-alterado@example.test']);
     $campusAffiliation->update(['email' => 'campus-alterado@example.test']);
     $deletedAffiliation->delete();
@@ -84,6 +143,7 @@ test('user detail groups account and current or deleted administrative affiliati
 
     $component = Livewire::test('pages::users.show', ['user' => $account]);
     $historyIds = $component->instance()->activityHistory->getCollection()->pluck('id')->all();
+    expect($component->instance()->activityHistory->perPage())->toBe(15);
     $component->call('gotoPage', 2, 'auditHistoryPage');
     $historyIds = [...$historyIds, ...$component->instance()->activityHistory->getCollection()->pluck('id')->all()];
 

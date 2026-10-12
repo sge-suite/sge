@@ -5,6 +5,7 @@ use App\Models\Affiliation;
 use App\Support\ActivityAccess;
 use App\Support\ActivityHistory;
 use App\Support\ActiveAffiliationContext;
+use App\Support\PageSize;
 use App\Support\UserManagementScope;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -47,10 +48,20 @@ new #[Title('Detalhes do usuário')] class extends Component
     #[Computed]
     public function account(): User
     {
-        $user = User::with(['affiliations' => fn ($query) => app(UserManagementScope::class)->affiliations($query->getQuery(), auth()->user())->with(['campus', 'course'])->orderBy('id')])->findOrFail($this->userId);
+        $user = User::findOrFail($this->userId);
         Gate::authorize('view', $user);
 
         return $user;
+    }
+
+    /** @return LengthAwarePaginator<int, Affiliation> */
+    #[Computed]
+    public function affiliations(): LengthAwarePaginator
+    {
+        $query = $this->account->affiliations()->getQuery();
+        app(UserManagementScope::class)->affiliations($query, auth()->user());
+
+        return $query->with(['campus', 'course'])->orderBy('id')->paginate(PageSize::PER_PAGE, pageName: 'affiliationsPage');
     }
 
     #[Computed]
@@ -113,6 +124,7 @@ new #[Title('Detalhes do usuário')] class extends Component
 
 <div class="w-full space-y-8">
     @php($account = $this->account)
+    @php($affiliations = $this->affiliations)
     @if (session('status'))
         <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
@@ -152,12 +164,12 @@ new #[Title('Detalhes do usuário')] class extends Component
                 <flux:button icon="plus" variant="primary" :href="route('users.affiliations.create', $account)" wire:navigate>Adicionar vínculo</flux:button>
             @endcan
         </div>
-        <flux:table>
+        <flux:table :paginate="$affiliations">
             <flux:table.columns>
                 <flux:table.column>Tipo / campus</flux:table.column><flux:table.column>Matrícula</flux:table.column><flux:table.column>E-mail do vínculo</flux:table.column><flux:table.column>Situação</flux:table.column><flux:table.column>Ações do vínculo</flux:table.column>
             </flux:table.columns>
             <flux:table.rows>
-                @foreach ($account->affiliations as $affiliation)
+                @foreach ($affiliations as $affiliation)
                     <flux:table.row :key="$affiliation->id">
                         <flux:table.cell class="whitespace-normal">
                             <div class="font-medium">{{ $affiliation->type->label() }}</div>
@@ -205,7 +217,7 @@ new #[Title('Detalhes do usuário')] class extends Component
                 @endforeach
             </flux:table.rows>
         </flux:table>
-        @if ($account->affiliations->isEmpty())
+        @if ($affiliations->isEmpty())
             <flux:text>Nenhum vínculo administrativo. Adicione um vínculo ou exclua a conta se não houver registros associados.</flux:text>
         @endif
         @can('viewAdministration', \App\Models\User::class)

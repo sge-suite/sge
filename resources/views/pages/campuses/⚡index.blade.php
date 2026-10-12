@@ -2,6 +2,7 @@
 
 use App\Models\Campus;
 use App\Support\ActiveAffiliationContext;
+use App\Support\PageSize;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
@@ -66,7 +67,7 @@ new #[Title('Campi')] class extends Component
 
             return $query
                 ->query(fn (Builder $query) => $query->visibleTo($affiliation)->with('address.city'))
-                ->paginate(15, 'page', $this->getPage());
+                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
         }
 
         return Campus::query()
@@ -74,7 +75,7 @@ new #[Title('Campi')] class extends Component
             ->with('address.city')
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
-            ->orderBy('name')->orderBy('id')->paginate(15);
+            ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

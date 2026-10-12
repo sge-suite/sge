@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\InternshipType;
+use App\Support\PageSize;
 use App\Support\ActiveAffiliationContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,7 +52,7 @@ new #[Title('Tipos de estágio')] class extends Component
             ->with('course')
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
-            ->orderBy('name')->orderBy('id')->paginate(15);
+            ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

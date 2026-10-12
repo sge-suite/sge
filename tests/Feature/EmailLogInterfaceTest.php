@@ -62,6 +62,29 @@ test('system administrator sees only administrative email contexts and all suppo
     $this->get(route('dashboard'))->assertOk();
 });
 
+test('email detail paginates delivery attempts with the shared page size', function () {
+    $administrator = emailLogAdministrator();
+    $attempt = administrativeEmailAttempt($administrator);
+
+    for ($number = 2; $number <= 17; $number++) {
+        $retry = $attempt->replicate();
+        $retry->attempt_number = $number;
+        $retry->save();
+    }
+
+    $this->actingAs($administrator->user)->withSession(['active_affiliation_id' => $administrator->id]);
+    $component = Livewire::test('pages::email-logs.show', ['attempt' => $attempt]);
+    $attempts = $component->instance()->attempts;
+
+    expect($attempts->total())->toBe(17)
+        ->and($attempts->perPage())->toBe(15)
+        ->and($attempts->count())->toBe(15);
+
+    $component->call('gotoPage', 2, 'attemptsPage');
+
+    expect($component->instance()->attempts->count())->toBe(2);
+});
+
 test('nonadministrative affiliations cannot read email logs even on an administrator account', function (AffiliationType $type) {
     $administrator = emailLogAdministrator();
     $attempt = administrativeEmailAttempt($administrator);

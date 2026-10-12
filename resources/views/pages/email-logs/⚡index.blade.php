@@ -3,6 +3,7 @@
 use App\Enums\EmailDeliveryAttemptStatus;
 use App\Enums\EmailMessagePurpose;
 use App\Models\EmailDeliveryAttempt;
+use App\Support\PageSize;
 use App\Support\EmailLogAccess;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -79,7 +80,7 @@ new #[Title('E-mails')] class extends Component
             ->when(EmailMessagePurpose::tryFrom($this->purpose), fn (Builder $query, EmailMessagePurpose $purpose): Builder => $query->where('purpose', $purpose))
             ->when(EmailDeliveryAttemptStatus::tryFrom($this->status), fn (Builder $query, EmailDeliveryAttemptStatus $status): Builder => $query->where('status', $status))
             ->with('emailMessage:id,subject')
-            ->orderByDesc('created_at')->orderByDesc('id')->paginate(15);
+            ->orderByDesc('created_at')->orderByDesc('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

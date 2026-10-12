@@ -7,6 +7,7 @@ use App\Models\InternshipType;
 use App\Models\Campus;
 use App\Models\Course;
 use App\Models\User;
+use App\Support\PageSize;
 use App\Support\AdministrativeActivityPresenter;
 use App\Support\ActivityAccess;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -95,7 +96,7 @@ new #[Title('Auditoria')] class extends Component
             'subject' => fn (MorphTo $relation) => $relation
                 ->morphWith([Affiliation::class => ['user']]),
             'causer' => fn (MorphTo $relation) => $relation->morphWith([Affiliation::class => ['user']]),
-        ])->orderByDesc('created_at')->orderByDesc('id')->paginate(15);
+        ])->orderByDesc('created_at')->orderByDesc('id')->paginate(PageSize::PER_PAGE);
         $presenter = app(AdministrativeActivityPresenter::class);
         $presenter->prepare($activities->getCollection());
 

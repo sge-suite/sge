@@ -2,15 +2,21 @@
 
 use App\Actions\ManageGrantingParty;
 use App\Models\GrantingParty;
+use App\Support\ActivityAccess;
+use App\Support\ActivityHistory;
 use Flux\Flux;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('Detalhes da parte concedente')] class extends Component
 {
+    use WithPagination;
+
     #[Locked]
     public int $grantingPartyId;
 
@@ -117,6 +123,15 @@ new #[Title('Detalhes da parte concedente')] class extends Component
         Gate::authorize('view', $grantingParty);
 
         return $grantingParty;
+    }
+
+    /** @return LengthAwarePaginator<int, array{id: int, actor: string, subject: string, event: string, occurred_at: string}>|null */
+    #[Computed]
+    public function activityHistory(): ?LengthAwarePaginator
+    {
+        $query = app(ActivityAccess::class)->forCurrentContext(auth()->user(), app('session.store'));
+
+        return $query === null ? null : app(ActivityHistory::class)->forSubject($this->grantingParty, $query);
     }
 }; ?>
 
@@ -233,5 +248,8 @@ new #[Title('Detalhes da parte concedente')] class extends Component
             </div>
         </div>
     </flux:modal>
+    @endcan
+    @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
+        <x-audit.activity-history :activities="$this->activityHistory" />
     @endcan
 </div>

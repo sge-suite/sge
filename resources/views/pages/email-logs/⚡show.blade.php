@@ -2,15 +2,19 @@
 
 use App\Models\EmailDeliveryAttempt;
 use App\Support\EmailLogAccess;
-use Illuminate\Database\Eloquent\Collection;
+use App\Support\PageSize;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('Detalhes do envio')] class extends Component
 {
+    use WithPagination;
+
     #[Locked]
     public int $attemptId;
 
@@ -33,14 +37,16 @@ new #[Title('Detalhes do envio')] class extends Component
         return $attempt->load('emailMessage', 'requestedByAffiliation.user');
     }
 
-    /** @return Collection<int, EmailDeliveryAttempt> */
+    /** @return LengthAwarePaginator<int, EmailDeliveryAttempt> */
     #[Computed]
-    public function attempts(): Collection
+    public function attempts(): LengthAwarePaginator
     {
         $query = app(EmailLogAccess::class)->forCurrentContext(auth()->user(), app('session.store'));
         abort_if($query === null, 403);
 
-        return $query->where('delivery_key', $this->delivery->delivery_key)->orderBy('attempt_number')->get();
+        return $query->where('delivery_key', $this->delivery->delivery_key)
+            ->orderBy('attempt_number')
+            ->paginate(PageSize::PER_PAGE, pageName: 'attemptsPage');
     }
 }; ?>
 
@@ -76,7 +82,7 @@ new #[Title('Detalhes do envio')] class extends Component
             </section>
             <section class="space-y-4" aria-labelledby="email-attempts-heading">
                 <flux:heading id="email-attempts-heading" size="lg" level="2">Tentativas de envio</flux:heading>
-                <flux:table>
+                <flux:table :paginate="$this->attempts">
                     <flux:table.columns>
                         <flux:table.column>Tentativa</flux:table.column><flux:table.column>Situação</flux:table.column><flux:table.column>Na fila</flux:table.column><flux:table.column>Enviada</flux:table.column><flux:table.column>Falhou</flux:table.column><flux:table.column>Motivo</flux:table.column>
                     </flux:table.columns>

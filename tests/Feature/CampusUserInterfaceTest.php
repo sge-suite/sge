@@ -40,6 +40,22 @@ test('list and pagination include only local accounts and local affiliation summ
         ->and($filtered->instance()->users->getCollection()->pluck('id'))->toContain($local->id);
 });
 
+test('user detail paginates local affiliations with the shared page size', function () {
+    $account = User::factory()->create(['name' => 'Conta com vários vínculos']);
+    Affiliation::factory()->supervisor()->for($account)->for($this->office->campus)->count(16)->create();
+
+    $component = Livewire::test('pages::users.show', ['user' => $account]);
+    $affiliations = $component->instance()->affiliations;
+
+    expect($affiliations->total())->toBe(16)
+        ->and($affiliations->perPage())->toBe(15)
+        ->and($affiliations->count())->toBe(15);
+
+    $component->call('gotoPage', 2, 'affiliationsPage');
+
+    expect($component->instance()->affiliations->count())->toBe(1);
+});
+
 test('name cpf and email search never reveal foreign or unaffiliated accounts', function (string $field) {
     $local = User::factory()->create(['name' => 'Ada Local', 'cpf' => '52998224725', 'email' => 'ada.local@example.test']);
     Affiliation::factory()->supervisor()->for($local)->for($this->office->campus)->create();

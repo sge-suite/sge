@@ -4,6 +4,7 @@ use App\Enums\AffiliationType;
 use App\Models\User;
 use App\Helpers\DigitsHelper;
 use App\Support\UserManagementScope;
+use App\Support\PageSize;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
@@ -63,12 +64,12 @@ new #[Title('Usuários')] class extends Component
             ->with(['affiliations' => fn ($query) => $visibleAffiliations($query->getQuery())->with('campus')]);
         if ($search !== '' && ! str_contains($search, '@') && ! preg_match('/^[\d.\s-]+$/', $search)) {
             if (auth()->user()->cannot('viewAdministration', User::class)) {
-                return $query->whereLike('name', '%'.addcslashes($search, '%_\\').'%')->orderBy('name')->orderBy('id')->paginate(15);
+                return $query->whereLike('name', '%'.addcslashes($search, '%_\\').'%')->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
             }
             return User::search($search)->query(fn (Builder $builder) => $builder
                 ->whereHas('affiliations', $visibleAffiliations)
                 ->with(['affiliations' => fn ($query) => $visibleAffiliations($query->getQuery())->with('campus')]))
-                ->paginate(15, 'page', $this->getPage());
+                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
         }
         if (str_contains($search, '@')) {
             $query->whereRaw('LOWER(email) = ?', [mb_strtolower($search)]);
@@ -76,7 +77,7 @@ new #[Title('Usuários')] class extends Component
             $query->where('cpf', DigitsHelper::only($search));
         }
 
-        return $query->orderBy('name')->orderBy('id')->paginate(15);
+        return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

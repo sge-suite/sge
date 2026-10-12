@@ -2,7 +2,10 @@
 
 namespace App\Support;
 
+use App\Models\Address;
 use App\Models\Affiliation;
+use App\Models\Campus;
+use App\Models\GrantingParty;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -36,8 +39,23 @@ class ActivityHistory
                 return;
             }
 
-            $query->where('subject_type', $subject->getMorphClass())
-                ->where('subject_id', $subject->getKey());
+            $query->where(function (Builder $query) use ($subject): void {
+                $query->where(function (Builder $query) use ($subject): void {
+                    $query->where('subject_type', $subject->getMorphClass())
+                        ->where('subject_id', $subject->getKey());
+                });
+
+                if ($subject instanceof Campus || $subject instanceof GrantingParty) {
+                    $query->orWhere(function (Builder $query) use ($subject): void {
+                        $query->where('subject_type', (new Address)->getMorphClass())
+                            ->where(function (Builder $query) use ($subject): void {
+                                foreach (['attributes', 'old'] as $snapshot) {
+                                    $query->orWhereIn('subject_id', $this->historicalAddressIdsFor($subject, $snapshot));
+                                }
+                            });
+                    });
+                }
+            });
         });
 
         $activities = $query->with([
@@ -49,7 +67,7 @@ class ActivityHistory
                 /** @var MorphTo<Model, Activity> $relation */
                 $relation->morphWith([Affiliation::class => ['user']]);
             },
-        ])->orderByDesc('created_at')->orderByDesc('id')->paginate(5, pageName: 'auditHistoryPage');
+        ])->orderByDesc('created_at')->orderByDesc('id')->paginate(PageSize::PER_PAGE, pageName: 'auditHistoryPage');
 
         $this->presenter->prepare($activities->getCollection());
 
@@ -70,5 +88,21 @@ class ActivityHistory
             })
             ->select('subject_id')
             ->distinct();
+    }
+
+    /** @return Builder<Activity> */
+    private function historicalAddressIdsFor(Model $subject, string $snapshot): Builder
+    {
+        $addressColumn = match ($snapshot) {
+            'attributes' => "attribute_changes->'attributes'->>'address_id'",
+            'old' => "attribute_changes->'old'->>'address_id'",
+            default => throw new \InvalidArgumentException('Snapshot de endereço inválido.'),
+        };
+
+        return Activity::query()
+            ->where('subject_type', $subject->getMorphClass())
+            ->where('subject_id', $subject->getKey())
+            ->whereRaw("{$addressColumn} is not null")
+            ->selectRaw("({$addressColumn})::bigint");
     }
 }

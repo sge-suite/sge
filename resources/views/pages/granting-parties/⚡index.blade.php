@@ -2,6 +2,7 @@
 
 use App\Helpers\DigitsHelper;
 use App\Models\GrantingParty;
+use App\Support\PageSize;
 use App\Support\ActiveAffiliationContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,7 +64,7 @@ new #[Title('Partes concedentes')] class extends Component
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $term = mb_substr(trim($this->search), 0, 255);
                 $query->where(fn (Builder $query) => $query->whereLike('name', '%'.addcslashes($term, '%_').'%', caseSensitive: false)->orWhere('document_number', DigitsHelper::only($term)));
-            })->orderBy('name')->orderBy('id')->paginate(15);
+            })->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 
