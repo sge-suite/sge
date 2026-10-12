@@ -245,7 +245,7 @@ new #[Title('Detalhes do usuário')] class extends Component
                     <flux:text>{{ match ($operation) { 'deactivate' => 'O acesso por este vínculo será encerrado, mantendo o histórico. Enviaremos um aviso à conta e ao e-mail do vínculo.', 'delete' => 'O vínculo será removido se não possuir registros associados. Enviaremos um aviso à conta e ao e-mail do vínculo.', default => 'O acesso por este vínculo será restabelecido.' } }}</flux:text>
                 @endif
                 @if ($operation !== 'reactivate')
-                    <flux:input type="password" name="current_password" label="Sua senha atual" autocomplete="current-password" error:name="current_password" />
+                    <flux:input required type="password" name="current_password" label="Sua senha atual" autocomplete="current-password" error:name="current_password" />
                 @endif
                 <flux:checkbox name="confirmed" value="1" label="Confirmo esta alteração" />
                 <flux:error name="confirmed" />

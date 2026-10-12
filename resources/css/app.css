@@ -220,3 +220,15 @@ ui-radio {
         animation-fill-mode: both;
     }
 }
+
+/* Native required attributes keep the visual indication aligned with validation. */
+[data-flux-field]:has(:is(input, select, textarea)[required]) > [data-flux-label]::after,
+[data-flux-label][required]::after {
+    content: ' *';
+    margin-inline-start: 0.25rem;
+    color: var(--color-red-600);
+}
+.dark [data-flux-field]:has(:is(input, select, textarea)[required]) > [data-flux-label]::after,
+.dark [data-flux-label][required]::after {
+    color: var(--color-red-400);
+}

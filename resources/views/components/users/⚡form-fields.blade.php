@@ -232,7 +232,7 @@ new class extends Component
     <section class="min-w-0 space-y-5">
         <flux:heading size="lg" level="2">Conta</flux:heading>
         @if ($userId === null)
-            <flux:input name="cpf" label="CPF" wire:model.live="cpf" wire:keydown.enter.prevent="lookupCpf" :value="$cpf" maxlength="14" error:name="cpf" />
+            <flux:input name="cpf" required label="CPF" wire:model.live="cpf" wire:keydown.enter.prevent="lookupCpf" :value="$cpf" maxlength="14" error:name="cpf" />
             <flux:button type="button" wire:click="lookupCpf" wire:loading.attr="disabled">Consultar CPF</flux:button>
             <input type="hidden" name="consulted_cpf" value="{{ $consultedCpf }}" />
             <flux:error name="consulted_cpf" />
@@ -251,7 +251,7 @@ new class extends Component
             <flux:text size="sm">{{ $this->campusRegistration && $affiliation === null ? 'A conta existente será preservada. Este cadastro adiciona um vínculo ao seu campus.' : 'Este formulário altera somente o vínculo. Para corrigir nome, CPF ou e-mail de login, use a edição dos dados de acesso.' }}</flux:text>
         @elseif ($consultedCpf !== '')
             <flux:text>{{ $this->campusRegistration ? 'Nenhuma conta encontrada. Cadastre a conta e seu primeiro vínculo.' : 'Nenhuma conta encontrada. Cadastre a conta e seu primeiro vínculo administrativo.' }}</flux:text>
-            <flux:input name="name" label="Nome completo" wire:model="name" :value="$name" maxlength="255" error:name="name" />
+            <flux:input name="name" required label="Nome completo" wire:model="name" :value="$name" maxlength="255" error:name="name" />
         @else
             <flux:text>Informe um CPF válido e consulte para continuar.</flux:text>
         @endif
@@ -259,21 +259,21 @@ new class extends Component
     @if ($consultedCpf !== '')
         <section class="min-w-0 space-y-5">
             <flux:heading size="lg" level="2">{{ $this->campusRegistration ? 'Vínculo institucional' : 'Vínculo administrativo' }}</flux:heading>
-            <flux:input type="email" name="email" label="E-mail" wire:model="email" :value="$email" error:name="email" maxlength="255" />
+            <flux:input type="email" name="email" required label="E-mail" wire:model="email" :value="$email" error:name="email" maxlength="255" />
             <flux:text size="sm">{{ $account === null ? 'Este endereço será usado para o login e o primeiro vínculo. O convite permitirá solicitar a definição de senha.' : 'Este endereço será usado somente no vínculo.' }}</flux:text>
             @if ($affiliation !== null)
                 <flux:text>{{ $affiliation->type->label() }} · {{ $affiliation->campus?->name ?? 'Todos os campi' }}</flux:text>
                 <flux:text size="sm">Para mudar a função, o campus ou o curso, cadastre outro vínculo. A desativação deve ser feita por outra pessoa autorizada quando o vínculo pertencer à sua conta.</flux:text>
             @else
-                <x-select name="type" label="Tipo de vínculo" wire:model.live="type" :value="$type" :options="$this->typeOptions" :error="$errors->first('type')" />
+                <x-select name="type" required label="Tipo de vínculo" wire:model.live="type" :value="$type" :options="$this->typeOptions" :error="$errors->first('type')" />
                 @if ($this->campusRegistration)
                     <flux:text>Campus: {{ $this->campusName }}</flux:text>
                     <flux:error name="campus_id" />
                     @if ($type === AffiliationType::Student->value)
-                        <x-select name="course_id" label="Curso" wire:model="courseId" :value="$courseId" :options="$this->courseOptions" :error="$errors->first('course_id')" searchable />
+                        <x-select name="course_id" required label="Curso" wire:model="courseId" :value="$courseId" :options="$this->courseOptions" :error="$errors->first('course_id')" searchable />
                     @endif
                 @elseif ($type === AffiliationType::InternshipOffice->value)
-                    <x-select name="campus_id" label="Campus ativo" wire:model="campusId" :value="$campusId" :options="$this->campusOptions" :error="$errors->first('campus_id')" searchable />
+                    <x-select name="campus_id" required label="Campus ativo" wire:model="campusId" :value="$campusId" :options="$this->campusOptions" :error="$errors->first('campus_id')" searchable />
                 @endif
             @endif
             @if ($type !== AffiliationType::Supervisor->value && $affiliation === null && $account !== null && $this->registrationOptions !== [])
@@ -283,7 +283,7 @@ new class extends Component
                 </div>
             @endif
             @if ($type !== AffiliationType::Supervisor->value)
-                <flux:input name="registration_number" label="Matrícula" wire:model="registrationNumber" :value="$registrationNumber" maxlength="255" error:name="registration_number" />
+                <flux:input name="registration_number" required label="Matrícula" wire:model="registrationNumber" :value="$registrationNumber" maxlength="255" error:name="registration_number" />
             @elseif ($this->campusRegistration)
                 <flux:text size="sm">Supervisor não possui matrícula. Os dados profissionais são opcionais e poderão ser preenchidos ou confirmados posteriormente.</flux:text>
                 <flux:input name="job_role" label="Cargo (opcional)" wire:model="jobRole" :value="$jobRole" maxlength="255" error:name="job_role" />
