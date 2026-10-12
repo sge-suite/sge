@@ -1,6 +1,9 @@
 <?php
 
 use App\Models\Campus;
+use App\Helpers\BrazilianAddressHelper;
+use App\Helpers\BrazilianContactHelper;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Support\ActivityAccess;
 use App\Support\ActivityHistory;
 use App\Support\ActiveAffiliationContext;
@@ -63,42 +66,48 @@ new #[Title('Meu campus')] class extends Component
     @if (session('status'))
         <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
-    @can('update', $campus)
-        <form method="POST" action="{{ route('campuses.update', $campus) }}" class="space-y-8" x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
-            @csrf
-            @method('PUT')
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="min-w-0">
-                    <flux:heading size="xl" level="1">Meu campus</flux:heading>
-                    <flux:text class="mt-2">Atualize os dados de {{ $campus->name }}.</flux:text>
-                </div>
-                <div class="flex flex-wrap items-center justify-end gap-3">
-                    <flux:button variant="outline" :href="route('dashboard')" wire:navigate>Cancelar</flux:button>
-                    <flux:button variant="primary" type="submit" :loading="false" x-bind:disabled="submitting" x-bind:aria-busy="submitting">
-                        <flux:icon.loading x-show="submitting" x-cloak class="size-4" />
-                        Salvar alterações
-                    </flux:button>
-                </div>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div><flux:heading size="xl" level="1">Meu campus</flux:heading><flux:text class="mt-2">{{ $campus->name }}</flux:text></div>
+        @can('update', $campus)
+            <flux:button variant="primary" icon="pencil-square" :href="route('campuses.own.edit')" wire:navigate>Editar campus</flux:button>
+        @endcan
+    </div>
+    @if ($campus->deactivated_at !== null)
+        <flux:callout icon="information-circle" heading="Campus somente para leitura">O campus está desativado. Seus dados podem ser consultados, mas não podem ser alterados.</flux:callout>
+    @endif
+    <div class="grid gap-8 lg:grid-cols-2">
+        <section aria-labelledby="campus-contact-heading" class="border-t border-zinc-200 pt-6 dark:border-zinc-700">
+            <flux:heading id="campus-contact-heading" size="lg" level="2">Dados institucionais</flux:heading>
+            <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">CNPJ</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ BrazilianDocumentHelper::formatCnpj($campus->cnpj) }}</dd></div>
+                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Telefone</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ BrazilianContactHelper::formatPhone($campus->phone) }}</dd></div>
+            </dl>
+        </section>
+        <section aria-labelledby="campus-address-heading" class="border-t border-zinc-200 pt-6 dark:border-zinc-700">
+            <flux:heading id="campus-address-heading" size="lg" level="2">Endereço</flux:heading>
+            <div class="mt-5 space-y-1 text-sm text-zinc-900 dark:text-white">
+                <p>{{ $campus->address->street }}, {{ $campus->address->number }}</p>
+                <p>{{ $campus->address->neighborhood }}</p>
+                <p>{{ $campus->address->city->name }} / {{ $campus->address->city->state->value }}</p>
+                <p class="text-zinc-500 dark:text-zinc-400">CEP: {{ BrazilianAddressHelper::formatCep($campus->address->zip_code) }}</p>
             </div>
-            <livewire:campuses.form-fields :campus="$campus" :key="'own-campus-fields-'.$campus->id" />
-        </form>
-    @else
-        <div>
-            <flux:heading size="xl" level="1">Meu campus</flux:heading>
-            <flux:text class="mt-2">{{ $campus->name }}</flux:text>
-        </div>
-        <flux:callout icon="information-circle" heading="Campus somente para leitura">
-            <flux:callout.text>O campus está desativado. Seus dados podem ser consultados, mas não podem ser alterados.</flux:callout.text>
-        </flux:callout>
-        <dl class="grid gap-6 sm:grid-cols-2">
-            @foreach (['phone' => 'Telefone', 'legal_representative_name' => 'Representante legal', 'legal_representative_position' => 'Cargo', 'insurance_company_name' => 'Seguradora', 'insurance_policy_number' => 'Número da apólice'] as $field => $label)
-                <div wire:key="campus-detail-{{ $field }}">
-                    <dt class="text-sm text-zinc-500 dark:text-zinc-400">{{ $label }}</dt>
-                    <dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $field === 'phone' ? \App\Helpers\BrazilianContactHelper::formatPhone($campus->phone) : $campus->{$field} }}</dd>
-                </div>
-            @endforeach
-        </dl>
-    @endcan
+        </section>
+        <section aria-labelledby="campus-representative-heading" class="border-t border-zinc-200 pt-6 dark:border-zinc-700">
+            <flux:heading id="campus-representative-heading" size="lg" level="2">Representante legal</flux:heading>
+            <dl class="mt-5 grid gap-5 sm:grid-cols-2">
+                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Nome</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $campus->legal_representative_name ?: 'Não informado' }}</dd></div>
+                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Cargo</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $campus->legal_representative_position ?: 'Não informado' }}</dd></div>
+            </dl>
+        </section>
+        <section aria-labelledby="campus-insurance-heading" class="border-t border-zinc-200 pt-6 dark:border-zinc-700">
+            <flux:heading id="campus-insurance-heading" size="lg" level="2">Seguro</flux:heading>
+            <dl class="mt-5 grid gap-5 sm:grid-cols-2">
+                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Seguradora</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $campus->insurance_company_name ?: 'Não informada' }}</dd></div>
+                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Apólice</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $campus->insurance_policy_number ?: 'Não informada' }}</dd></div>
+            </dl>
+        </section>
+    </div>
+
     @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
         <x-audit.activity-history :activities="$this->activityHistory" />
     @endcan

@@ -459,3 +459,27 @@ test('switching to a campus affiliation revokes an already mounted administratio
     session()->put('active_affiliation_id', $campusAffiliation->id);
     $component->call('$refresh')->assertForbidden();
 });
+
+test('campus UF filter combines name search and resets pagination', function () {
+    $admin = campusInterfaceAdministrator();
+    $this->actingAs($admin)->withSession(['active_affiliation_id' => $admin->affiliations->first()->id]);
+    $rs = City::factory()->create(['state' => BrazilianState::RioGrandeDoSul]);
+    $sc = City::factory()->create(['state' => BrazilianState::SantaCatarina]);
+    $campus = Campus::factory()->create(['name' => 'Campus regional']);
+    $campus->address->update(['city_id' => $rs->id]);
+    $other = Campus::factory()->create(['name' => 'Campus regional']);
+    $other->address->update(['city_id' => $sc->id]);
+    $component = Livewire::test('pages::campuses.index')->set('state', 'RS')->set('search', 'regional');
+    expect($component->get('campuses')->pluck('id')->all())->toBe([$campus->id]);
+    $component->call('clearFilters')->assertSet('state', 'all')->assertSet('search', '')->assertSet('paginators.page', 1);
+});
+
+test('own campus opens details before a separately authorized edit page', function () {
+    $office = Affiliation::factory()->create(['type' => AffiliationType::InternshipOffice]);
+    $this->actingAs($office->user)->withSession(['active_affiliation_id' => $office->id]);
+    $this->get(route('campuses.own'))->assertSuccessful()->assertSee($office->campus->name)->assertSee(route('campuses.own.edit'), false)->assertDontSee('Salvar alterações');
+    $this->get(route('campuses.own.edit'))->assertSuccessful()->assertSee('Salvar alterações');
+    $office->campus->deactivate();
+    $this->get(route('campuses.own'))->assertSuccessful()->assertDontSee('Editar campus');
+    $this->get(route('campuses.own.edit'))->assertForbidden();
+});

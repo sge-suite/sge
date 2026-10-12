@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Campus;
+use App\Enums\BrazilianState;
 use App\Support\ActiveAffiliationContext;
 use App\Support\PageSize;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -21,6 +22,17 @@ new #[Title('Campi')] class extends Component
 
     #[Url(except: 'all')]
     public string $status = 'all';
+
+    #[Url(except: 'all')]
+    public string $state = 'all';
+
+    public function updatedState(): void
+    {
+        if ($this->state !== 'all' && BrazilianState::tryFrom($this->state) === null) {
+            $this->state = 'all';
+        }
+        $this->resetPage();
+    }
 
     public function boot(): void
     {
@@ -46,7 +58,7 @@ new #[Title('Campi')] class extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'status');
+        $this->reset('search', 'status', 'state');
         $this->resetPage();
     }
 
@@ -56,7 +68,7 @@ new #[Title('Campi')] class extends Component
         $affiliation = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
         abort_if($affiliation === null, 403);
         $search = mb_substr(trim($this->search), 0, 255);
-        if ($search !== '') {
+        if ($search !== '' && $this->state === 'all') {
             $query = Campus::search($search);
 
             if ($this->status === 'active') {
@@ -73,6 +85,8 @@ new #[Title('Campi')] class extends Component
         return Campus::query()
             ->visibleTo($affiliation)
             ->with('address.city')
+            ->when($this->state !== 'all', fn (Builder $query) => $query->whereHas('address.city', fn (Builder $city) => $city->where('state', $this->state)))
+            ->when($search !== '', fn (Builder $query) => $query->whereLike('name', '%'.addcslashes($search, '%_').'%', caseSensitive: false))
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
             ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
@@ -91,16 +105,23 @@ new #[Title('Campi')] class extends Component
         <flux:button variant="primary" icon="plus" :href="route('campuses.create')" wire:navigate>Cadastrar campus</flux:button>
     </div>
 
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <flux:input wire:model.live.debounce.300ms="search" label="Buscar campus" placeholder="Nome do campus" icon="magnifying-glass" maxlength="255" type="search" class="min-w-0 sm:flex-1" />
-        <div class="sm:w-48">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_16rem_12rem_9rem] xl:items-end">
+        <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome do campus" icon="magnifying-glass" maxlength="255" type="search" class="min-w-0 sm:flex-1" />
+        <x-select wire:model.live="state" label="UF" :value="$state" :options="['all' => 'Todas as UFs'] + BrazilianState::options()" searchable />
+        <div>
             <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']"
                 :option-icons="['all' => 'building-office-2', 'active' => 'check-circle', 'inactive' => 'no-symbol']" />
         </div>
+        <div>
+            @if ($search !== '' || $status !== 'all' || $state !== 'all')
+                <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
+            @else
+                <div aria-hidden="true" class="h-10"></div>
+            @endif
+        </div>
     </div>
-
     @php($campuses = $this->campuses)
-    <x-loading-overlay target="search,status,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando lista…" :dim-while-loading="true">
+    <x-loading-overlay target="search,state,status,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($campuses->isNotEmpty())
             <flux:table :paginate="$campuses" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
@@ -128,7 +149,7 @@ new #[Title('Campi')] class extends Component
                     <flux:heading size="lg">Nenhum campus nesta página</flux:heading>
                     <flux:text class="mt-2">Volte à primeira página para ver os resultados.</flux:text>
                     <flux:button class="mt-5" variant="ghost" wire:click="resetPage">Ir para a primeira página</flux:button>
-                @elseif ($search !== '' || $status !== 'all')
+                @elseif ($search !== '' || $status !== 'all' || $state !== 'all')
                     <flux:heading size="lg">Nenhum campus encontrado</flux:heading>
                     <flux:text class="mt-2">Ajuste a busca ou a situação para encontrar um campus.</flux:text>
                     <flux:button class="mt-5" variant="ghost" wire:click="clearFilters">Limpar filtros</flux:button>

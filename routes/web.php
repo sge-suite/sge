@@ -26,6 +26,9 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
         Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 
+        Route::livewire('campus/edit', 'pages::campuses.own-edit')
+            ->middleware('can:viewOwn,'.Campus::class)->name('campuses.own.edit');
+
         Route::livewire('campus', 'pages::campuses.own')
             ->middleware('can:viewOwn,'.Campus::class)->name('campuses.own');
 

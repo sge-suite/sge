@@ -20,7 +20,7 @@
                     </flux:sidebar.item>
                 @endcan
                 @can('viewOwn', \App\Models\Campus::class)
-                    <flux:sidebar.item icon="building-office-2" :href="route('campuses.own')" :current="request()->routeIs('campuses.own')" wire:navigate>Meu campus</flux:sidebar.item>
+                    <flux:sidebar.item icon="building-office-2" :href="route('campuses.own')" :current="request()->routeIs('campuses.own*')" wire:navigate>Meu campus</flux:sidebar.item>
                 @endcan
                 @can('viewAny', \App\Models\User::class)
                     <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>Usuários</flux:sidebar.item>
