@@ -122,3 +122,42 @@ test('invalid CEP in the form does not trigger a request', function () {
         ->assertHasErrors('values.address.zip_code')->assertSet('showCepLookupPreview', false);
     Http::assertNothingSent();
 });
+
+test('shared address preview explains when CEP lookup has no changes', function (string $componentName) {
+    $user = User::factory()->create();
+    if ($componentName === 'campuses.form-fields') {
+        $affiliation = Affiliation::factory()->global()->for($user)->create();
+    } else {
+        $affiliation = Affiliation::factory()->server()->for($user)->create();
+    }
+    $this->actingAs($user)->withSession(['active_affiliation_id' => $affiliation->id]);
+    $city = City::factory()->create(['name' => 'Santa Rosa', 'state' => BrazilianState::RioGrandeDoSul]);
+    Http::fake(['*cep/v1/*' => Http::response(cepLookupPayload())]);
+    $component = Livewire::test($componentName)->set('values.address.zip_code', '01234-567')
+        ->set('values.address.street', 'Rua Nova')->set('values.address.neighborhood', 'Centro')
+        ->set('values.address.number', '123')->set('selectedCityId', $city->id)
+        ->call('lookupCep')->assertSet('showCepLookupPreview', true)
+        ->assertSee('Os dados encontrados já correspondem ao formulário. Nenhum campo será alterado.');
+    expect($component->instance()->cepLookupPreviewChanges())->toBe([]);
+    $component->call('cancelCepLookup')->assertSet('showCepLookupPreview', false)
+        ->assertSet('values.address.number', '123')->assertSet('values.address.street', 'Rua Nova');
+})->with(['campuses.form-fields']);
+
+test('shared address preview exposes independent proposed field changes', function (string $componentName) {
+    $user = User::factory()->create();
+    $affiliation = $componentName === 'campuses.form-fields'
+        ? Affiliation::factory()->global()->for($user)->create()
+        : Affiliation::factory()->server()->for($user)->create();
+    $this->actingAs($user)->withSession(['active_affiliation_id' => $affiliation->id]);
+    $city = City::factory()->create(['name' => 'Santa Rosa', 'state' => BrazilianState::RioGrandeDoSul]);
+    Http::fake(['*cep/v1/*' => Http::response(cepLookupPayload())]);
+    $component = Livewire::test($componentName)->set('values.address.zip_code', '01234567')
+        ->set('values.address.street', 'Rua Antiga')->set('values.address.neighborhood', 'Bairro Antigo')
+        ->set('values.address.number', '123')->call('lookupCep');
+    $changes = collect($component->instance()->cepLookupPreviewChanges());
+    expect($changes->pluck('label')->all())->toBe(['Logradouro', 'Bairro', 'Cidade'])
+        ->and($changes->first()['current'])->toBe('Rua Antiga')->and($changes->first()['proposed'])->toBe('Rua Nova');
+    $component->call('applyCepLookup')->assertSet('values.address.street', 'Rua Nova')
+        ->assertSet('values.address.neighborhood', 'Centro')->assertSet('values.address.number', '123')
+        ->assertSet('selectedCityId', $city->id)->assertSet('showCepLookupPreview', false);
+})->with(['campuses.form-fields']);
