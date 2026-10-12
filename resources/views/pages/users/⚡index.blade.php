@@ -21,6 +21,30 @@ new #[Title('Usuários')] class extends Component
     #[Url(except: '')]
     public string $search = '';
 
+    #[Url(except: 'all')]
+    public string $role = 'all';
+
+    #[Url(except: 'all')]
+    public string $status = 'all';
+
+    public function updatedRole(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    #[Computed]
+    public function roleOptions(): array
+    {
+        return auth()->user()->can('viewAdministration', User::class)
+            ? [AffiliationType::SystemAdministrator->value => AffiliationType::SystemAdministrator->label(), AffiliationType::InternshipOffice->value => AffiliationType::InternshipOffice->label()]
+            : collect(AffiliationType::options())->except(AffiliationType::SystemAdministrator->value)->all();
+    }
+
     public function boot(): void
     {
         Gate::authorize('viewAny', User::class);
@@ -28,6 +52,12 @@ new #[Title('Usuários')] class extends Component
 
     public function updatedSearch(): void
     {
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset('search', 'role', 'status');
         $this->resetPage();
     }
 
@@ -60,14 +90,18 @@ new #[Title('Usuários')] class extends Component
         $search = mb_substr(trim($this->search), 0, 255);
         $scope = app(UserManagementScope::class);
         $visibleAffiliations = fn (Builder $query) => $scope->affiliations($query, auth()->user());
-        $query = User::query()->whereHas('affiliations', $visibleAffiliations)
+        $matchingAffiliations = fn (Builder $query) => $visibleAffiliations($query)
+            ->when($this->role !== 'all', fn (Builder $query) => $query->whereIn('type', AffiliationType::tryFrom($this->role)?->databaseValues() ?? []))
+            ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
+            ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'));
+        $query = User::query()->whereHas('affiliations', $matchingAffiliations)
             ->with(['affiliations' => fn ($query) => $visibleAffiliations($query->getQuery())->with('campus')]);
         if ($search !== '' && ! str_contains($search, '@') && ! preg_match('/^[\d.\s-]+$/', $search)) {
-            if (auth()->user()->cannot('viewAdministration', User::class)) {
+            if (auth()->user()->cannot('viewAdministration', User::class) || $this->role !== 'all' || $this->status !== 'all') {
                 return $query->whereLike('name', '%'.addcslashes($search, '%_\\').'%')->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
             }
             return User::search($search)->query(fn (Builder $builder) => $builder
-                ->whereHas('affiliations', $visibleAffiliations)
+                ->whereHas('affiliations', $matchingAffiliations)
                 ->with(['affiliations' => fn ($query) => $visibleAffiliations($query->getQuery())->with('campus')]))
                 ->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
         }
@@ -86,15 +120,26 @@ new #[Title('Usuários')] class extends Component
         <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     <div class="flex flex-wrap items-start justify-between gap-4">
-        <div><flux:heading size="xl" level="1">Usuários</flux:heading><flux:text>{{ auth()->user()->can('viewAdministration', \App\Models\User::class) ? 'Contas com vínculos administrativos, incluindo desativados.' : 'Contas com vínculos no seu campus, incluindo desativados.' }}</flux:text></div>
+        <div><flux:heading size="xl" level="1">Usuários</flux:heading><flux:text class="mt-2">{{ auth()->user()->can('viewAdministration', \App\Models\User::class) ? 'Contas com vínculos administrativos, incluindo desativados.' : 'Contas com vínculos no seu campus, incluindo desativados.' }}</flux:text></div>
         @can('create', \App\Models\User::class)
             <flux:button variant="primary" icon="plus" :href="route('users.create')" wire:navigate>Cadastrar usuário</flux:button>
         @endcan
     </div>
-    <flux:input wire:model.live.debounce.300ms="search" label="Buscar usuário" placeholder="Nome, CPF completo ou e-mail de login completo" maxlength="255" type="search" />
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_16rem_14rem_9rem] xl:items-end">
+        <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome, CPF completo ou e-mail de login completo" icon="magnifying-glass" maxlength="255" type="search" />
+        <x-select wire:model.live="role" label="Perfil do vínculo" :value="$role" :options="['all' => 'Todos os perfis'] + $this->roleOptions" searchable />
+        <x-select wire:model.live="status" label="Situação do vínculo" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']" />
+        <div>
+            @if ($search !== '' || $role !== 'all' || $status !== 'all')
+                <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
+            @else
+                <div aria-hidden="true" class="h-10"></div>
+            @endif
+        </div>
+    </div>
     @php($users = $this->users)
     @php($affiliationSummaries = $this->affiliationSummaries)
-    <x-loading-overlay target="search,gotoPage,nextPage,previousPage">
+    <x-loading-overlay target="search,role,status,clearFilters,gotoPage,nextPage,previousPage">
         <flux:table :paginate="$users">
             <flux:table.columns>
                 <flux:table.column>Nome</flux:table.column><flux:table.column>CPF</flux:table.column><flux:table.column>E-mail de login</flux:table.column><flux:table.column>Vínculos</flux:table.column>

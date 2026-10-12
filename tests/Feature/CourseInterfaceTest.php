@@ -196,3 +196,11 @@ test('internship office staff cannot delete a course outside the selected campus
     $course = Course::factory()->create();
     Livewire::test('pages::courses.show', ['course' => $course])->assertForbidden();
 });
+
+test('course search preserves campus isolation and clears pagination', function () {
+    $course = Course::factory()->for($this->campus)->create(['name' => 'Curso filtrado']);
+    Course::factory()->create(['name' => 'Curso filtrado']);
+    $component = Livewire::test('pages::courses.index')->set('search', 'filtrado');
+    expect($component->get('courses')->pluck('id')->all())->toBe([$course->id]);
+    $component->call('clearFilters')->assertSet('search', '')->assertSet('paginators.page', 1);
+});

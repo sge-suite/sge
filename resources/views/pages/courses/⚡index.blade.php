@@ -19,6 +19,14 @@ new #[Title('Cursos')] class extends Component
     #[Url(except: 'all')]
     public string $status = 'all';
 
+    #[Url(except: '')]
+    public string $search = '';
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
     public function boot(): void
     {
         Gate::authorize('viewAny', Course::class);
@@ -38,7 +46,7 @@ new #[Title('Cursos')] class extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('status');
+        $this->reset('status', 'search');
         $this->resetPage();
     }
 
@@ -50,6 +58,7 @@ new #[Title('Cursos')] class extends Component
 
         return Course::query()->where('campus_id', $affiliation->campus_id)
             ->with(['primaryCoordinator.user', 'secondaryCoordinator.user'])
+            ->when(trim($this->search) !== '', fn (Builder $query) => $query->whereLike('name', '%'.addcslashes(mb_substr(trim($this->search), 0, 255), '%_').'%', caseSensitive: false))
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
             ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
@@ -71,11 +80,21 @@ new #[Title('Cursos')] class extends Component
             <flux:badge>Campus somente para leitura</flux:badge>
         @endcan
     </div>
-    <div class="sm:w-48">
-        <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']" />
+    <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_9rem] sm:items-end">
+        <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome" icon="magnifying-glass" maxlength="255" type="search" />
+        <div>
+            <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']" />
+        </div>
+        <div>
+            @if ($status !== 'all' || $search !== '')
+                <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
+            @else
+                <div aria-hidden="true" class="h-10"></div>
+            @endif
+        </div>
     </div>
     @php($courses = $this->courses)
-    <x-loading-overlay target="status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+    <x-loading-overlay target="search,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($courses->isNotEmpty())
             <flux:table :paginate="$courses" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
@@ -101,7 +120,7 @@ new #[Title('Cursos')] class extends Component
                 @if ($courses->total() > 0)
                     <flux:heading size="lg">Nenhum curso nesta página</flux:heading>
                     <flux:button class="mt-5" variant="ghost" wire:click="resetPage">Ir para a primeira página</flux:button>
-                @elseif ($status !== 'all')
+                @elseif ($status !== 'all' || $search !== '')
                     <flux:heading size="lg">Nenhum curso encontrado</flux:heading>
                     <flux:text class="mt-2">Ajuste a situação para encontrar um curso.</flux:text>
                     <flux:button class="mt-5" variant="ghost" wire:click="clearFilters">Limpar filtros</flux:button>

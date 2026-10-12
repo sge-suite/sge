@@ -175,3 +175,12 @@ test('course activity is rechecked when submitting a type form opened earlier', 
     $this->post(route('internship-types.store'), $data)->assertSessionHasErrors('course_id');
     expect(InternshipType::query()->count())->toBe(0);
 });
+
+test('type search combines course selection and campus isolation', function () {
+    $type = InternshipType::factory()->for($this->course)->create(['name' => 'Tipo filtrado']);
+    $foreign = InternshipType::factory()->create(['name' => 'Tipo filtrado']);
+    $component = Livewire::test('pages::internship-types.index')->set('search', 'filtrado')->set('courseId', (string) $this->course->id);
+    expect($component->get('internshipTypes')->pluck('id')->all())->toBe([$type->id]);
+    expect($component->instance()->courseOptions)->not->toHaveKey($foreign->course_id);
+    $component->call('clearFilters')->assertSet('search', '')->assertSet('courseId', 'all')->assertSet('paginators.page', 1);
+});

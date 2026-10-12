@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\InternshipType;
+use App\Models\Course;
 use App\Support\PageSize;
 use App\Support\ActiveAffiliationContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -18,6 +19,33 @@ new #[Title('Tipos de estágio')] class extends Component
 
     #[Url(except: 'all')]
     public string $status = 'all';
+
+    #[Url(except: '')]
+    public string $search = '';
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    #[Url(except: 'all')]
+    public string $courseId = 'all';
+
+    public function updatedCourseId(): void
+    {
+        if ($this->courseId !== 'all' && ! array_key_exists($this->courseId, $this->courseOptions)) {
+            $this->courseId = 'all';
+        }
+        $this->resetPage();
+    }
+
+    #[Computed]
+    public function courseOptions(): array
+    {
+        $affiliation = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
+
+        return Course::query()->where('campus_id', $affiliation->campus_id)->orderBy('name')->pluck('name', 'id')->all();
+    }
 
     public function boot(): void
     {
@@ -38,7 +66,7 @@ new #[Title('Tipos de estágio')] class extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('status');
+        $this->reset('status', 'search', 'courseId');
         $this->resetPage();
     }
 
@@ -50,6 +78,8 @@ new #[Title('Tipos de estágio')] class extends Component
 
         return InternshipType::query()->whereHas('course', fn (Builder $query) => $query->where('campus_id', $affiliation->campus_id))
             ->with('course')
+            ->when($this->courseId !== 'all', fn (Builder $query) => $query->where('course_id', (int) $this->courseId))
+            ->when(trim($this->search) !== '', fn (Builder $query) => $query->whereLike('name', '%'.addcslashes(mb_substr(trim($this->search), 0, 255), '%_').'%', caseSensitive: false))
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
             ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
@@ -71,11 +101,22 @@ new #[Title('Tipos de estágio')] class extends Component
             <flux:badge>Campus somente para leitura</flux:badge>
         @endcan
     </div>
-    <div class="sm:w-48">
-        <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']" />
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_16rem_12rem_9rem] sm:items-end">
+        <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome" icon="magnifying-glass" maxlength="255" type="search" />
+        <x-select wire:model.live="courseId" label="Curso" :value="$courseId" :options="['all' => 'Todos os cursos'] + $this->courseOptions" searchable />
+        <div>
+            <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']" />
+        </div>
+        <div>
+            @if ($status !== 'all' || $search !== '' || $courseId !== 'all')
+                <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
+            @else
+                <div aria-hidden="true" class="h-10"></div>
+            @endif
+        </div>
     </div>
     @php($internshipTypes = $this->internshipTypes)
-    <x-loading-overlay target="status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+    <x-loading-overlay target="search,courseId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($internshipTypes->isNotEmpty())
             <flux:table :paginate="$internshipTypes" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
@@ -101,7 +142,7 @@ new #[Title('Tipos de estágio')] class extends Component
                 @if ($internshipTypes->total() > 0)
                     <flux:heading size="lg">Nenhum tipo de estágio nesta página</flux:heading>
                     <flux:button class="mt-5" variant="ghost" wire:click="resetPage">Ir para a primeira página</flux:button>
-                @elseif ($status !== 'all')
+                @elseif ($status !== 'all' || $search !== '' || $courseId !== 'all')
                     <flux:heading size="lg">Nenhum tipo de estágio encontrado</flux:heading>
                     <flux:text class="mt-2">Ajuste a situação para encontrar um tipo de estágio.</flux:text>
                     <flux:button class="mt-5" variant="ghost" wire:click="clearFilters">Limpar filtros</flux:button>

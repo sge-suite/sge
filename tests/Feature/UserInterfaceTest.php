@@ -135,3 +135,20 @@ test('changing to a different active system administrator during a write rejects
     ])->assertForbidden();
     expect(User::where('cpf', '52998224725')->exists())->toBeFalse();
 });
+
+test('user list clears search and returns to the first page', function () {
+    Livewire::test('pages::users.index')->set('search', 'Inexistente')
+        ->call('gotoPage', 2)->call('clearFilters')
+        ->assertSet('search', '')->assertSet('paginators.page', 1);
+});
+
+test('user filters require profile and status on the same visible affiliation', function () {
+    $user = User::factory()->create(['name' => 'Pessoa filtrada']);
+    Affiliation::factory()->global()->for($user)->create(['deactivated_at' => now()]);
+    Affiliation::factory()->for($user)->create(['type' => AffiliationType::InternshipOffice]);
+    $component = Livewire::test('pages::users.index')->set('role', 'system_administrator')->set('status', 'active')->set('search', 'Pessoa filtrada');
+    expect($component->get('users')->total())->toBe(0);
+    $component->set('status', 'inactive');
+    expect($component->get('users')->pluck('id')->all())->toBe([$user->id]);
+    $component->call('clearFilters')->assertSet('role', 'all')->assertSet('status', 'all')->assertSet('search', '');
+});
