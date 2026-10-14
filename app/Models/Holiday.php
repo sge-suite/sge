@@ -6,15 +6,17 @@ use App\Concerns\HolidayValidationRules;
 use App\Enums\BrazilianState;
 use App\Enums\HolidayScope;
 use Carbon\CarbonImmutable;
+use Database\Factories\HolidayFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Laravel\Scout\Searchable;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -24,6 +26,10 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $name
  * @property HolidayScope $scope
  * @property BrazilianState|null $state_code
+ * @property string $origin
+ * @property bool $is_manually_adjusted
+ * @property int|null $holiday_recurrence_id
+ * @property int|null $occurrence_year
  * @property int|null $city_id
  * @property Carbon|null $deleted_at
  * @property Carbon $created_at
@@ -35,16 +41,41 @@ use Spatie\Activitylog\Support\LogOptions;
     'scope',
     'state_code',
     'city_id',
+    'origin',
+    'is_manually_adjusted',
+    'holiday_recurrence_id',
+    'occurrence_year',
 ])]
 class Holiday extends Model
 {
+    /** @use HasFactory<HolidayFactory> */
+    use HasFactory;
+
     use HolidayValidationRules;
     use LogsActivity;
+    use Searchable;
     use SoftDeletes;
+
+    protected $attributes = ['origin' => 'manual', 'is_manually_adjusted' => false];
+
+    /** @return array{id: int, name: string, date: string|null, year: int|null, scope: string, state_code: string, city_id: int, origin: string} */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->getKey(),
+            'name' => $this->name,
+            'date' => $this->date?->toDateString(),
+            'year' => $this->date?->year,
+            'scope' => $this->scope->value,
+            'state_code' => $this->state_code?->value ?? '',
+            'city_id' => (int) ($this->city_id ?? 0),
+            'origin' => $this->origin,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logFillable()->logOnlyDirty();
+        return LogOptions::defaults()->logFillable()->logOnlyDirty()->dontLogEmptyChanges();
     }
 
     /**
@@ -58,6 +89,8 @@ class Holiday extends Model
             'date' => 'immutable_date',
             'scope' => HolidayScope::class,
             'state_code' => BrazilianState::class,
+            'is_manually_adjusted' => 'boolean',
+            'occurrence_year' => 'integer',
         ];
     }
 
@@ -71,19 +104,32 @@ class Holiday extends Model
         return $this->belongsTo(City::class);
     }
 
-    /**
-     * Scope a query to a Brazilian state.
-     *
-     * @param  Builder<Holiday>  $query
-     * @return Builder<Holiday>
-     */
-    public function scopeForState(Builder $query, BrazilianState|string $state): Builder
+    /** @return BelongsTo<HolidayRecurrence, $this> */
+    public function recurrence(): BelongsTo
     {
-        $stateValue = $state instanceof BrazilianState
-            ? $state->value
-            : Str::upper(trim($state));
+        return $this->belongsTo(HolidayRecurrence::class, 'holiday_recurrence_id')->withTrashed();
+    }
 
-        return $query->where('state_code', $stateValue);
+    public function originLabel(): string
+    {
+        return match ($this->origin) {
+            'manual' => 'Manual', 'brasil_api' => 'BrasilAPI', 'recurrence' => 'Recorrência municipal', default => 'Origem não identificada',
+        };
+    }
+
+    /** @return array<string, array<int, mixed>> */
+    public static function inputRules(): array
+    {
+        return (new self)->holidayRules();
+    }
+
+    public function beforeActivityLogged(Activity $activity, string $eventName): void
+    {
+        $activity->properties = ($activity->properties ?? collect())->put('calendar_scope', [
+            'scope' => $this->scope->value, 'state_code' => $this->state_code?->value, 'city_id' => $this->city_id,
+        ])->put('calendar_previous_scope', $this->exists && $this->getRawOriginal('scope') !== null ? [
+            'scope' => $this->getRawOriginal('scope'), 'state_code' => $this->getRawOriginal('state_code'), 'city_id' => $this->getRawOriginal('city_id'),
+        ] : null);
     }
 
     /**
@@ -92,6 +138,10 @@ class Holiday extends Model
     protected static function booted(): void
     {
         static::saving(function (self $holiday): void {
+            $holiday->name = trim($holiday->name);
+            if (! in_array($holiday->origin, ['manual', 'brasil_api', 'recurrence'], true)) {
+                throw new InvalidArgumentException('Origem inválida.');
+            }
             $attributes = $holiday->getAttributes();
             $attributes['date'] = $holiday->date?->toDateString();
             $validator = Validator::make($attributes, $holiday->holidayRules());
@@ -105,6 +155,10 @@ class Holiday extends Model
                 HolidayScope::State => self::validateStateScope($holiday),
                 HolidayScope::Municipal => self::validateMunicipalScope($holiday),
             };
+        });
+
+        static::forceDeleting(function (): never {
+            throw new InvalidArgumentException('Feriados não podem ser excluídos fisicamente.');
         });
     }
 

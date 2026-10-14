@@ -2,6 +2,8 @@
 
 use App\Models\Campus;
 use App\Models\City;
+use App\Models\Holiday;
+use App\Models\HolidayRecurrence;
 use App\Models\User;
 
 return [
@@ -88,7 +90,7 @@ return [
     |
     */
 
-    'soft_delete' => false,
+    'soft_delete' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -157,6 +159,15 @@ return [
                 'searchableAttributes' => ['name', 'ibge_code'],
                 'filterableAttributes' => ['state'],
                 'sortableAttributes' => ['name'],
+            ],
+            Holiday::class => [
+                'searchableAttributes' => ['name'],
+                'filterableAttributes' => ['year', 'scope', 'state_code', 'city_id', 'origin'],
+                'sortableAttributes' => ['date', 'name', 'id'],
+            ],
+            HolidayRecurrence::class => [
+                'searchableAttributes' => ['name'],
+                'sortableAttributes' => ['name', 'id'],
             ],
         ],
     ],

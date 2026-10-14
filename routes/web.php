@@ -5,6 +5,9 @@ use App\Http\Controllers\AffiliationSelectionController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\GrantingPartyController;
+use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\HolidayImportController;
+use App\Http\Controllers\HolidayRecurrenceController;
 use App\Http\Controllers\InternshipTypeController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RequireActiveAffiliation;
@@ -12,6 +15,9 @@ use App\Models\Campus;
 use App\Models\Course;
 use App\Models\EmailDeliveryAttempt;
 use App\Models\GrantingParty;
+use App\Models\Holiday;
+use App\Models\HolidayRecurrence;
+use App\Models\HolidaySource;
 use App\Models\InternshipType;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +30,31 @@ Route::middleware(['auth'])->group(function () {
     Route::post('affiliations/select', [AffiliationSelectionController::class, 'store'])->name('affiliations.store');
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
+        Route::middleware('can:viewAny,'.Holiday::class)->group(function (): void {
+            Route::livewire('holidays', 'pages::holidays.index')->name('holidays.index');
+            Route::livewire('holidays/trash', 'pages::holidays.index')->defaults('trash', true)->name('holidays.trash');
+            Route::livewire('holidays/create', 'pages::holidays.form')->middleware('can:create,'.Holiday::class)->name('holidays.create');
+            Route::livewire('holidays/{holiday}/edit', 'pages::holidays.form')->middleware('can:update,holiday')->name('holidays.edit');
+            Route::post('holidays', [HolidayController::class, 'store'])->name('holidays.store');
+            Route::put('holidays/{holiday}', [HolidayController::class, 'update'])->name('holidays.update');
+            Route::delete('holidays/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
+            Route::patch('holidays/{holiday}/restore', [HolidayController::class, 'restore'])->withTrashed()->name('holidays.restore');
+        });
+        Route::middleware('can:viewAny,'.HolidayRecurrence::class)->group(function (): void {
+            Route::livewire('holiday-recurrences', 'pages::holiday-recurrences.index')->name('holiday-recurrences.index');
+            Route::livewire('holiday-recurrences/trash', 'pages::holiday-recurrences.index')->defaults('trash', true)->name('holiday-recurrences.trash');
+            Route::livewire('holiday-recurrences/create', 'pages::holiday-recurrences.form')->middleware('can:create,'.HolidayRecurrence::class)->name('holiday-recurrences.create');
+            Route::livewire('holiday-recurrences/{holidayRecurrence}/edit', 'pages::holiday-recurrences.form')->middleware('can:update,holidayRecurrence')->name('holiday-recurrences.edit');
+            Route::post('holiday-recurrences', [HolidayRecurrenceController::class, 'store'])->name('holiday-recurrences.store');
+            Route::put('holiday-recurrences/{holidayRecurrence}', [HolidayRecurrenceController::class, 'update'])->name('holiday-recurrences.update');
+            Route::delete('holiday-recurrences/{holidayRecurrence}', [HolidayRecurrenceController::class, 'destroy'])->name('holiday-recurrences.destroy');
+            Route::patch('holiday-recurrences/{holidayRecurrence}/restore', [HolidayRecurrenceController::class, 'restore'])->withTrashed()->name('holiday-recurrences.restore');
+        });
+        Route::middleware('can:viewAny,'.HolidaySource::class)->group(function (): void {
+            Route::livewire('holiday-imports/{holidaySource}/resolve', 'pages::holiday-imports.resolve')->middleware('can:view,holidaySource')->name('holiday-imports.resolve');
+            Route::post('holiday-imports/{holidaySource}/resolve', [HolidayImportController::class, 'resolve'])->middleware('can:update,holidaySource')->name('holiday-imports.resolve.store');
+        });
+
         Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 
         Route::livewire('campus/edit', 'pages::campuses.own-edit')

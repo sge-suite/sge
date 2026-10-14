@@ -27,8 +27,12 @@ new class extends Component
         $this->authorizeSelection();
     }
 
-    public function mount(mixed $selectedCityId = null, string $cityError = '', ?int $campusId = null): void
+    #[\Livewire\Attributes\Locked]
+    public string $fieldName = 'address[city_id]';
+
+    public function mount(mixed $selectedCityId = null, string $cityError = '', ?int $campusId = null, string $fieldName = 'address[city_id]'): void
     {
+        $this->fieldName = $fieldName;
         $this->campusId = $campusId;
         $this->authorizeSelection();
         $key = is_scalar($selectedCityId)
@@ -98,7 +102,7 @@ new class extends Component
     <x-select wire:model.live="state" label="UF" placeholder="Selecione a UF" :value="$state"
         :options="collect(BrazilianState::options())->map(fn ($label, $value) => $label.' ('.$value.')')->all()" searchable required />
     <div>
-        <x-select wire:model.live="cityId" name="address[city_id]" label="Cidade" icon="map-pin" placeholder="{{ $state === '' ? 'Selecione primeiro a UF' : 'Selecione a cidade' }}"
+        <x-select wire:model.live="cityId" :name="$fieldName" label="Cidade" icon="map-pin" placeholder="{{ $state === '' ? 'Selecione primeiro a UF' : 'Selecione a cidade' }}"
             :value="$cityId" :selected-label="$this->selectedCity?->name ?? ''" :options="$this->cities->pluck('name', 'id')->all()"
             :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
             :disabled="$state === ''" :invalid="$cityError !== ''" :error="$cityError" required wire:key="city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId">

@@ -34,6 +34,9 @@
                 @can('viewAny', \App\Models\InternshipType::class)
                     <flux:sidebar.item icon="briefcase" :href="route('internship-types.index')" :current="request()->routeIs('internship-types.*')" wire:navigate>Tipos de estágio</flux:sidebar.item>
                 @endcan
+                @can('viewAny', \App\Models\Holiday::class)
+                    <flux:sidebar.item icon="tent-tree" :href="route('holidays.index')" :current="request()->routeIs('holidays.*', 'holiday-recurrences.*', 'holiday-imports.*')" wire:navigate>Feriados</flux:sidebar.item>
+                @endcan
                 @if (auth()->user()->can('viewAny', \Spatie\Activitylog\Models\Activity::class) || auth()->user()->can('viewAny', \App\Models\EmailDeliveryAttempt::class))
                     <flux:sidebar.group heading="Logs">
                         @can('viewAny', \Spatie\Activitylog\Models\Activity::class)

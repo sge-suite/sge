@@ -5,12 +5,11 @@ namespace App\Concerns;
 use App\Enums\BrazilianState;
 use App\Enums\HolidayScope;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Enum;
 
 trait HolidayValidationRules
 {
     /**
-     * @return array<string, array<int, Enum|string>>
+     * @return array<string, array<int, mixed>>
      */
     protected function holidayRules(): array
     {
