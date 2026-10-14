@@ -14,29 +14,41 @@
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     Painel
                 </flux:sidebar.item>
-                @can('viewAdministration', \App\Models\Campus::class)
-                    <flux:sidebar.item icon="building-office-2" :href="route('campuses.index')" :current="request()->routeIs('campuses.*')" wire:navigate>
-                        Campi
-                    </flux:sidebar.item>
-                @endcan
-                @can('viewOwn', \App\Models\Campus::class)
-                    <flux:sidebar.item icon="building-office-2" :href="route('campuses.own')" :current="request()->routeIs('campuses.own*')" wire:navigate>Meu campus</flux:sidebar.item>
-                @endcan
-                @can('viewAny', \App\Models\User::class)
-                    <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>Usuários</flux:sidebar.item>
-                @endcan
-                @can('viewAny', \App\Models\Course::class)
-                    <flux:sidebar.item icon="academic-cap" :href="route('courses.index')" :current="request()->routeIs('courses.*')" wire:navigate>Cursos</flux:sidebar.item>
-                @endcan
-                @can('viewAny', \App\Models\GrantingParty::class)
-                    <flux:sidebar.item icon="building-office" :href="route('granting-parties.index')" :current="request()->routeIs('granting-parties.*')" wire:navigate>Partes concedentes</flux:sidebar.item>
-                @endcan
-                @can('viewAny', \App\Models\InternshipType::class)
-                    <flux:sidebar.item icon="briefcase" :href="route('internship-types.index')" :current="request()->routeIs('internship-types.*')" wire:navigate>Tipos de estágio</flux:sidebar.item>
-                @endcan
-                @can('viewAny', \App\Models\Holiday::class)
-                    <flux:sidebar.item icon="tent-tree" :href="route('holidays.index')" :current="request()->routeIs('holidays.*', 'holiday-recurrences.*', 'holiday-imports.*')" wire:navigate>Feriados</flux:sidebar.item>
-                @endcan
+
+                @if (auth()->user()->can('viewAdministration', \App\Models\Campus::class)
+                    || auth()->user()->can('viewOwn', \App\Models\Campus::class)
+                    || auth()->user()->can('viewAny', \App\Models\User::class)
+                    || auth()->user()->can('viewAny', \App\Models\Course::class)
+                    || auth()->user()->can('viewAny', \App\Models\InternshipType::class)
+                    || auth()->user()->can('viewAny', \App\Models\GrantingParty::class)
+                    || auth()->user()->can('viewAny', \App\Models\Holiday::class))
+                    <flux:sidebar.group heading="Configurações">
+                        @can('viewAdministration', \App\Models\Campus::class)
+                            <flux:sidebar.item icon="building-office-2" :href="route('campuses.index')" :current="request()->routeIs('campuses.*')" wire:navigate>
+                                Campi
+                            </flux:sidebar.item>
+                        @endcan
+                        @can('viewOwn', \App\Models\Campus::class)
+                            <flux:sidebar.item icon="building-office-2" :href="route('campuses.own')" :current="request()->routeIs('campuses.own*')" wire:navigate>Meu campus</flux:sidebar.item>
+                        @endcan
+                        @can('viewAny', \App\Models\User::class)
+                            <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>Usuários</flux:sidebar.item>
+                        @endcan
+                        @can('viewAny', \App\Models\Course::class)
+                            <flux:sidebar.item icon="academic-cap" :href="route('courses.index')" :current="request()->routeIs('courses.*')" wire:navigate>Cursos</flux:sidebar.item>
+                        @endcan
+                        @can('viewAny', \App\Models\InternshipType::class)
+                            <flux:sidebar.item icon="briefcase" :href="route('internship-types.index')" :current="request()->routeIs('internship-types.*')" wire:navigate>Tipos de estágio</flux:sidebar.item>
+                        @endcan
+                        @can('viewAny', \App\Models\GrantingParty::class)
+                            <flux:sidebar.item icon="building-office" :href="route('granting-parties.index')" :current="request()->routeIs('granting-parties.*')" wire:navigate>Partes concedentes</flux:sidebar.item>
+                        @endcan
+                        @can('viewAny', \App\Models\Holiday::class)
+                            <flux:sidebar.item icon="tent-tree" :href="route('holidays.index')" :current="request()->routeIs('holidays.*', 'holiday-recurrences.*', 'holiday-imports.*')" wire:navigate>Feriados</flux:sidebar.item>
+                        @endcan
+                    </flux:sidebar.group>
+                @endif
+
                 @if (auth()->user()->can('viewAny', \Spatie\Activitylog\Models\Activity::class) || auth()->user()->can('viewAny', \App\Models\EmailDeliveryAttempt::class))
                     <flux:sidebar.group heading="Logs">
                         @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
