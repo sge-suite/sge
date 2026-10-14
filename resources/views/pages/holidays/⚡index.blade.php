@@ -247,7 +247,7 @@ new #[Title('Feriados')] class extends Component
             @endif
         </div>
     </div>
-    <x-holidays.navigation />
+    <x-holidays.navigation active-tab="holidays" />
     @if (session('status'))
         <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
