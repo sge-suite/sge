@@ -22,25 +22,29 @@ class CitySeeder extends Seeder
     public function run(): void
     {
         $cities = $this->readCatalog();
-        DB::transaction(function () use ($cities): void {
-            foreach (array_chunk($cities, self::BATCH_SIZE) as $batch) {
-                $existing = City::query()
-                    ->whereIn('ibge_code', array_column($batch, 'ibge_code'))
-                    ->get()
-                    ->keyBy('ibge_code');
+        City::withoutSyncingToSearch(function () use ($cities): void {
+            DB::transaction(function () use ($cities): void {
+                foreach (array_chunk($cities, self::BATCH_SIZE) as $batch) {
+                    $existing = City::query()
+                        ->whereIn('ibge_code', array_column($batch, 'ibge_code'))
+                        ->get()
+                        ->keyBy('ibge_code');
 
-                foreach ($batch as $city) {
-                    $model = $existing->get($city['ibge_code']) ?? new City;
+                    foreach ($batch as $city) {
+                        $model = $existing->get($city['ibge_code']) ?? new City;
 
-                    if ($model->exists && $model->name === $city['name'] && $model->state->value === $city['state']) {
-                        continue;
+                        if ($model->exists && $model->name === $city['name'] && $model->state->value === $city['state']) {
+                            continue;
+                        }
+
+                        $model->fill($city);
+                        $model->save();
                     }
-
-                    $model->fill($city);
-                    $model->save();
                 }
-            }
+            });
         });
+
+        City::query()->searchable(self::BATCH_SIZE);
     }
 
     /**
