@@ -144,7 +144,7 @@ new #[Title('Detalhes da parte concedente')] class extends Component
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-3">
-                <flux:heading size="xl" level="1" class="break-words">{{ $grantingParty->name }}</flux:heading>
+                <flux:heading size="xl" level="1" class="wrap-break-word">{{ $grantingParty->name }}</flux:heading>
                 <flux:badge size="sm" :color="$grantingParty->deactivated_at === null ? 'green' : 'zinc'">{{ $grantingParty->deactivated_at === null ? 'Ativo' : 'Desativado' }}</flux:badge>
             </div>
             <flux:text class="mt-2">{{ $grantingParty->campus->name }}</flux:text>

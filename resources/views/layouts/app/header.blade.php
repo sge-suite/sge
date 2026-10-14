@@ -19,7 +19,7 @@
 
             <flux:navbar class="me-1.5 space-x-0.5 rtl:space-x-reverse py-0!">
                 <flux:tooltip content="Pesquisar" position="bottom">
-                    <flux:navbar.item class="!h-10 [&>div>svg]:size-5" icon="magnifying-glass" href="#" label="Pesquisar" />
+                    <flux:navbar.item class="h-10! [&>div>svg]:size-5" icon="magnifying-glass" href="#" label="Pesquisar" />
                 </flux:tooltip>
             </flux:navbar>
 

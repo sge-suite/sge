@@ -8,7 +8,7 @@
     <span
         wire:loading
         @if ($target !== null) wire:target="{{ $target }}" @endif
-        class="pointer-events-none absolute -top-7 end-0 text-sm text-zinc-500 dark:text-zinc-400"
+        class="pointer-events-none absolute -top-7 inset-e-0 text-sm text-zinc-500 dark:text-zinc-400"
         role="status"
     >{{ $label }}</span>
     <div

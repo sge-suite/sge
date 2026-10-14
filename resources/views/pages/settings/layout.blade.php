@@ -1,7 +1,7 @@
 @props(['wide' => false])
 
 <div class="flex items-start max-md:flex-col">
-    <div class="me-10 w-full pb-4 md:w-[220px]">
+    <div class="me-10 w-full pb-4 md:w-55">
         <flux:navlist aria-label="Configurações">
             <flux:navlist.item :href="route('profile.edit')" wire:navigate>Perfil</flux:navlist.item>
             <flux:navlist.item :href="route('security.edit')" wire:navigate>Segurança</flux:navlist.item>

@@ -39,7 +39,7 @@
                     x-on:load="observePreview()"
                 ></iframe>
             @else
-                <pre class="whitespace-pre-wrap break-words p-6 font-sans">{{ $message->content_text }}</pre>
+                <pre class="whitespace-pre-wrap wrap-break-word p-6 font-sans">{{ $message->content_text }}</pre>
             @endif
         </div>
     </div>

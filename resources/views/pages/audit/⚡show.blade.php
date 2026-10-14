@@ -82,9 +82,9 @@ new #[Title('Detalhes da auditoria')] class extends Component
                         <flux:table.row wire:key="activity-{{ $activityId }}-{{ $loop->index }}">
                             <flux:table.cell>{{ $change['field'] }}</flux:table.cell>
                             @if (! $entry['is_creation'])
-                                <flux:table.cell class="whitespace-normal break-words"><span class="text-red-700 dark:text-red-400">{{ $change['before'] }}</span></flux:table.cell>
+                                <flux:table.cell class="whitespace-normal wrap-break-word"><span class="text-red-700 dark:text-red-400">{{ $change['before'] }}</span></flux:table.cell>
                             @endif
-                            <flux:table.cell class="whitespace-normal break-words"><span class="text-green-700 dark:text-green-400">{{ $change['after'] }}</span></flux:table.cell>
+                            <flux:table.cell class="whitespace-normal wrap-break-word"><span class="text-green-700 dark:text-green-400">{{ $change['after'] }}</span></flux:table.cell>
                         </flux:table.row>
                     @endforeach
                 </flux:table.rows>

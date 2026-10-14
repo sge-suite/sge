@@ -139,7 +139,7 @@ new #[Title('Detalhes do curso')] class extends Component
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-3">
-                <flux:heading size="xl" level="1" class="break-words">{{ $course->name }}</flux:heading>
+                <flux:heading size="xl" level="1" class="wrap-break-word">{{ $course->name }}</flux:heading>
                 <flux:badge size="sm" :color="$course->deactivated_at === null ? 'green' : 'zinc'">{{ $course->deactivated_at === null ? 'Ativo' : 'Desativado' }}</flux:badge>
             </div>
             <flux:text class="mt-2">{{ $course->campus->name }}</flux:text>

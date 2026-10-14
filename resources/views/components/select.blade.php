@@ -268,7 +268,7 @@
                             @if (isset($optionIcons[$optionValue]))
                                 <flux:icon :name="$optionIcons[$optionValue]" variant="mini" class="shrink-0 text-zinc-500 dark:text-zinc-300" />
                             @endif
-                            <span class="min-w-0 whitespace-normal break-words">{{ $optionLabel }}</span>
+                            <span class="min-w-0 whitespace-normal wrap-break-word">{{ $optionLabel }}</span>
                         </span>
                         <span class="flex size-4 shrink-0 items-center justify-center">
                             <span x-show="String(value) === @js((string) $optionValue)">

@@ -34,7 +34,7 @@
                     type="submit"
                     icon="arrow-right-start-on-rectangle"
                     variant="danger"
-                    class="w-full cursor-pointer !text-red-500 dark:!text-red-300 data-active:!text-red-600 dark:data-active:!text-red-400 **:data-flux-menu-item-icon:!text-red-400 dark:**:data-flux-menu-item-icon:!text-red-300 [&[data-active]_[data-flux-menu-item-icon]]:!text-red-600 dark:[&[data-active]_[data-flux-menu-item-icon]]:!text-red-400"
+                    class="w-full cursor-pointer text-red-500! dark:text-red-300! data-active:text-red-600! dark:data-active:text-red-400! **:data-flux-menu-item-icon:text-red-400! dark:**:data-flux-menu-item-icon:text-red-300! [&[data-active]_[data-flux-menu-item-icon]]:text-red-600! dark:[&[data-active]_[data-flux-menu-item-icon]]:text-red-400!"
                     data-test="logout-button"
                 >
                     Sair

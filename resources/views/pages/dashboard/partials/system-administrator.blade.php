@@ -57,7 +57,7 @@
                 @foreach ($metrics['affiliationTypes'] as $type)
                     <div wire:key="affiliation-type-{{ $loop->index }}" class="min-w-0 space-y-1.5">
                         <div class="flex min-w-0 items-baseline justify-between gap-3">
-                            <flux:text class="min-w-0 break-words text-sm">{{ $type['label'] }}</flux:text>
+                            <flux:text class="min-w-0 wrap-break-word text-sm">{{ $type['label'] }}</flux:text>
                             <flux:text class="shrink-0 text-sm tabular-nums">
                                 {{ $type['value'] }}
                                 <span class="text-xs text-zinc-500 dark:text-zinc-400">({{ $type['active'] }} {{ $type['active'] === 1 ? 'ativo' : 'ativos' }})</span>
@@ -82,7 +82,7 @@
                 @foreach ($metrics['internshipsByStatus'] as $status)
                     <div wire:key="internship-status-{{ $loop->index }}" class="min-w-0 space-y-1.5">
                         <div class="flex min-w-0 items-baseline justify-between gap-3">
-                            <flux:text class="min-w-0 break-words text-sm">{{ $status['label'] }}</flux:text>
+                            <flux:text class="min-w-0 wrap-break-word text-sm">{{ $status['label'] }}</flux:text>
                             <flux:text class="shrink-0 text-sm tabular-nums">{{ $status['value'] }}</flux:text>
                         </div>
                         <flux:progress :value="$status['value']" :max="$metrics['maxInternshipStatusCount']" style="--flux-progress-color: var(--color-brand)" :aria-label="$status['label']" />
@@ -106,7 +106,7 @@
                 @foreach ($metrics['documentsByStatus'] as $status)
                     <div wire:key="document-status-{{ $loop->index }}" class="min-w-0 space-y-1.5">
                         <div class="flex min-w-0 items-baseline justify-between gap-3">
-                            <flux:text class="min-w-0 break-words text-sm">{{ $status['label'] }}</flux:text>
+                            <flux:text class="min-w-0 wrap-break-word text-sm">{{ $status['label'] }}</flux:text>
                             <flux:text class="shrink-0 text-sm tabular-nums">{{ $status['value'] }}</flux:text>
                         </div>
                         <flux:progress :value="$status['value']" :max="$metrics['maxDocumentStatusCount']" style="--flux-progress-color: var(--color-brand)" :aria-label="$status['label']" />
@@ -124,14 +124,14 @@
             <div class="space-y-3">
                 <div class="min-w-0 space-y-1">
                     <div class="flex min-w-0 items-baseline justify-between gap-3">
-                        <flux:text class="min-w-0 break-words text-sm">Solicitações de estágio</flux:text>
+                        <flux:text class="min-w-0 wrap-break-word text-sm">Solicitações de estágio</flux:text>
                         <flux:text class="shrink-0 text-sm tabular-nums">{{ $metrics['pendingInternshipRequestsCount'] }}</flux:text>
                     </div>
                     <flux:progress :value="$metrics['pendingInternshipRequestsCount']" :max="$metrics['maxPendingRequestsCount']" style="--flux-progress-color: var(--color-brand)" aria-label="Solicitações de estágio" />
                 </div>
                 <div class="min-w-0 space-y-1">
                     <div class="flex min-w-0 items-baseline justify-between gap-3">
-                        <flux:text class="min-w-0 break-words text-sm">Cadastros de concedentes e supervisores</flux:text>
+                        <flux:text class="min-w-0 wrap-break-word text-sm">Cadastros de concedentes e supervisores</flux:text>
                         <flux:text class="shrink-0 text-sm tabular-nums">{{ $metrics['pendingRegistrationRequestsCount'] }}</flux:text>
                     </div>
                     <flux:progress :value="$metrics['pendingRegistrationRequestsCount']" :max="$metrics['maxPendingRequestsCount']" style="--flux-progress-color: var(--color-brand)" aria-label="Cadastros de concedentes e supervisores" />

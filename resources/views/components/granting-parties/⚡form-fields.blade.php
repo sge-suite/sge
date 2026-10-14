@@ -405,9 +405,9 @@ new class extends Component
     <flux:modal
         name="granting-party-cnpj-preview"
         wire:model.self="showLookupPreview"
-        class="w-[calc(100vw_-_2rem)] max-h-[calc(100dvh_-_2rem)] max-w-5xl! overflow-hidden"
+        class="w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] max-w-5xl! overflow-hidden"
     >
-        <div class="flex max-h-[calc(100dvh_-_5rem)] min-h-0 flex-col">
+        <div class="flex max-h-[calc(100dvh-5rem)] min-h-0 flex-col">
             <div class="shrink-0">
                 <flux:heading size="lg" level="2">Revise os dados encontrados</flux:heading>
                 <flux:text class="mt-2">Nada será alterado no formulário até você confirmar. Valores que não vieram da consulta serão mantidos.</flux:text>
@@ -442,13 +442,13 @@ new class extends Component
                                             <div class="min-w-0">
                                                 <flux:text size="sm">{{ $change['label'] }}</flux:text>
                                                 <flux:text size="xs" class="mt-1">Valor atual</flux:text>
-                                                <p class="mt-0.5 break-words text-sm text-zinc-600 dark:text-zinc-300">{{ $change['current'] }}</p>
+                                                <p class="mt-0.5 wrap-break-word text-sm text-zinc-600 dark:text-zinc-300">{{ $change['current'] }}</p>
                                             </div>
                                             <flux:icon.arrow-down class="size-4 text-zinc-400 sm:hidden" />
                                             <flux:icon.arrow-right class="hidden size-4 text-zinc-400 sm:block" />
                                             <div class="min-w-0">
                                                 <flux:text size="xs">Após aplicar</flux:text>
-                                                <p class="mt-0.5 break-words text-sm font-medium text-zinc-900 dark:text-white">{{ $change['proposed'] }}</p>
+                                                <p class="mt-0.5 wrap-break-word text-sm font-medium text-zinc-900 dark:text-white">{{ $change['proposed'] }}</p>
                                             </div>
                                         </div>
                                     @endforeach
