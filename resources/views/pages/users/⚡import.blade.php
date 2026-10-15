@@ -182,7 +182,7 @@ new #[Title('Importar usuários e vínculos')] class extends Component
         <x-import-campus :name="app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'))->campus->name" />
 
         <div class="grid gap-6 lg:grid-cols-2">
-            <x-import-upload-form :separator="$separator" />
+            <x-import-upload-form :separator="$separator" :file="$csv" />
             <section class="space-y-4">
                 <flux:heading size="lg" level="2">Como preparar o CSV</flux:heading>
                 <flux:text size="lg" class="leading-7">Baixe o modelo, abra em uma planilha e preencha uma linha para cada vínculo. Para cadastrar mais de um vínculo da mesma pessoa, repita o CPF e o nome; o e-mail pode ser diferente em cada vínculo.</flux:text>
