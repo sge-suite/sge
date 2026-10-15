@@ -11,9 +11,7 @@ use App\Models\City;
 use App\Models\Course;
 use App\Models\GrantingParty;
 use App\Models\Holiday;
-use App\Models\HolidayImportRun;
 use App\Models\HolidayRecurrence;
-use App\Models\HolidaySource;
 use App\Models\InternshipType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,10 +51,6 @@ class AdministrativeActivityPresenter
                 'deleted' => 'Exclusão',
                 'restored' => 'Restauração',
                 'password_changed' => 'Senha alterada',
-                'granting_party_import_completed' => 'Importação de concedentes concluída · '
-                    .($activity->properties?->get('summary')['imported'] ?? 0).' importadas · '
-                    .($activity->properties?->get('summary')['ignored'] ?? 0).' ignoradas · '
-                    .($activity->properties?->get('summary')['error'] ?? 0).' com erro',
                 default => 'Evento registrado',
             },
             'occurred_at' => formatDateTime($activity->created_at),
@@ -113,8 +107,6 @@ class AdministrativeActivityPresenter
         $label = match ($activity->subject_type) {
             (new Holiday)->getMorphClass() => 'Feriado',
             (new HolidayRecurrence)->getMorphClass() => 'Recorrência municipal',
-            (new HolidayImportRun)->getMorphClass() => 'Importação de feriados',
-            (new HolidaySource)->getMorphClass() => 'Item importado',
             (new Campus)->getMorphClass() => 'Campus',
             (new Course)->getMorphClass() => 'Curso',
             (new InternshipType)->getMorphClass() => 'Tipo de estágio',
@@ -149,8 +141,6 @@ class AdministrativeActivityPresenter
         $fields = match ($activity->subject_type) {
             (new Holiday)->getMorphClass() => ['date' => 'Data', 'name' => 'Nome', 'scope' => 'Escopo', 'state_code' => 'UF', 'city_id' => 'Cidade', 'origin' => 'Origem', 'is_manually_adjusted' => 'Ajuste manual', 'holiday_recurrence_id' => 'Recorrência', 'occurrence_year' => 'Ano da ocorrência'],
             (new HolidayRecurrence)->getMorphClass() => ['name' => 'Nome', 'city_id' => 'Cidade', 'month' => 'Mês', 'day' => 'Dia', 'starts_year' => 'Ano inicial', 'ends_year' => 'Ano final', 'notes' => 'Referência / observação'],
-            (new HolidayImportRun)->getMorphClass() => ['year' => 'Ano', 'territory' => 'Território', 'status' => 'Situação', 'attempts' => 'Tentativas', 'queried_at' => 'Consulta', 'completed_at' => 'Conclusão', 'error' => 'Falha', 'summary' => 'Resultado'],
-            (new HolidaySource)->getMorphClass() => ['holiday_import_run_id' => 'Importação', 'holiday_id' => 'Feriado', 'status' => 'Situação', 'reason' => 'Motivo', 'resolution_notes' => 'Justificativa', 'missing_from_source' => 'Ausente na fonte'],
             (new Campus)->getMorphClass() => [
                 'name' => 'Nome', 'cnpj' => 'CNPJ', 'phone' => 'Telefone', 'address_id' => 'Endereço',
                 'legal_representative_name' => 'Representante legal', 'legal_representative_position' => 'Cargo do representante',

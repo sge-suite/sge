@@ -7,8 +7,6 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Validation\Rule;
-use Spatie\Activitylog\Models\Concerns\LogsActivity;
-use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @property int $id
@@ -28,17 +26,10 @@ use Spatie\Activitylog\Support\LogOptions;
 #[Fillable(['source_key', 'holiday_import_run_id', 'holiday_id', 'status', 'payload', 'candidate_ids', 'reason', 'resolution_notes', 'missing_from_source', 'last_seen_at'])]
 class HolidaySource extends Model
 {
-    use LogsActivity;
-
     /** @return array<string, string> */
     protected function casts(): array
     {
         return ['payload' => 'array', 'candidate_ids' => 'array', 'missing_from_source' => 'boolean', 'last_seen_at' => 'immutable_datetime'];
-    }
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults()->logOnly(['holiday_import_run_id', 'holiday_id', 'status', 'reason', 'resolution_notes', 'missing_from_source'])->logOnlyDirty()->dontLogEmptyChanges();
     }
 
     /** @return BelongsTo<Holiday, $this> */

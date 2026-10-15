@@ -6,8 +6,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Spatie\Activitylog\Models\Concerns\LogsActivity;
-use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * @property int $id
@@ -25,17 +23,10 @@ use Spatie\Activitylog\Support\LogOptions;
 #[Fillable(['year', 'territory', 'status', 'attempts', 'queried_at', 'completed_at', 'error', 'source_url', 'payload', 'summary'])]
 class HolidayImportRun extends Model
 {
-    use LogsActivity;
-
     /** @return array<string, string> */
     protected function casts(): array
     {
         return ['year' => 'integer', 'attempts' => 'integer', 'queried_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime', 'payload' => 'array', 'summary' => 'array'];
-    }
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults()->logOnly(['year', 'territory', 'status', 'attempts', 'queried_at', 'completed_at', 'error', 'summary'])->logOnlyDirty()->dontLogEmptyChanges();
     }
 
     /** @return HasMany<HolidaySource, $this> */

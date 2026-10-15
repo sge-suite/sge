@@ -6,9 +6,7 @@ use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\Holiday;
-use App\Models\HolidayImportRun;
 use App\Models\HolidayRecurrence;
-use App\Models\HolidaySource;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -29,8 +27,6 @@ class AdministrativeActivityScope
             $query->whereIn('subject_type', [
                 (new Holiday)->getMorphClass(),
                 (new HolidayRecurrence)->getMorphClass(),
-                (new HolidayImportRun)->getMorphClass(),
-                (new HolidaySource)->getMorphClass(),
             ])->orWhere('subject_type', (new Campus)->getMorphClass())
                 ->orWhere(function (Builder $query): void {
                     $this->addresses->apply($query);
@@ -56,7 +52,7 @@ class AdministrativeActivityScope
                                 });
                         });
                 });
-        })->where(fn (Builder $query) => $query->whereNull('event')->orWhere('event', '!=', 'granting_party_import_completed'));
+        });
     }
 
     /** @param Builder<Activity> $query */

@@ -30,9 +30,7 @@ class ActivityAccess
             return null;
         }
 
-        $query = Activity::query()->where(function (Builder $query): void {
-            $query->whereNull('event')->orWhereNotIn('event', ['user_import_completed', 'granting_party_import_completed']);
-        });
+        $query = Activity::query();
 
         return match ($affiliation->type) {
             AffiliationType::SystemAdministrator => $this->administrativeScope->apply($query),
@@ -47,7 +45,7 @@ class ActivityAccess
     public function entityOptionsForCurrentContext(User $user, Store $session): array
     {
         return match ($this->context->currentFor($user, $session)?->type) {
-            AffiliationType::SystemAdministrator => ['campus' => 'Campi', 'address' => 'Endereços de campi', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos administrativos', 'holiday' => 'Feriados', 'holiday_recurrence' => 'Recorrências municipais', 'holiday_import_run' => 'Importações de feriados', 'holiday_source' => 'Itens importados'],
+            AffiliationType::SystemAdministrator => ['campus' => 'Campi', 'address' => 'Endereços de campi', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos administrativos', 'holiday' => 'Feriados', 'holiday_recurrence' => 'Recorrências municipais'],
             AffiliationType::InternshipOffice => ['campus' => 'Meu campus', 'course' => 'Cursos', 'internship_type' => 'Tipos de estágio', 'granting_party' => 'Partes concedentes', 'address' => 'Endereços de cadastros', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos no campus'],
             default => [],
         };
