@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\BrazilianState;
-use App\Helpers\DigitsHelper;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Models\City;
 use App\Models\GrantingParty;
 use App\Support\ActiveAffiliationContext;
@@ -154,7 +154,7 @@ new #[Title('Partes concedentes')] class extends Component
             })
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $term = mb_substr(trim($this->search), 0, 255);
-                $query->where(fn (Builder $query) => $query->whereLike('name', '%'.addcslashes($term, '%_').'%', caseSensitive: false)->orWhere('document_number', DigitsHelper::only($term)));
+                $query->where(fn (Builder $query) => $query->whereLike('name', '%'.addcslashes($term, '%_').'%', caseSensitive: false)->orWhere('document_number', BrazilianDocumentHelper::normalizeCnpj($term)));
             })->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
@@ -169,7 +169,10 @@ new #[Title('Partes concedentes')] class extends Component
             <flux:text class="mt-2">Gerencie as partes concedentes do seu campus.</flux:text>
         </div>
         @can('create', \App\Models\GrantingParty::class)
-            <flux:button variant="primary" icon="plus" :href="route('granting-parties.create')" wire:navigate>Cadastrar parte concedente</flux:button>
+            <div class="flex flex-wrap items-center gap-3">
+                <flux:button variant="outline" :href="route('granting-parties.import')" wire:navigate>Importar CSV</flux:button>
+                <flux:button variant="primary" icon="plus" :href="route('granting-parties.create')" wire:navigate>Cadastrar parte concedente</flux:button>
+            </div>
         @else
             <flux:badge>Campus somente para leitura</flux:badge>
         @endcan
@@ -207,8 +210,8 @@ new #[Title('Partes concedentes')] class extends Component
     @php($grantingParties = $this->grantingParties)
     <x-loading-overlay target="search,state,cityId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($grantingParties->isNotEmpty())
-            <flux:table :paginate="$grantingParties" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
-                <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+            <flux:table :paginate="$grantingParties">
+                <flux:table.columns class="bg-white dark:bg-zinc-800">
                     <flux:table.column>Parte concedente</flux:table.column>
                     <flux:table.column>Documento</flux:table.column>
                     <flux:table.column class="hidden md:table-cell">Cidade / UF</flux:table.column>

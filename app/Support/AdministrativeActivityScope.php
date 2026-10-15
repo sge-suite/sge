@@ -56,7 +56,7 @@ class AdministrativeActivityScope
                                 });
                         });
                 });
-        });
+        })->where(fn (Builder $query) => $query->whereNull('event')->orWhere('event', '!=', 'granting_party_import_completed'));
     }
 
     /** @param Builder<Activity> $query */

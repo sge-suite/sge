@@ -77,6 +77,7 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('can:viewAny,'.GrantingParty::class)->group(function (): void {
             Route::livewire('granting-parties', 'pages::granting-parties.index')->name('granting-parties.index');
             Route::livewire('granting-parties/create', 'pages::granting-parties.create')->name('granting-parties.create');
+            Route::livewire('granting-parties/import', 'pages::granting-parties.import')->name('granting-parties.import');
             Route::livewire('granting-parties/{grantingParty}/edit', 'pages::granting-parties.edit')->name('granting-parties.edit');
             Route::livewire('granting-parties/{grantingParty}', 'pages::granting-parties.show')->name('granting-parties.show');
             Route::post('granting-parties', [GrantingPartyController::class, 'store'])->name('granting-parties.store');

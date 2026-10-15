@@ -53,6 +53,10 @@ class AdministrativeActivityPresenter
                 'deleted' => 'Exclusão',
                 'restored' => 'Restauração',
                 'password_changed' => 'Senha alterada',
+                'granting_party_import_completed' => 'Importação de concedentes concluída · '
+                    .($activity->properties?->get('summary')['imported'] ?? 0).' importadas · '
+                    .($activity->properties?->get('summary')['ignored'] ?? 0).' ignoradas · '
+                    .($activity->properties?->get('summary')['error'] ?? 0).' com erro',
                 default => 'Evento registrado',
             },
             'occurred_at' => formatDateTime($activity->created_at),
