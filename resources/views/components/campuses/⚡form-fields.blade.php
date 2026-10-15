@@ -314,12 +314,12 @@ new class extends Component
                 <div class="sm:col-span-2 grid items-start gap-x-5 gap-y-4 sm:grid-cols-2">
                     @if ($canEditCnpj)
                     <div>
-                        <flux:input name="cnpj" error:name="cnpj" :error:message="$errors->first('cnpj') ?: $errors->first('values.cnpj')" label="CNPJ" wire:model="values.cnpj" :value="$values['cnpj']" maxlength="18" placeholder="ZG.MXB.TA3/0001-93" :invalid="$errors->has('values.cnpj') || $errors->has('cnpj')" required />
+                        <flux:input name="cnpj" error:name="cnpj" :error:message="$errors->first('cnpj') ?: $errors->first('values.cnpj')" label="CNPJ" wire:model="values.cnpj" :value="$values['cnpj']" maxlength="18" placeholder="00.000.000/0000-00" :invalid="$errors->has('values.cnpj') || $errors->has('cnpj')" required />
                     </div>
                     @else
                         <flux:input label="CNPJ" :name="null" :value="$values['cnpj']" readonly />
                     @endif
-                    <flux:input name="phone" error:name="phone" label="Telefone" wire:model="values.phone" :value="$values['phone']" maxlength="15" type="tel" autocomplete="tel" placeholder="(55) 3333-3333" required />
+                    <flux:input name="phone" error:name="phone" label="Telefone" wire:model="values.phone" :value="$values['phone']" maxlength="15" type="tel" autocomplete="tel" placeholder="(00) 00000-0000" required />
                     @if ($canEditCnpj)
                     <div class="sm:col-span-2 flex flex-col items-start gap-2">
                         <flux:text size="sm">Busque na BrasilAPI para preencher o nome, o telefone e o endereço do campus. Confira os dados antes de salvar.</flux:text>

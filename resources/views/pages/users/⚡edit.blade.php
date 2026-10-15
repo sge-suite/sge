@@ -56,7 +56,7 @@ new #[Title('Editar dados de acesso')] class extends Component
             <section class="space-y-5">
                 <flux:heading size="lg" level="2">Identificação</flux:heading>
                 <flux:input name="name" label="Nome completo" :value="is_string(old('name', $account->name)) ? old('name', $account->name) : ''" maxlength="255" error:name="name" />
-                <flux:input name="cpf" label="CPF" :value="is_string(old('cpf', $account->cpf)) ? old('cpf', $account->cpf) : ''" maxlength="14" error:name="cpf" />
+                <flux:input name="cpf" label="CPF" placeholder="000.000.000-00" :value="is_string(old('cpf', $account->cpf)) ? old('cpf', $account->cpf) : ''" maxlength="14" error:name="cpf" />
                 <flux:text size="sm">Confira o CPF antes de salvar a correção. Ele deve ser válido e não pertencer a outra conta.</flux:text>
             </section>
             <section class="space-y-5">

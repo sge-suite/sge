@@ -232,7 +232,7 @@ new class extends Component
     <section class="min-w-0 space-y-5">
         <flux:heading size="lg" level="2">Conta</flux:heading>
         @if ($userId === null)
-            <flux:input name="cpf" required label="CPF" wire:model.live="cpf" wire:keydown.enter.prevent="lookupCpf" :value="$cpf" maxlength="14" error:name="cpf" />
+            <flux:input name="cpf" required label="CPF" placeholder="000.000.000-00" wire:model.live="cpf" wire:keydown.enter.prevent="lookupCpf" :value="$cpf" maxlength="14" error:name="cpf" />
             <flux:button type="button" wire:click="lookupCpf" wire:loading.attr="disabled">Consultar CPF</flux:button>
             <input type="hidden" name="consulted_cpf" value="{{ $consultedCpf }}" />
             <flux:error name="consulted_cpf" />

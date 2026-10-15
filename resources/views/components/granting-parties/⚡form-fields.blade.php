@@ -59,7 +59,7 @@ new class extends Component
     {
         return match ($this->values['document_type'] ?? '') {
             'cpf' => ['label' => 'CPF', 'characters' => 11, 'maxlength' => 14, 'placeholder' => '000.000.000-00'],
-            'cnpj' => ['label' => 'CNPJ', 'characters' => 14, 'maxlength' => 18, 'placeholder' => 'ZG.MXB.TA3/0001-93'],
+            'cnpj' => ['label' => 'CNPJ', 'characters' => 14, 'maxlength' => 18, 'placeholder' => '00.000.000/0000-00'],
             default => ['label' => 'Documento', 'characters' => 0, 'maxlength' => 18, 'placeholder' => 'Selecione o tipo de documento'],
         };
     }
@@ -378,7 +378,7 @@ new class extends Component
                 <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
                     <flux:input name="representative_name" error:name="representative_name" wire:model="values.representative_name" :value="$values['representative_name']" label="Nome do representante" maxlength="255" required />
                     <flux:input name="representative_role" error:name="representative_role" wire:model="values.representative_role" :value="$values['representative_role']" label="Cargo do representante" maxlength="255" required />
-                    <flux:input name="phone" error:name="phone" wire:model="values.phone" :value="$values['phone']" label="Telefone com DDD" maxlength="20" />
+                    <flux:input name="phone" error:name="phone" wire:model="values.phone" :value="$values['phone']" label="Telefone com DDD" placeholder="(00) 00000-0000" maxlength="20" />
                     <flux:input name="email" error:name="email" wire:model="values.email" :value="$values['email']" label="E-mail" maxlength="254" type="email" />
                 </div>
             </section>
