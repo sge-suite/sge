@@ -126,7 +126,7 @@ new #[Title('Detalhes do usuário')] class extends Component
     @php($account = $this->account)
     @php($affiliations = $this->affiliations)
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     <flux:breadcrumbs>
         <flux:breadcrumbs.item :href="route('users.index')" wire:navigate>Usuários</flux:breadcrumbs.item>

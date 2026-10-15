@@ -161,7 +161,7 @@ new #[Title('Partes concedentes')] class extends Component
 
 <div class="w-full space-y-8">
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -170,7 +170,7 @@ new #[Title('Partes concedentes')] class extends Component
         </div>
         @can('create', \App\Models\GrantingParty::class)
             <div class="flex flex-wrap items-center gap-3">
-                <flux:button variant="outline" :href="route('granting-parties.import')" wire:navigate>Importar CSV</flux:button>
+                <flux:button icon="arrow-up-tray" variant="outline" :href="route('granting-parties.import')" wire:navigate>Importar CSV</flux:button>
                 <flux:button variant="primary" icon="plus" :href="route('granting-parties.create')" wire:navigate>Cadastrar parte concedente</flux:button>
             </div>
         @else

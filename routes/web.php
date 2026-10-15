@@ -117,6 +117,7 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('can:viewAny,'.User::class)->scopeBindings()->group(function (): void {
             Route::livewire('users', 'pages::users.index')->name('users.index');
             Route::livewire('users/create', 'pages::users.create')->name('users.create');
+            Route::livewire('users/import', 'pages::users.import')->middleware('can:import,'.User::class)->name('users.import');
             Route::livewire('users/{user}/affiliations/create', 'pages::users.affiliations.create')->name('users.affiliations.create');
             Route::livewire('users/{user}/affiliations/{affiliation}/edit', 'pages::users.affiliations.edit')->name('users.affiliations.edit');
             Route::livewire('users/{user}/edit', 'pages::users.edit')->name('users.edit');

@@ -47,11 +47,16 @@ class DeliveryMail extends Mailable
         }
 
         $user = User::query()->where('email', $this->attempt->recipient_email)->firstOrFail();
-        $affiliation = $user->affiliations()->orderBy('id')->firstOrFail();
+        $affiliation = $user->affiliations()->with(['campus', 'course'])->orderBy('id')->firstOrFail();
 
         return $this->subject('Sua conta no Sistema de Gestão de Estágios foi criada')
             ->markdown('emails.invitation', [
                 'affiliationName' => $affiliation->type->label(),
+                'loginEmail' => $user->email,
+                'campusName' => $affiliation->campus_id === null ? 'Escopo global' : $affiliation->campus->name,
+                'registrationNumber' => $affiliation->registration_number,
+                'courseName' => $affiliation->course?->name,
+                'affiliationEmail' => $affiliation->email,
                 'requestUrl' => route('password.request', ['email' => $this->attempt->recipient_email]),
             ]);
     }

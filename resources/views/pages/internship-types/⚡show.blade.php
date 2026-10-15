@@ -167,7 +167,7 @@ new #[Title('Detalhes do tipo de estágio')] class extends Component
         </div>
     </div>
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     @if ($internshipType->course->campus->deactivated_at !== null)
         <flux:callout icon="information-circle" heading="Campus somente para leitura">

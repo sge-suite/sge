@@ -30,10 +30,14 @@ class ActivityAccess
             return null;
         }
 
+        $query = Activity::query()->where(function (Builder $query): void {
+            $query->whereNull('event')->orWhereNotIn('event', ['user_import_completed', 'granting_party_import_completed']);
+        });
+
         return match ($affiliation->type) {
-            AffiliationType::SystemAdministrator => $this->administrativeScope->apply(Activity::query()),
+            AffiliationType::SystemAdministrator => $this->administrativeScope->apply($query),
             AffiliationType::InternshipOffice => $affiliation->campus_id !== null && $affiliation->campus()->exists()
-                ? $this->campusScope->apply(Activity::query(), $affiliation->campus_id, $user)
+                ? $this->campusScope->apply($query, $affiliation->campus_id, $user)
                 : null,
             default => null,
         };

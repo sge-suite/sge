@@ -119,7 +119,7 @@ new #[Title('Recorrências municipais')] class extends Component
         <div class="flex flex-wrap items-center gap-3">
             @cannot('create', HolidayRecurrence::class)<flux:badge>Somente leitura</flux:badge>@endcannot
             @if ($trash)
-                <flux:button variant="outline" icon="arrow-left" :href="route('holiday-recurrences.index')" wire:navigate>Voltar às recorrências</flux:button>
+                <flux:button variant="outline" icon="arrow-left" :href="route('holiday-recurrences.index')" wire:navigate>Voltar</flux:button>
             @else
                 @if ($this->hasTrash)<flux:button variant="outline" icon="trash" :href="route('holiday-recurrences.trash')" wire:navigate>Lixeira</flux:button>@endif
                 @can('create', HolidayRecurrence::class)<flux:button variant="primary" icon="plus" :href="route('holiday-recurrences.create')" wire:navigate>Cadastrar recorrência</flux:button>@endcan
@@ -128,7 +128,7 @@ new #[Title('Recorrências municipais')] class extends Component
     </div>
     <x-holidays.navigation active-tab="recurrences" />
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     @foreach (['recurrence', 'name'] as $field)<flux:error :name="$field" />@endforeach
     <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-end">

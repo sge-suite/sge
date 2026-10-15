@@ -64,7 +64,7 @@ new #[Title('Meu campus')] class extends Component
         <flux:breadcrumbs.item>Meu campus</flux:breadcrumbs.item>
     </flux:breadcrumbs>
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div><flux:heading size="xl" level="1">Meu campus</flux:heading><flux:text class="mt-2">{{ $campus->name }}</flux:text></div>

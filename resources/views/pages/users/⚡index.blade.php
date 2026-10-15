@@ -117,13 +117,18 @@ new #[Title('Usuários')] class extends Component
 
 <div class="w-full space-y-8">
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div><flux:heading size="xl" level="1">Usuários</flux:heading><flux:text class="mt-2">{{ auth()->user()->can('viewAdministration', \App\Models\User::class) ? 'Contas com vínculos administrativos, incluindo desativados.' : 'Contas com vínculos no seu campus, incluindo desativados.' }}</flux:text></div>
-        @can('create', \App\Models\User::class)
-            <flux:button variant="primary" icon="plus" :href="route('users.create')" wire:navigate>Cadastrar usuário</flux:button>
-        @endcan
+        <div class="flex flex-wrap gap-3">
+            @can('import', \App\Models\User::class)
+                <flux:button icon="arrow-up-tray" variant="outline" :href="route('users.import')" wire:navigate>Importar CSV</flux:button>
+            @endcan
+            @can('create', \App\Models\User::class)
+                <flux:button variant="primary" icon="plus" :href="route('users.create')" wire:navigate>Cadastrar usuário</flux:button>
+            @endcan
+        </div>
     </div>
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_16rem_14rem_9rem] xl:items-end">
         <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome, CPF completo ou e-mail de login completo" icon="magnifying-glass" maxlength="255" type="search" />

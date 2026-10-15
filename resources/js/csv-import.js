@@ -1,5 +1,5 @@
 function registerImportComponent() {
-    window.Alpine.data('grantingPartyImport', () => ({
+    window.Alpine.data('csvImport', () => ({
         processing: false,
         stopped: false,
         disposed: false,
@@ -18,7 +18,7 @@ function registerImportComponent() {
                     if (!more) break;
                 }
             } catch {
-                this.message = 'O processamento foi pausado. Confira os cadastros antes de continuar. Se sair desta tela, reenvie o arquivo e revise os documentos repetidos.';
+                this.message = 'O processamento foi pausado. Confira os cadastros antes de continuar. Se sair desta tela, reenvie o arquivo e revise a nova prévia.';
             } finally {
                 this.processing = false;
             }

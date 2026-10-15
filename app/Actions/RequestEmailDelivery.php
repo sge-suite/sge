@@ -53,11 +53,17 @@ class RequestEmailDelivery
     public function accountCreated(string $recipientEmail, string $deliveryKey, ?Affiliation $affiliation = null): EmailDeliveryAttempt
     {
         $this->validateKey($deliveryKey);
+        $affiliation?->loadMissing(['campus', 'course']);
         $scopeContext = $affiliation === null ? null : app(EmailDeliveryContext::class)->forAffiliation($affiliation);
         $subject = 'Sua conta no Sistema de Gestão de Estágios foi criada';
         $data = [
             ...$this->signatureData(),
             'affiliationName' => $affiliation?->type->label() ?? 'Vínculo administrativo',
+            'loginEmail' => $recipientEmail,
+            'campusName' => $affiliation === null ? null : ($affiliation->campus_id === null ? 'Escopo global' : $affiliation->campus->name),
+            'registrationNumber' => $affiliation?->registration_number,
+            'courseName' => $affiliation?->course?->name,
+            'affiliationEmail' => $affiliation?->email,
             'requestUrl' => route('password.request', ['email' => $recipientEmail]),
         ];
         $markdown = app(Markdown::class);
@@ -71,7 +77,7 @@ class RequestEmailDelivery
                 'content_text' => $contentText,
                 'content_html' => $contentHtml,
                 'template_key' => 'administrative.account-created',
-                'template_version' => '1',
+                'template_version' => '2',
             ]);
 
             if ($message->purpose !== EmailMessagePurpose::AccountCreated || $message->subject !== $subject ||

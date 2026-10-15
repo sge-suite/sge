@@ -58,4 +58,9 @@ class UserPolicy
         return $affiliation?->type === AffiliationType::InternshipOffice
             && $affiliation->campus()->whereNull('deactivated_at')->exists();
     }
+
+    public function import(User $user): bool
+    {
+        return $this->createOnCampus($user);
+    }
 }

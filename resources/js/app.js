@@ -1,4 +1,4 @@
 import { normalizeDecimalInput } from './decimal-input';
-import './granting-party-import';
+import './csv-import';
 
 document.addEventListener('input', normalizeDecimalInput, true);

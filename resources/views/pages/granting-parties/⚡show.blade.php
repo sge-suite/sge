@@ -157,7 +157,7 @@ new #[Title('Detalhes da parte concedente')] class extends Component
         </div>
     </div>
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     @if ($grantingParty->campus->deactivated_at !== null)
         <flux:callout icon="information-circle" heading="Campus somente para leitura">

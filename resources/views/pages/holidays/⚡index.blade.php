@@ -240,7 +240,7 @@ new #[Title('Feriados')] class extends Component
         </div>
         <div class="flex flex-wrap items-center gap-3">
             @cannot('create', Holiday::class)<flux:badge>Somente leitura</flux:badge>@endcannot
-            @if ($trash)<flux:button variant="outline" icon="arrow-left" :href="route('holidays.index')" wire:navigate>Voltar aos feriados</flux:button>
+            @if ($trash)<flux:button variant="outline" icon="arrow-left" :href="route('holidays.index')" wire:navigate>Voltar</flux:button>
             @else
                 @if ($this->hasTrash)<flux:button variant="outline" icon="trash" :href="route('holidays.trash')" wire:navigate>Lixeira</flux:button>@endif
                 @can('create', Holiday::class)<flux:button variant="primary" icon="plus" :href="route('holidays.create')" wire:navigate>Cadastrar feriado</flux:button>@endcan
@@ -249,7 +249,7 @@ new #[Title('Feriados')] class extends Component
     </div>
     <x-holidays.navigation active-tab="holidays" />
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     @foreach (['holiday', 'name'] as $error)<flux:error :name="$error" />@endforeach
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[7rem_10rem_14rem_minmax(14rem,1fr)_16rem] items-end">

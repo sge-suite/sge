@@ -67,7 +67,7 @@ new #[Title('Cursos')] class extends Component
 
 <div class="w-full space-y-8">
     @if (session('status'))
-        <div x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
+        <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>

@@ -114,18 +114,7 @@ class ProcessGrantingPartyImport
         }
 
         if (self::counts($import)['pending'] === 0) {
-            try {
-                $affiliation = Affiliation::query()->whereKey($import['affiliation_id'])->firstOrFail();
-                activity()->performedOn(Campus::query()->whereKey($import['campus_id'])->firstOrFail())->causedBy($affiliation)
-                    ->event('granting_party_import_completed')->withProperties([
-                        'campus_id' => $import['campus_id'], 'summary' => self::counts($import),
-                        'duplicates_approved' => count(array_filter($import['rows'], fn (array $row): bool => $row['duplicate_approved'])),
-                    ])->log('Importação de partes concedentes concluída.');
-                $import['status'] = 'completed';
-            } catch (Throwable $exception) {
-                $import['interruption'] = 'Os cadastros foram processados, mas não foi possível registrar o resumo da auditoria. Tente concluir novamente.';
-                Log::error('Falha no resumo da importação de concedentes.', ['campus_id' => $import['campus_id'], 'exception' => $exception::class]);
-            }
+            $import['status'] = 'completed';
         }
 
         return $import;

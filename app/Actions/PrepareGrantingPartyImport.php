@@ -8,7 +8,6 @@ use App\Support\ActiveAffiliationContext;
 use App\Support\GrantingPartyCsv;
 use App\Support\GrantingPartyImportValidator;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 
 class PrepareGrantingPartyImport
 {
@@ -30,26 +29,15 @@ class PrepareGrantingPartyImport
             'user_id' => $actor->id, 'affiliation_id' => $affiliation->id,
             'campus_id' => $affiliation->campus_id, 'campus_name' => $affiliation->campus->name,
             'separator' => $separator, 'status' => 'preview', 'interruption' => null,
-            'headers' => array_values(array_filter($parsed['headers'], fn (string $header): bool => ! in_array(Str::lower(trim($header)), GrantingPartyCsv::METADATA, true))),
+            'headers' => $parsed['headers'],
             'rows' => [], 'duplicates' => [],
         ];
         $documents = [];
-        foreach ($parsed['rows'] as $position => $record) {
-            $original = [];
-            foreach ($import['headers'] as $header) {
-                $original[$header] = $record['values'][Str::lower(trim($header))] ?? '';
-            }
+        foreach ($parsed['rows'] as $record) {
             $validation = $record['blank'] ? ['payload' => [], 'errors' => []] : $this->validator->validate($record['values']);
             $errors = [...$record['errors'], ...$validation['errors']];
-            $line = $record['line_start'] === $record['line_end'] ? (string) $record['line_start'] : $record['line_start'].'–'.$record['line_end'];
-            $originalLine = $record['values']['__sge_linha_original'] ?? $line;
-            if (preg_match('/^[1-9][0-9]{0,8}(?:–[1-9][0-9]{0,8})?$/u', $originalLine) !== 1) {
-                $errors['linha'] = ['A numeração da linha original é inválida.'];
-                $originalLine = $line;
-            }
             $row = [
-                'position' => $position, 'line' => $line, 'original_line' => $originalLine,
-                'original' => $original, 'extra' => $record['extra'], 'payload' => $validation['payload'],
+                ...$record, 'payload' => $validation['payload'],
                 'errors' => $errors, 'status' => $record['blank'] ? 'ignored' : ($errors === [] ? 'ready' : 'error'),
                 'reason' => $record['blank'] ? 'Linha vazia.' : null, 'duplicate_required' => false,
                 'duplicate_approved' => false, 'duplicate_ids' => [], 'document_key' => '', 'granting_party_id' => null,
@@ -61,6 +49,7 @@ class PrepareGrantingPartyImport
                 $row['duplicate_ids'] = array_column($import['duplicates'][$key], 'id');
                 $row['document_key'] = $key;
             }
+            unset($row['values'], $row['blank']);
             $import['rows'][] = $row;
         }
         foreach ($import['rows'] as &$row) {

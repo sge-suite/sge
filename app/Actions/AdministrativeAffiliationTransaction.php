@@ -16,6 +16,8 @@ use Spatie\Activitylog\Support\CauserResolver;
 
 class AdministrativeAffiliationTransaction
 {
+    private const int WRITE_LOCK_NAMESPACE = 74321;
+
     public function __construct(private ActiveAffiliationContext $context, private CauserResolver $causerResolver) {}
 
     /**
@@ -29,6 +31,7 @@ class AdministrativeAffiliationTransaction
         $selectedId = $actor === null ? null : $this->context->currentFor($actor, app('session.store'))?->id;
 
         return DB::transaction(function () use ($actor, $selectedId, $write, $allowCampusActor): Model {
+            $this->lockWrites();
             Affiliation::query()->where('type', AffiliationType::SystemAdministrator)->orderBy('id')->lockForUpdate()->first();
 
             if ($actor === null) {
@@ -44,6 +47,12 @@ class AdministrativeAffiliationTransaction
 
             return $this->causerResolver->withCauser($current, fn (): Model => $write($selectedId));
         });
+    }
+
+    /** Serializa alterações de contas e vínculos entre campi até o fim da transação. */
+    public function lockWrites(): void
+    {
+        DB::select('select pg_advisory_xact_lock(?, ?)', [self::WRITE_LOCK_NAMESPACE, 1]);
     }
 
     public function authorizeActor(?User $actor, ?int $selectedId, bool $allowCampusActor = false): ?Affiliation

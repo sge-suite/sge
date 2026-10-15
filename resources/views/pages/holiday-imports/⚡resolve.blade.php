@@ -66,7 +66,7 @@ new #[Title('Revisar feriado importado')] class extends Component
                     <flux:icon.loading x-show="submitting" x-cloak class="size-4" />Registrar decisão
                 </flux:button>
             @else
-                <flux:button variant="outline" :href="route('holidays.index')" wire:navigate>Voltar aos feriados</flux:button>
+                <flux:button icon="arrow-left" variant="outline" :href="route('holidays.index')" wire:navigate>Voltar</flux:button>
             @endif
         </div>
     </div>
