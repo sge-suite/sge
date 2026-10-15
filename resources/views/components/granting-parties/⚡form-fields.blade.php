@@ -3,6 +3,7 @@
 use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\BrazilianContactHelper;
 use App\Helpers\DigitsHelper;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Models\City;
 use App\Models\GrantingParty;
 use App\Support\ActiveAffiliationContext;
@@ -52,14 +53,14 @@ new class extends Component
 
     public string $selectedCompanyName = 'legal_name';
 
-    /** @return array{label: string, digits: int, maxlength: int, placeholder: string} */
+    /** @return array{label: string, characters: int, maxlength: int, placeholder: string} */
     #[Computed]
     public function documentField(): array
     {
         return match ($this->values['document_type'] ?? '') {
-            'cpf' => ['label' => 'CPF', 'digits' => 11, 'maxlength' => 14, 'placeholder' => '000.000.000-00'],
-            'cnpj' => ['label' => 'CNPJ', 'digits' => 14, 'maxlength' => 18, 'placeholder' => '00.000.000/0000-00'],
-            default => ['label' => 'Documento', 'digits' => 0, 'maxlength' => 18, 'placeholder' => 'Selecione o tipo de documento'],
+            'cpf' => ['label' => 'CPF', 'characters' => 11, 'maxlength' => 14, 'placeholder' => '000.000.000-00'],
+            'cnpj' => ['label' => 'CNPJ', 'characters' => 14, 'maxlength' => 18, 'placeholder' => 'ZG.MXB.TA3/0001-93'],
+            default => ['label' => 'Documento', 'characters' => 0, 'maxlength' => 18, 'placeholder' => 'Selecione o tipo de documento'],
         };
     }
 
@@ -211,7 +212,7 @@ new class extends Component
                 : ($state !== '' ? 'Selecione uma cidade de '.$state : 'Selecione a UF e a cidade manualmente'));
 
         $this->pendingCompanyLookup = [
-            'cnpj' => DigitsHelper::only($this->values['document_number']),
+            'cnpj' => BrazilianDocumentHelper::normalizeCnpj($this->values['document_number']),
             'legal_name' => $data['legal_name'],
             'trade_name' => $data['trade_name'],
             'email' => $data['email'],
@@ -270,7 +271,7 @@ new class extends Component
         abort_unless($this->canLookupCnpj, 403);
         $this->resetValidation(['values.document_number', 'selectedCompanyName']);
 
-        $currentCnpj = is_string($this->values['document_number'] ?? null) ? DigitsHelper::only($this->values['document_number']) : '';
+        $currentCnpj = is_string($this->values['document_number'] ?? null) ? BrazilianDocumentHelper::normalizeCnpj($this->values['document_number']) : '';
 
         if ($this->pendingCompanyLookup === [] || ! hash_equals($this->pendingCompanyLookup['cnpj'], $currentCnpj)) {
             $this->cancelCompanyLookup();
@@ -326,8 +327,8 @@ new class extends Component
         $current = is_scalar($current) ? trim((string) $current) : '';
         $proposed = is_scalar($proposed) ? trim((string) $proposed) : '';
 
-        $currentDigits = DigitsHelper::only($current);
-        $proposedDigits = DigitsHelper::only($proposed);
+        $currentDigits = $label === 'CNPJ' ? BrazilianDocumentHelper::normalizeCnpj($current) : DigitsHelper::only($current);
+        $proposedDigits = $label === 'CNPJ' ? BrazilianDocumentHelper::normalizeCnpj($proposed) : DigitsHelper::only($proposed);
         $sameValue = in_array($label, ['CPF', 'CNPJ', 'CPF/CNPJ', 'Telefone', 'CEP'], true)
             ? ($currentDigits !== '' && $currentDigits === $proposedDigits) || $current === $proposed
             : $current === $proposed;
@@ -353,8 +354,7 @@ new class extends Component
                         <x-select name="document_type" wire:model.live="values.document_type" label="Tipo de documento" :value="$values['document_type']" :options="['' => 'Selecione'] + \App\Enums\PartyDocumentType::options()" required :error="$errors->first('document_type')" />
                     </div>
                     <div wire:key="document-input-{{ $values['document_type'] }}" class="min-w-0">
-                        <flux:input name="document_number" error:name="document_number" wire:model.blur="values.document_number" :value="$values['document_number']" :label="$this->documentField['label']" required :maxlength="$this->documentField['maxlength']" :placeholder="$this->documentField['placeholder']" inputmode="numeric" :disabled="$this->documentField['digits'] === 0" x-on:input="$el.value = $el.value.replace(/[^0-9.\/-]/g, ''); if ($el.value.replace(/\D/g, '').length > {{ $this->documentField['digits'] }}) $el.value = $el.value.replace(/\D/g, '').slice(0, {{ $this->documentField['digits'] }}); $wire.$set('values.document_number', $el.value, false)" :invalid="$errors->has('document_number') || $errors->has('values.document_number')" />
-                        <flux:error name="document_number" />
+                        <flux:input name="document_number" error:name="document_number" :error:message="$errors->first('document_number') ?: $errors->first('values.document_number')" wire:model.blur="values.document_number" :value="$values['document_number']" :label="$this->documentField['label']" required :maxlength="$this->documentField['maxlength']" :placeholder="$this->documentField['placeholder']" :inputmode="($values['document_type'] ?? '') === 'cpf' ? 'numeric' : 'text'" autocapitalize="characters" :data-document-type="$values['document_type'] ?? ''" :disabled="$this->documentField['characters'] === 0" x-on:input="$el.value = $el.value.toUpperCase().replace(/[^A-Z0-9.\/-]/g, ''); if ($el.dataset.documentType === 'cpf') $el.value = $el.value.replace(/[A-Z]/g, ''); if ($el.value.replace(/[^A-Z0-9]/g, '').length > {{ $this->documentField['characters'] }}) $el.value = $el.value.replace(/[^A-Z0-9]/g, '').slice(0, {{ $this->documentField['characters'] }}); $wire.$set('values.document_number', $el.value, false)" :invalid="$errors->has('document_number') || $errors->has('values.document_number')" />
                     </div>
                     @if ($this->canLookupCnpj)
                         <div class="flex flex-wrap items-center gap-3 sm:col-span-2">

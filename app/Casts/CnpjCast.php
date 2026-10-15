@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Casts;
 
-use App\Helpers\DigitsHelper;
+use App\Helpers\BrazilianDocumentHelper;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
@@ -32,9 +32,9 @@ class CnpjCast implements CastsAttributes
             return null;
         }
 
-        $cnpj = DigitsHelper::only((string) $value);
+        $cnpj = BrazilianDocumentHelper::normalizeCnpj((string) $value);
 
-        if (! (new Cnpj)->passes($key, $cnpj)) {
+        if (preg_match('/^[A-Z0-9]{12}[0-9]{2}$/', $cnpj) !== 1 || ! (new Cnpj)->passes($key, $cnpj)) {
             throw new InvalidArgumentException("O CNPJ '{$value}' informado é inválido.");
         }
 

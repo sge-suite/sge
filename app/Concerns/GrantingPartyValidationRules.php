@@ -4,6 +4,7 @@ namespace App\Concerns;
 
 use App\Casts\PhoneCast;
 use App\Enums\PartyDocumentType;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Helpers\DigitsHelper;
 use App\Models\GrantingParty;
 use Illuminate\Validation\Rule;
@@ -51,7 +52,11 @@ trait GrantingPartyValidationRules
         $type = is_string($data['document_type'] ?? null) ? PartyDocumentType::tryFrom($data['document_type']) : null;
         if ($type !== null && is_string($data['document_number'] ?? null)) {
             $rule = $type === PartyDocumentType::CPF ? new Cpf : new Cnpj;
-            if (! $rule->passes('document_number', DigitsHelper::only($data['document_number']))) {
+            $document = $type === PartyDocumentType::CPF
+                ? DigitsHelper::only($data['document_number'])
+                : BrazilianDocumentHelper::normalizeCnpj($data['document_number']);
+            if (($type === PartyDocumentType::CNPJ && preg_match('/^[A-Z0-9]{12}[0-9]{2}$/', $document) !== 1)
+                || ! $rule->passes('document_number', $document)) {
                 $validator->errors()->add('document_number', 'Informe um '.$type->label().' válido.');
             }
         }

@@ -8,6 +8,11 @@ use Illuminate\Support\Str;
 
 final class BrazilianDocumentHelper
 {
+    public static function normalizeCnpj(string $value): string
+    {
+        return Str::upper(preg_replace('/[.\/\s-]/u', '', trim($value)) ?? '');
+    }
+
     /**
      * Formata CPF (ex: 000.000.000-00).
      */
@@ -33,7 +38,7 @@ final class BrazilianDocumentHelper
     }
 
     /**
-     * Formata CNPJ (ex: 00.000.000/0000-00).
+     * Formata CNPJ numérico ou alfanumérico com a máscara padrão.
      */
     public static function formatCnpj(?string $value): string
     {
@@ -41,19 +46,19 @@ final class BrazilianDocumentHelper
             return '-';
         }
 
-        $digits = DigitsHelper::only($value);
+        $cnpj = self::normalizeCnpj($value);
 
-        if (Str::length($digits) !== 14) {
+        if (preg_match('/^[A-Z0-9]{12}[0-9]{2}$/', $cnpj) !== 1) {
             return $value;
         }
 
         return sprintf(
             '%s.%s.%s/%s-%s',
-            substr($digits, 0, 2),
-            substr($digits, 2, 3),
-            substr($digits, 5, 3),
-            substr($digits, 8, 4),
-            substr($digits, 12, 2),
+            substr($cnpj, 0, 2),
+            substr($cnpj, 2, 3),
+            substr($cnpj, 5, 3),
+            substr($cnpj, 8, 4),
+            substr($cnpj, 12, 2),
         );
     }
 
@@ -66,11 +71,11 @@ final class BrazilianDocumentHelper
             return '-';
         }
 
-        $digits = DigitsHelper::only($value);
+        $document = self::normalizeCnpj($value);
 
-        return match (Str::length($digits)) {
-            11 => self::formatCpf($digits),
-            14 => self::formatCnpj($digits),
+        return match (true) {
+            strlen($document) === 11 && ctype_digit($document) => self::formatCpf($document),
+            strlen($document) === 14 => self::formatCnpj($document),
             default => $value,
         };
     }

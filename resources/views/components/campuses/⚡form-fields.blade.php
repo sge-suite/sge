@@ -3,6 +3,7 @@
 use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\BrazilianContactHelper;
 use App\Helpers\DigitsHelper;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Models\Campus;
 use App\Models\City;
 use App\Support\BrasilApiCompanyLookup;
@@ -182,7 +183,7 @@ new class extends Component
                 : ($state !== '' ? 'Selecione uma cidade de '.$state : 'Selecione a UF e a cidade manualmente'));
 
         $this->pendingCompanyLookup = [
-            'cnpj' => DigitsHelper::only($this->values['cnpj']),
+            'cnpj' => BrazilianDocumentHelper::normalizeCnpj($this->values['cnpj']),
             'legal_name' => $data['legal_name'],
             'trade_name' => $data['trade_name'],
             'phone' => $data['phone'] !== '' ? BrazilianContactHelper::formatPhone($data['phone']) : '',
@@ -237,7 +238,7 @@ new class extends Component
         abort_unless($this->canEditCnpj, 403);
         $this->resetValidation(['values.cnpj', 'selectedCompanyName']);
 
-        $currentCnpj = is_string($this->values['cnpj'] ?? null) ? DigitsHelper::only($this->values['cnpj']) : '';
+        $currentCnpj = is_string($this->values['cnpj'] ?? null) ? BrazilianDocumentHelper::normalizeCnpj($this->values['cnpj']) : '';
 
         if ($this->pendingCompanyLookup === [] || ! hash_equals($this->pendingCompanyLookup['cnpj'], $currentCnpj)) {
             $this->cancelCompanyLookup();
@@ -313,8 +314,7 @@ new class extends Component
                 <div class="sm:col-span-2 grid items-start gap-x-5 gap-y-4 sm:grid-cols-2">
                     @if ($canEditCnpj)
                     <div>
-                        <flux:input name="cnpj" error:name="cnpj" label="CNPJ" wire:model="values.cnpj" :value="$values['cnpj']" maxlength="18" placeholder="00.000.000/0000-00" :invalid="$errors->has('values.cnpj') || $errors->has('cnpj')" required />
-                        <flux:error name="values.cnpj" />
+                        <flux:input name="cnpj" error:name="cnpj" :error:message="$errors->first('cnpj') ?: $errors->first('values.cnpj')" label="CNPJ" wire:model="values.cnpj" :value="$values['cnpj']" maxlength="18" placeholder="ZG.MXB.TA3/0001-93" :invalid="$errors->has('values.cnpj') || $errors->has('cnpj')" required />
                     </div>
                     @else
                         <flux:input label="CNPJ" :name="null" :value="$values['cnpj']" readonly />

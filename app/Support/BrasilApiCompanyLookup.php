@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Helpers\BrazilianDocumentHelper;
 use App\Helpers\DigitsHelper;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -17,7 +18,7 @@ class BrasilApiCompanyLookup
     public function lookup(string $cnpj): array
     {
         Validator::make(['cnpj' => $cnpj], ['cnpj' => ['bail', 'required', 'string', 'max:18', new Cnpj]])->validate();
-        $cnpj = DigitsHelper::only($cnpj);
+        $cnpj = BrazilianDocumentHelper::normalizeCnpj($cnpj);
 
         try {
             $response = Http::baseUrl(rtrim(config('services.brasil_api.base_url'), '/'))

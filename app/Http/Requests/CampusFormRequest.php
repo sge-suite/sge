@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Casts\PhoneCast;
 use App\Helpers\BrazilianAddressHelper;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Helpers\DigitsHelper;
 use App\Models\Campus;
 use Closure;
@@ -25,7 +26,7 @@ abstract class CampusFormRequest extends FormRequest
             $value = $this->input($field);
 
             if (is_string($value)) {
-                $normalized[$field] = DigitsHelper::only($value);
+                $normalized[$field] = $field === 'cnpj' ? BrazilianDocumentHelper::normalizeCnpj($value) : DigitsHelper::only($value);
             }
         }
 
