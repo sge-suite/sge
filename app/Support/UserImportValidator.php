@@ -27,14 +27,12 @@ class UserImportValidator
             }
         }
 
-        $loginEmail = mb_strtolower(trim($values['email_login'] ?? ''));
         $registrationNumber = trim($values['matricula'] ?? '');
 
         return [
             'cpf' => DigitsHelper::only($values['cpf'] ?? ''),
             'name' => trim($values['nome'] ?? ''),
-            'login_email' => $loginEmail,
-            'email' => mb_strtolower(trim($values['email_vinculo'] ?? '')) ?: $loginEmail,
+            'email' => mb_strtolower(trim($values['email'] ?? '')),
             'type' => $types[mb_strtolower(trim($values['tipo_vinculo'] ?? ''))] ?? '',
             'registration_number' => $registrationNumber === '' ? null : $registrationNumber,
             'course' => trim($values['curso'] ?? ''),
@@ -52,6 +50,7 @@ class UserImportValidator
         $warnings = [];
         $seen = [];
         $requiresApproval = false;
+        $loginTaken = $user === null && User::query()->whereRaw('LOWER(email) = ?', [$first['email']])->exists();
         foreach ($rows as &$row) {
             $data = $row['payload'];
             $data['campus_id'] = $campusId;
@@ -62,7 +61,7 @@ class UserImportValidator
             $row['errors'] = $row['source_errors'];
             $row['reason'] = null;
 
-            foreach (['cpf', 'name', 'login_email'] as $field) {
+            foreach (['cpf', 'name'] as $field) {
                 if ($data[$field] !== $first[$field]) {
                     $row['errors'][array_search($field, UserCsv::FIELDS, true) ?: $field] = ['Os dados da conta devem ser iguais em todas as linhas do mesmo CPF.'];
                 }
@@ -87,7 +86,6 @@ class UserImportValidator
                 ...$this->campusAffiliationRules($campusId, $user),
                 'cpf' => ['required', 'string', new Cpf],
                 'name' => ['required', 'string', 'max:255'],
-                'login_email' => $this->administrativeAffiliationEditableRules($user)['email'],
                 'course' => ['prohibited_unless:type,student', 'nullable', 'string', 'max:255'],
                 'type' => ['required', Rule::in(array_values(array_diff(AffiliationType::values(), [AffiliationType::SystemAdministrator->value])))],
             ];
@@ -108,19 +106,17 @@ class UserImportValidator
                 $requiresApproval = $requiresApproval || $row['inactive_ids'] !== [];
             }
             $validation = Validator::make($data, $rules, attributes: [
-                'name' => 'nome', 'login_email' => 'e-mail de login', 'email' => 'e-mail do vínculo',
+                'name' => 'nome', 'email' => 'e-mail',
                 'type' => 'tipo de vínculo', 'course_id' => 'curso', 'registration_number' => 'matrícula',
             ]);
             foreach ($validation->errors()->messages() as $field => $messages) {
                 $header = array_search($field, UserCsv::FIELDS, true) ?: $field;
                 $row['errors'][$header] = $messages;
             }
-            $loginOwner = User::query()->whereRaw('LOWER(email) = ?', [$data['login_email']])
-                ->when($user !== null, fn ($query) => $query->whereKeyNot($user->id))->exists();
-            if ($loginOwner) {
-                $row['errors']['email_login'] = ['O CPF e o e-mail de login identificam contas diferentes. Nenhuma conta será alterada.'];
+            if ($loginTaken && $row['position'] === $rows[0]['position']) {
+                $row['errors']['email'] = ['O e-mail da primeira linha já é usado para acesso por outra conta. Informe outro e-mail nesta linha.'];
             }
-            $identity = array_diff_key($data, array_flip(['course', 'cpf', 'name', 'login_email']));
+            $identity = array_diff_key($data, array_flip(['course', 'cpf', 'name']));
             if (isset($seen[$data['type']])) {
                 if ($seen[$data['type']] === $identity) {
                     $row['operation'] = 'repeated';
@@ -135,11 +131,12 @@ class UserImportValidator
             $row['payload'] = $data;
         }
         unset($row);
-        if ($user !== null && ($user->name !== $first['name'] || mb_strtolower(trim($user->email)) !== $first['login_email'])) {
-            $warnings[] = 'A conta encontrada pelo CPF será preservada, inclusive nome, e-mail de login e senha. Os dados de conta informados no CSV não serão atualizados.';
+        if ($user !== null && ($user->name !== $first['name'] || mb_strtolower(trim($user->email)) !== $first['email'])) {
+            $warnings[] = 'A conta encontrada pelo CPF manterá nome, e-mail de acesso e senha. Os e-mails do CSV serão usados somente nos vínculos.';
         }
         $group = [
             'positions' => array_column($rows, 'position'), 'cpf' => $first['cpf'], 'account' => $account,
+            'login_email' => $user->email ?? $first['email'],
             'warnings' => $warnings, 'requires_approval' => $requiresApproval, 'approved' => false,
             'status' => 'ready', 'account_created' => false, 'account_id' => $user?->id,
             'created_count' => 0, 'reconciled_count' => 0,

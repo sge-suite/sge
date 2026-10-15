@@ -176,14 +176,16 @@ new #[Title('Importar partes concedentes')] class extends Component
 
         <div class="grid gap-6 lg:grid-cols-2">
             <x-import-upload-form :separator="$separator" />
-            <section class="space-y-3">
-                <flux:heading level="2">Como preparar o CSV</flux:heading>
-                <flux:text>Até 500 registros e 2 MiB (até 8 MiB para o CSV de erros). Salve em UTF-8, com ou sem BOM. São aceitas quebras de linha LF e CRLF e aspas duplas para campos com separadores ou quebras de linha.</flux:text>
-                <flux:text>Obrigatórios: tipo_documento (cpf/cnpj), documento, nome, representante_nome, representante_cargo, atividade, logradouro, numero, bairro, cep, cidade e uf.</flux:text>
-                <flux:text>Opcionais: telefone, email, conselho_profissional, registro_conselho e processo_credenciamento.</flux:text>
-                <flux:text>Na planilha, importe CPF/CNPJ, telefone e CEP como texto para preservar zeros à esquerda. Informe cidade por nome e UF; não use código IBGE.</flux:text>
-                <flux:text>Cadastros existentes serão preservados. Documentos repetidos precisarão de confirmação individual para criar outro cadastro.</flux:text>
-                <flux:text size="sm">A prévia e o resultado ficam disponíveis apenas nesta tela. Baixe as linhas com erro antes de sair. Ao retornar, reenvie o arquivo.</flux:text>
+            <section class="space-y-4">
+                <flux:heading size="lg" level="2">Como preparar o CSV</flux:heading>
+                <flux:text size="lg" class="leading-7">Baixe o modelo, abra em uma planilha e preencha uma linha para cada parte concedente.</flux:text>
+                <flux:text size="lg" class="leading-7"><strong>Preencha sempre:</strong> tipo de documento (CPF ou CNPJ), documento, nome, nome e cargo do representante, atividade e endereço completo.</flux:text>
+                <flux:text size="lg" class="leading-7"><strong>No endereço, informe:</strong> logradouro, número, bairro, CEP, nome da cidade e sigla do estado. Por exemplo: São Paulo e SP.</flux:text>
+                <flux:text size="lg" class="leading-7">Telefone, e-mail, conselho profissional, registro no conselho e processo de credenciamento são opcionais. Mantenha essas colunas no modelo, mesmo quando ficarem vazias.</flux:text>
+                <flux:text size="lg" class="leading-7"><strong>Antes de salvar:</strong> formate CPF, CNPJ, telefone e CEP como texto na planilha, para preservar os zeros no início. Não altere os nomes das colunas do modelo.</flux:text>
+                <flux:text size="lg" class="leading-7">Exporte a planilha como <strong>CSV</strong>, com até <strong>500 cadastros e 2 MB</strong>. Escolha na tela o separador usado na exportação: ponto e vírgula ou vírgula. Você poderá revisar os dados antes de confirmar o cadastro.</flux:text>
+                <flux:text size="lg" class="leading-7">Cadastros existentes serão preservados. Se um documento já estiver cadastrado ou aparecer mais de uma vez no arquivo, você precisará confirmar a criação de outro cadastro.</flux:text>
+                <flux:text size="lg" class="leading-7">Se houver erros, baixe o arquivo de correção antes de sair desta tela. Corrija os dados na planilha e envie novamente.</flux:text>
             </section>
         </div>
     @else

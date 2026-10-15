@@ -204,7 +204,7 @@ class ProcessUserImport
             throw ValidationException::withMessages(['conta' => 'Os dados da conta mudaram após a prévia. Revise e reenvie esta pessoa.']);
         }
         if ($expected['account'] === null && $account !== null
-            && ($account['name'] !== $rows[0]['payload']['name'] || mb_strtolower(trim($account['email'])) !== $rows[0]['payload']['login_email'])) {
+            && ($account['name'] !== $rows[0]['payload']['name'] || mb_strtolower(trim($account['email'])) !== $rows[0]['payload']['email'])) {
             throw ValidationException::withMessages(['conta' => 'Uma conta foi cadastrada após a prévia com dados diferentes. Revise e reenvie esta pessoa.']);
         }
         foreach ($result['rows'] as $index => $row) {

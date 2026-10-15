@@ -65,19 +65,22 @@ class PrepareUserImport
         }
         $owners = [];
         foreach ($import['rows'] as $row) {
-            foreach (['login_email', 'registration_number'] as $field) {
-                $value = $row['payload'][$field];
-                if ($value === null || $value === '') {
-                    continue;
-                }
-                $owners[$field.':'.$value][$row['group_id']] = true;
+            $value = $row['payload']['registration_number'];
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $owners['matricula:'.$value][$row['group_id']] = true;
+        }
+        foreach ($import['groups'] as $groupId => $group) {
+            if ($group['account'] === null) {
+                $owners['email:'.$group['login_email']][$groupId] = true;
             }
         }
         foreach ($owners as $key => $groups) {
             if (count($groups) < 2) {
                 continue;
             }
-            $header = str_starts_with($key, 'login_email:') ? 'email_login' : 'matricula';
+            $header = str_starts_with($key, 'email:') ? 'email' : 'matricula';
             foreach (array_keys($groups) as $groupId) {
                 $import['groups'][$groupId]['status'] = 'error';
                 foreach ($import['groups'][$groupId]['positions'] as $position) {

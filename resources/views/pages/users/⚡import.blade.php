@@ -141,12 +141,12 @@ new #[Title('Importar usuários e vínculos')] class extends Component
             $course = null;
         }
         $contents = $csv->render(array_keys(UserCsv::FIELDS), [
-            ['566.457.240-04', 'Ana Exemplo', 'ana@example.com', 'Orientador', '', '000001', ''],
-            ['566.457.240-04', 'Ana Exemplo', 'ana@example.com', 'Coordenador de Curso', '', '000001', ''],
-            ['353.310.950-03', 'Bruno Exemplo', 'bruno@example.com', 'Discente', '', '000002', $course ?? 'Nome exato de um curso ativo do campus'],
-            ['677.849.900-14', 'Carla Exemplo', 'carla@example.com', 'Supervisor', '', '', ''],
-            ['066.880.730-05', 'Daniel Exemplo', 'daniel@example.com', 'Setor de Estágios', '', '000004', ''],
-            ['953.619.760-08', 'Elisa Exemplo', 'elisa@example.com', 'Direção de Ensino', '', '000005', ''],
+            ['566.457.240-04', 'Ana Exemplo', 'ana@example.com', 'Orientador', '000001', ''],
+            ['566.457.240-04', 'Ana Exemplo', 'ana.coordenacao@example.com', 'Coordenador de Curso', '000001', ''],
+            ['353.310.950-03', 'Bruno Exemplo', 'bruno@example.com', 'Discente', '000002', $course ?? 'Nome exato de um curso ativo do campus'],
+            ['677.849.900-14', 'Carla Exemplo', 'carla@example.com', 'Supervisor', '', ''],
+            ['066.880.730-05', 'Daniel Exemplo', 'daniel@example.com', 'Setor de Estágios', '000004', ''],
+            ['953.619.760-08', 'Elisa Exemplo', 'elisa@example.com', 'Direção de Ensino', '000005', ''],
         ], $this->separator);
 
         return $this->downloadCsv($contents, 'modelo-usuarios.csv');
@@ -183,14 +183,15 @@ new #[Title('Importar usuários e vínculos')] class extends Component
 
         <div class="grid gap-6 lg:grid-cols-2">
             <x-import-upload-form :separator="$separator" />
-            <section class="space-y-3">
-                <flux:heading level="2">Como preparar o CSV</flux:heading>
-                <flux:text>Uma linha por vínculo, até 500 registros de vínculo e 2 MiB (8 MiB no CSV de erros). Repita CPF, nome e e-mail de login nas linhas da mesma pessoa, mantendo esses dados iguais.</flux:text>
-                <flux:text>Colunas: cpf, nome, email_login, tipo_vinculo, email_vinculo, matricula e curso. CPF, nome, e-mail de login e tipo são obrigatórios. O e-mail do vínculo vazio usa o e-mail informado em email_login.</flux:text>
-                <flux:text>Tipos: Setor de Estágios, Coordenador de Curso, Orientador, Discente, Supervisor e Direção de Ensino. Matrícula é obrigatória, exceto para Supervisor, que deve deixá-la vazia. Curso é obrigatório somente para Discente: informe o nome exato de um curso ativo deste campus.</flux:text>
-                <flux:text>Não inclua senha, dados profissionais de Supervisor, situação ou datas. A conta existente será preservada. Não é permitido criar dois vínculos ativos do mesmo tipo para a pessoa neste campus, mesmo com cursos diferentes.</flux:text>
-                <flux:text>Salve em UTF-8, com ou sem BOM, usando LF ou CRLF. Use aspas duplas nos campos com separadores ou quebras de linha. Importe CPF e matrícula como texto na planilha para preservar zeros à esquerda.</flux:text>
-                <flux:text size="sm">A prévia e o resultado ficam apenas nesta tela. Corrija os erros no CSV. Baixe o CSV de erros antes de sair; ao retornar será necessário reenviar o arquivo.</flux:text>
+            <section class="space-y-4">
+                <flux:heading size="lg" level="2">Como preparar o CSV</flux:heading>
+                <flux:text size="lg" class="leading-7">Baixe o modelo, abra em uma planilha e preencha uma linha para cada vínculo. Para cadastrar mais de um vínculo da mesma pessoa, repita o CPF e o nome; o e-mail pode ser diferente em cada vínculo.</flux:text>
+                <flux:text size="lg" class="leading-7"><strong>Preencha sempre:</strong> CPF, nome, e-mail e tipo de vínculo. As opções de tipo são Setor de Estágios, Coordenador de Curso, Orientador, Discente, Supervisor e Direção de Ensino.</flux:text>
+                <flux:text size="lg" class="leading-7"><strong>Matrícula e curso:</strong> informe a matrícula para todos os tipos, exceto Supervisor. Para Discente, preencha também o nome do curso como aparece no cadastro do campus. Deixe o curso vazio nos demais tipos.</flux:text>
+                <flux:text size="lg" class="leading-7">Para uma conta nova, o e-mail da primeira linha da pessoa será usado para acessar o sistema e no primeiro vínculo. Nas demais linhas, o e-mail vale apenas para o respectivo vínculo. Se a conta já existir, seu e-mail de acesso será preservado.</flux:text>
+                <flux:text size="lg" class="leading-7"><strong>Antes de salvar:</strong> mantenha as colunas do modelo e formate CPF e matrícula como texto na planilha, para preservar os zeros no início. Não acrescente senha ou outros dados ao arquivo.</flux:text>
+                <flux:text size="lg" class="leading-7">Exporte a planilha como <strong>CSV</strong>, com até <strong>500 vínculos e 2 MB</strong>. Escolha na tela o separador usado na exportação: ponto e vírgula ou vírgula. Você poderá revisar os dados antes de confirmar o cadastro.</flux:text>
+                <flux:text size="lg" class="leading-7">Se houver erros, baixe o arquivo de correção antes de sair desta tela. Corrija os dados na planilha e envie novamente.</flux:text>
             </section>
         </div>
     @else
@@ -258,7 +259,8 @@ new #[Title('Importar usuários e vínculos')] class extends Component
                                 <flux:table.cell class="min-w-64 whitespace-normal">
                                     <flux:text class="font-medium">{{ Illuminate\Support\Str::limit($group['account']['name'] ?? $row['payload']['name'], 120) }}</flux:text>
                                     <flux:text size="sm">{{ $group['cpf'] }}</flux:text>
-                                    <flux:text size="sm">Login: {{ $group['account']['email'] ?? $row['payload']['login_email'] }}</flux:text>
+                                    <flux:text size="sm">Acesso: {{ $group['login_email'] }}</flux:text>
+                                    <flux:text size="sm">E-mail do vínculo: {{ $row['payload']['email'] }}</flux:text>
                                     <flux:text size="sm">{{ App\Enums\AffiliationType::tryFrom($row['payload']['type'])?->label() ?? 'Tipo inválido' }} · {{ $row['payload']['registration_number'] ?? 'Sem matrícula' }}</flux:text>
                                     <x-import-row-details :row="$row" />
                                     @if ($group['account_id'] !== null && isset($userLinks[$group['account_id']]))

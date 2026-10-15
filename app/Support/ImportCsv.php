@@ -34,7 +34,7 @@ abstract class ImportCsv
     {
         if (! in_array($separator, [';', ','], true) || strlen($contents) > static::MAX_CORRECTION_BYTES
             || ! mb_check_encoding($contents, 'UTF-8') || str_contains($contents, "\0")) {
-            $this->fail('Envie um CSV textual em UTF-8, com separador válido e até 8 MiB.');
+            $this->fail('Envie um CSV textual em UTF-8, com separador válido e até 8 MB.');
         }
 
         $contents = Str::startsWith($contents, "\xEF\xBB\xBF") ? substr($contents, 3) : $contents;
@@ -72,7 +72,7 @@ abstract class ImportCsv
                     $problems[] = 'As colunas de controle do CSV de erros devem ser preservadas.';
                 }
                 if (! $correction && strlen($contents) > static::MAX_BYTES) {
-                    $problems[] = 'O CSV original deve ter até 2 MiB.';
+                    $problems[] = 'O CSV original deve ter até 2 MB.';
                 }
                 if ($problems !== []) {
                     throw ValidationException::withMessages(['csv' => $problems]);

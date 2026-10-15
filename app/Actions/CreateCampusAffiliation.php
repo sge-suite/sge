@@ -28,7 +28,7 @@ class CreateCampusAffiliation
         private RequestEmailDelivery $emailDelivery,
     ) {}
 
-    /** @param array{cpf?: string, name?: string|null, login_email?: string, email: string, type: string, campus_id?: int|string|null, course_id?: int|string|null, registration_number?: string|null, job_role?: string|null, qualification?: string|null, training?: string|null, professional_experience?: string|null} $data */
+    /** @param array{cpf?: string, name?: string|null, email: string, type: string, campus_id?: int|string|null, course_id?: int|string|null, registration_number?: string|null, job_role?: string|null, qualification?: string|null, training?: string|null, professional_experience?: string|null} $data */
     public function handle(User $actor, array $data, ?User $target = null): Affiliation
     {
         Gate::forUser($actor)->authorize('createOnCampus', User::class);
@@ -38,7 +38,6 @@ class CreateCampusAffiliation
         $selectedId = $this->context->currentFor($actor, app('session.store'))->id;
         $data['cpf'] = $target !== null ? $target->cpf : DigitsHelper::only($data['cpf'] ?? '');
         $data['email'] = mb_strtolower(trim($data['email']));
-        $data['login_email'] = mb_strtolower(trim($data['login_email'] ?? $data['email']));
         if (is_string($data['registration_number'] ?? null)) {
             $data['registration_number'] = trim($data['registration_number']);
         }
@@ -61,16 +60,15 @@ class CreateCampusAffiliation
             }
             $campus->assertWritable();
             Validator::make($data, [...$this->administrativeAccountRules($user), ...$this->campusAffiliationRules($campus->id, $user)])->validate();
-            Validator::make($data, ['login_email' => $this->administrativeAffiliationEditableRules($user)['email']])->validate();
 
             return $this->causerResolver->withCauser($selected, function () use ($data, $campus, $user): Affiliation {
                 $isNewAccount = $user === null;
                 if ($isNewAccount) {
-                    if (User::query()->whereRaw('LOWER(email) = ?', [$data['login_email']])->exists()) {
+                    if (User::query()->whereRaw('LOWER(email) = ?', [$data['email']])->exists()) {
                         throw ValidationException::withMessages(['email' => 'Este e-mail de login já está cadastrado.']);
                     }
                     $user = User::query()->create([
-                        'name' => trim($data['name'] ?? ''), 'cpf' => $data['cpf'], 'email' => $data['login_email'], 'password' => Str::password(64),
+                        'name' => trim($data['name'] ?? ''), 'cpf' => $data['cpf'], 'email' => $data['email'], 'password' => Str::password(64),
                     ]);
                 }
                 $type = AffiliationType::from($data['type']);
