@@ -44,7 +44,7 @@ class CitySeeder extends Seeder
             });
         });
 
-        City::query()->searchable(self::BATCH_SIZE);
+        City::makeAllSearchable(self::BATCH_SIZE);
     }
 
     /**
