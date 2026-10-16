@@ -2,11 +2,16 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Affiliation;
+
 class DeactivateAdministrativeAffiliationRequest extends AdministrativeAffiliationRequest
 {
     protected function getRedirectUrl(): string
     {
-        return route('users.show', ['user' => $this->route('user'), 'affiliation' => $this->route('affiliation')->id, 'operation' => 'deactivate']);
+        /** @var Affiliation $affiliation */
+        $affiliation = $this->route('affiliation');
+
+        return route('users.show', ['user' => $this->route('user'), 'affiliation' => $affiliation->id, 'operation' => 'deactivate']);
     }
 
     protected function ability(): string

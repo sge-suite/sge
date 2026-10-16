@@ -38,7 +38,7 @@ trait CampusValidationRules
             'deactivated_at',
         ] as $attribute) {
             if (blank($this->getAttributes()[$attribute] ?? null)) {
-                $this->{$attribute} = null;
+                $this->setAttribute($attribute, null);
             }
         }
     }

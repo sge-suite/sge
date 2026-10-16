@@ -192,7 +192,7 @@ class Affiliation extends Model
                 $userIds = array_unique([$affiliation->user_id, $affiliation->getOriginal('user_id')]);
                 DB::afterCommit(function () use ($userIds): void {
                     foreach ($userIds as $userId) {
-                        $user = User::find($userId);
+                        $user = User::query()->whereKey($userId)->first();
                         if ($user === null) {
                             continue;
                         }
