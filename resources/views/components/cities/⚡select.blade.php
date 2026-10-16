@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Modelable;
+use Livewire\Attributes\Reactive;
 use Livewire\Component;
 
 new class extends Component
@@ -20,9 +22,16 @@ new class extends Component
 
     public string $state = '';
 
-    public string $cityId = '';
+    #[Modelable]
+    public string|int|null $cityId = '';
 
-    public string $cityError = '';
+    #[Reactive]
+    public ?string $cityError = '';
+
+    public string $selectionError = '';
+
+    #[Locked]
+    public bool $required = true;
 
     public string $citySearch = '';
 
@@ -34,11 +43,12 @@ new class extends Component
     #[\Livewire\Attributes\Locked]
     public string $fieldName = 'address[city_id]';
 
-    public function mount(mixed $selectedCityId = null, string $cityError = '', ?int $campusId = null, string $fieldName = 'address[city_id]', bool $personalData = false): void
+    public function mount(mixed $selectedCityId = null, ?string $cityError = '', ?int $campusId = null, string $fieldName = 'address[city_id]', bool $personalData = false, bool $required = true): void
     {
         $this->fieldName = $fieldName;
         $this->campusId = $campusId;
         $this->personalData = $personalData;
+        $this->required = $required;
         $this->authorizeSelection();
         $key = is_scalar($selectedCityId)
             ? filter_var($selectedCityId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
@@ -66,21 +76,29 @@ new class extends Component
     public function updatedState(): void
     {
         $this->cityId = '';
-        $this->cityError = '';
+        $this->selectionError = '';
         $this->citySearch = '';
     }
 
     public function updatedCityId(): void
     {
+        if (blank($this->cityId)) {
+            $this->cityId = '';
+            $this->citySearch = '';
+            $this->selectionError = '';
+
+            return;
+        }
+
         if ($this->cityId !== '' && $this->selectedCity === null) {
             $this->cityId = '';
-            $this->cityError = 'Selecione uma cidade da UF informada.';
+            $this->selectionError = 'Selecione uma cidade da UF informada.';
 
             return;
         }
 
         $this->citySearch = '';
-        $this->cityError = '';
+        $this->selectionError = '';
     }
 
     #[Computed]
@@ -111,15 +129,15 @@ new class extends Component
 
 <div class="grid gap-5 sm:col-span-2 sm:grid-cols-2">
     <x-select wire:model.live="state" label="UF" placeholder="Selecione a UF" :value="$state"
-        :options="collect(BrazilianState::options())->map(fn ($label, $value) => $label.' ('.$value.')')->all()" searchable required />
+        :options="collect(BrazilianState::options())->map(fn ($label, $value) => $label.' ('.$value.')')->all()" searchable :required="$required" />
     <div>
         <x-select wire:model.live="cityId" :name="$fieldName" label="Cidade" icon="map-pin" placeholder="{{ $state === '' ? 'Selecione primeiro a UF' : 'Selecione a cidade' }}"
             :value="$cityId" :selected-label="$this->selectedCity?->name ?? ''" :options="$this->cities->pluck('name', 'id')->all()"
             :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
-            :disabled="$state === ''" :invalid="$cityError !== ''" :error="$cityError" required wire:key="city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId">
+            :disabled="$state === ''" :invalid="filled($selectionError) || filled($cityError)" :error="$selectionError ?: ($cityError ?? '')" :required="$required" wire:key="city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId">
             <x-slot:search>
                 <flux:input name="" wire:model.live.debounce.500ms="citySearch" wire:ignore.self placeholder="Buscar cidade…" aria-label="Buscar cidade" icon="magnifying-glass" size="sm" maxlength="255"
-                    role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="$refs.list.id" x-bind:aria-activedescendant="activeId()" />
+                    role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="listElement()?.id" x-bind:aria-activedescendant="activeId()" />
                 <span wire:loading wire:target="citySearch" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando cidades…</span>
             </x-slot:search>
         </x-select>

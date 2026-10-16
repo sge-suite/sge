@@ -1,6 +1,10 @@
 @props([
     'values' => [],
     'model' => 'values.address',
+    'errorPrefix' => 'address',
+    'namePrefix' => 'address',
+    'cityModel' => 'selectedCityId',
+    'required' => true,
     'selectedCityId' => null,
     'campusId' => null,
     'selectionKey' => 'address-city',
@@ -10,23 +14,33 @@
     'personalData' => false,
 ])
 
+@php
+    $nameParts = explode('.', $namePrefix);
+    $htmlName = array_shift($nameParts).($nameParts === [] ? '' : '['.implode('][', $nameParts).']');
+    $fieldError = fn (string $field): string => $errors->first($errorPrefix.'.'.$field) ?: $errors->first($model.'.'.$field);
+@endphp
+
 @if ($cityHintPlacement === 'top')
 <flux:text class="mt-1" role="status">{{ $cityMessage !== '' ? $cityMessage : 'Selecione a UF e digite pelo menos 2 caracteres para buscar a cidade.' }}</flux:text>
 @endif
 <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
     <div class="sm:col-span-2 flex flex-col items-start gap-3">
-        <flux:input name="address[zip_code]" error:name="address.zip_code" label="CEP" wire:model="{{ $model }}.zip_code" :value="$values['zip_code'] ?? ''" :invalid="$errors->has('address.zip_code') || $errors->has($model.'.zip_code')" maxlength="10" autocomplete="postal-code" inputmode="numeric" placeholder="00000-000" required />
-        <flux:error name="{{ $model }}.zip_code" />
+        <flux:input :name="$htmlName.'[zip_code]'" :error:name="$errorPrefix.'.zip_code'" :error:message="$fieldError('zip_code')" label="CEP" wire:model="{{ $model }}.zip_code" :value="$values['zip_code'] ?? ''" :invalid="$fieldError('zip_code') !== ''" maxlength="10" autocomplete="postal-code" inputmode="numeric" placeholder="00000-000" :required="$required" />
         <flux:button type="button" size="sm" icon="magnifying-glass" wire:click="lookupCep" wire:loading.attr="disabled" wire:target="lookupCep">Buscar CEP</flux:button>
         <flux:text wire:loading wire:target="lookupCep" role="status">Consultando CEP…</flux:text>
     </div>
     @if ($cityHintPlacement === 'selection')
         <flux:text class="sm:col-span-2" role="status">{{ $cityMessage !== '' ? $cityMessage : 'Selecione a UF e digite pelo menos 2 caracteres para buscar a cidade.' }}</flux:text>
     @endif
-    <livewire:cities.select :selected-city-id="$selectedCityId" :campus-id="$campusId" :personal-data="$personalData" :key="$selectionKey" :city-error="$errors->first('address.city_id')" />
-    <flux:input name="address[street]" error:name="address.street" label="Logradouro" wire:model="{{ $model }}.street" :value="$values['street'] ?? ''" :invalid="$errors->has('address.street')" maxlength="255" autocomplete="address-line1" required />
-    <flux:input name="address[number]" error:name="address.number" label="Número" wire:model="{{ $model }}.number" :value="$values['number'] ?? ''" :invalid="$errors->has('address.number')" maxlength="255" required />
-    <flux:input name="address[neighborhood]" error:name="address.neighborhood" label="Bairro" wire:model="{{ $model }}.neighborhood" :value="$values['neighborhood'] ?? ''" :invalid="$errors->has('address.neighborhood')" maxlength="255" required />
+    <livewire:cities.select wire:model.live="{{ $cityModel }}" :selected-city-id="$selectedCityId" :campus-id="$campusId" :personal-data="$personalData" :key="$selectionKey" :city-error="$fieldError('city_id')" :field-name="$htmlName.'[city_id]'" :required="$required" />
+    <flux:input :name="$htmlName.'[street]'" :error:name="$errorPrefix.'.street'" :error:message="$fieldError('street')" label="Logradouro" wire:model="{{ $model }}.street" :value="$values['street'] ?? ''" :invalid="$fieldError('street') !== ''" maxlength="255" autocomplete="address-line1" :required="$required" />
+    <flux:input.group :name="$htmlName.'[number]'" :error:name="$errorPrefix.'.number'" :error:message="$fieldError('number')" label="Número" class="min-w-0">
+        <flux:input :name="$htmlName.'[number]'" wire:model="{{ $model }}.number" :value="$values['number'] ?? ''" :invalid="$fieldError('number') !== ''" maxlength="255" :required="$required" />
+        <flux:input.group.suffix size="sm" class="px-1">
+            <flux:button type="button" size="sm" variant="ghost" wire:click="$set('{{ $model }}.number', 'S/N')">Sem número</flux:button>
+        </flux:input.group.suffix>
+    </flux:input.group>
+    <flux:input :name="$htmlName.'[neighborhood]'" :error:name="$errorPrefix.'.neighborhood'" :error:message="$fieldError('neighborhood')" label="Bairro" wire:model="{{ $model }}.neighborhood" :value="$values['neighborhood'] ?? ''" :invalid="$fieldError('neighborhood') !== ''" maxlength="255" :required="$required" />
 </div>
 
     <flux:modal
