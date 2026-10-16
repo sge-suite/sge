@@ -24,6 +24,18 @@ class AffiliationSelectionController extends Controller
         ]);
     }
 
+    public function switch(Request $request): RedirectResponse
+    {
+        $affiliation = $this->context->switchToOther($request->user(), $request->session());
+        if ($affiliation === null) {
+            return to_route('affiliations.select');
+        }
+        $affiliation->loadMissing('campus');
+        $label = $affiliation->type->label().' · '.($affiliation->campus_id === null ? 'Escopo global' : $affiliation->campus->name);
+
+        return to_route('dashboard')->with('affiliation_switched', 'Vínculo alterado para '.$label.'.');
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate(['affiliation_id' => ['required', 'integer']]);

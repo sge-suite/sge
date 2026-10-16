@@ -28,6 +28,7 @@ Route::view('/', 'welcome')->name('home');
 Route::middleware(['auth'])->group(function () {
     Route::get('affiliations/select', [AffiliationSelectionController::class, 'index'])->name('affiliations.select');
     Route::post('affiliations/select', [AffiliationSelectionController::class, 'store'])->name('affiliations.store');
+    Route::post('affiliations/switch', [AffiliationSelectionController::class, 'switch'])->name('affiliations.switch');
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
         Route::middleware('can:viewAny,'.Holiday::class)->group(function (): void {

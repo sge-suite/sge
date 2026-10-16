@@ -4,8 +4,8 @@ namespace App\Support;
 
 use App\Models\Affiliation;
 use App\Models\User;
+use Illuminate\Contracts\Session\Session;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Session\Store;
 use Spatie\Activitylog\Support\CauserResolver;
 
 class ActiveAffiliationContext
@@ -22,7 +22,7 @@ class ActiveAffiliationContext
         return $user->affiliations()->active()->with('campus')->orderByLastUsedAt()->get();
     }
 
-    public function resolve(User $user, Store $session): ?Affiliation
+    public function resolve(User $user, Session $session): ?Affiliation
     {
         $selectedId = $session->get(self::SESSION_KEY);
 
@@ -62,12 +62,24 @@ class ActiveAffiliationContext
         return null;
     }
 
-    public function currentFor(User $user, Store $session): ?Affiliation
+    public function currentFor(User $user, Session $session): ?Affiliation
     {
         return $this->resolve($user, $session);
     }
 
-    public function select(User $user, Store $session, int $affiliationId): ?Affiliation
+    public function switchToOther(User $user, Session $session): ?Affiliation
+    {
+        $current = $this->currentFor($user, $session);
+        $available = $this->availableFor($user);
+        if ($current === null || $available->count() !== 2) {
+            return null;
+        }
+        $other = $available->first(fn (Affiliation $affiliation): bool => $affiliation->id !== $current->id);
+
+        return $other === null ? null : $this->select($user, $session, $other->id);
+    }
+
+    public function select(User $user, Session $session, int $affiliationId): ?Affiliation
     {
         $affiliation = $user->affiliations()->active()->find($affiliationId);
 
