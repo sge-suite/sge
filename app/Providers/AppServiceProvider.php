@@ -19,6 +19,7 @@ use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 use Spatie\Activitylog\Actions\LogActivityAction;
+use Spatie\Activitylog\Contracts\Activity as ActivityContract;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -42,7 +43,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Campus::class, CampusPolicy::class);
         DatabaseNotification::observe(AuditInfrastructureModel::class);
         Media::observe(AuditInfrastructureModel::class);
-        LogActivityAction::beforeLogging(function (Activity $activity): void {
+        LogActivityAction::beforeLogging(function (ActivityContract $activity): void {
+            if (! $activity instanceof Activity) {
+                return;
+            }
             $causer = $activity->causer;
             $actor = Context::get('audit_actor') ?? match (true) {
                 $causer instanceof Affiliation => 'affiliation',
