@@ -31,9 +31,9 @@ class ManageAdministrativeUser
             Gate::forUser($actor)->authorize($operation, $user);
 
             if ($operation === 'update') {
-                $data['email'] = mb_strtolower(trim($data['email']));
-                $data['cpf'] = DigitsHelper::only($data['cpf']);
-                $data['name'] = trim($data['name']);
+                $data['email'] = mb_strtolower(trim(($data['email'] ?? '')));
+                $data['cpf'] = DigitsHelper::only(($data['cpf'] ?? ''));
+                $data['name'] = trim(($data['name'] ?? ''));
                 Validator::make($data, [
                     'name' => ['required', 'string', 'max:255'],
                     'cpf' => ['required', 'string', new Cpf, Rule::unique(User::class, 'cpf')->ignore($user)],
@@ -54,7 +54,7 @@ class ManageAdministrativeUser
                 return $user;
             }
 
-            Validator::make($data, ['confirmed' => ['accepted'], 'current_password' => ['required', 'string']])->validate();
+            $data = Validator::make($data, ['confirmed' => ['accepted'], 'current_password' => ['required', 'string']])->validate();
             if (! Hash::check($data['current_password'], $actor->fresh()->password)) {
                 throw ValidationException::withMessages(['current_password' => 'A senha informada está incorreta.']);
             }

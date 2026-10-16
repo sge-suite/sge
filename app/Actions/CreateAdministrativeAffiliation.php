@@ -34,7 +34,7 @@ class CreateAdministrativeAffiliation
             Validator::make($data, [...$this->administrativeAccountRules($user), ...$this->administrativeAffiliationRules($user)])->validate();
 
             $type = AffiliationType::from($data['type']);
-            $campusId = $type === AffiliationType::InternshipOffice ? (int) $data['campus_id'] : null;
+            $campusId = $type === AffiliationType::InternshipOffice ? (int) ($data['campus_id'] ?? 0) : null;
             if ($campusId !== null) {
                 $campus = Campus::query()->lockForUpdate()->find($campusId);
                 if ($campus === null || $campus->deactivated_at !== null) {
@@ -52,7 +52,7 @@ class CreateAdministrativeAffiliation
                     throw ValidationException::withMessages(['email' => 'Este e-mail de login já está cadastrado.']);
                 }
                 $user = User::query()->create([
-                    'name' => trim($data['name']), 'cpf' => $data['cpf'], 'email' => $data['email'], 'password' => Str::password(64),
+                    'name' => trim($data['name'] ?? ''), 'cpf' => $data['cpf'], 'email' => $data['email'], 'password' => Str::password(64),
                 ]);
             }
 

@@ -35,7 +35,7 @@ class CampusController extends Controller
         $validated = $request->validated();
 
         DB::transaction(function () use ($campus, $validated): void {
-            $campus = Campus::query()->lockForUpdate()->findOrFail($campus->getKey());
+            $campus = Campus::query()->lockForUpdate()->whereKey($campus->getKey())->firstOrFail();
             Gate::authorize('update', $campus);
             $campus->assertWritable();
             if (array_key_exists('cnpj', $validated)) {
@@ -70,7 +70,7 @@ class CampusController extends Controller
     public function deactivate(DeactivateCampusRequest $request, Campus $campus): RedirectResponse
     {
         DB::transaction(function () use ($campus): void {
-            $campus = Campus::query()->lockForUpdate()->findOrFail($campus->getKey());
+            $campus = Campus::query()->lockForUpdate()->whereKey($campus->getKey())->firstOrFail();
             Gate::authorize('deactivate', $campus);
             $campus->deactivate();
         });
@@ -81,7 +81,7 @@ class CampusController extends Controller
     public function reactivate(ReactivateCampusRequest $request, Campus $campus): RedirectResponse
     {
         DB::transaction(function () use ($campus): void {
-            $campus = Campus::query()->lockForUpdate()->findOrFail($campus->getKey());
+            $campus = Campus::query()->lockForUpdate()->whereKey($campus->getKey())->firstOrFail();
             Gate::authorize('reactivate', $campus);
             $campus->reactivate();
         });

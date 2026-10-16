@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Campus;
 use Illuminate\Validation\Validator;
 use LaravelLegends\PtBrValidator\Rules\Cnpj;
 
@@ -22,6 +23,7 @@ class UpdateCampusRequest extends CampusFormRequest
      */
     public function rules(): array
     {
+        /** @var Campus $campus */
         $campus = $this->route('campus');
         $canEditCnpj = $this->user()?->can('updateCnpj', $campus) ?? false;
         $rules = [
@@ -50,6 +52,7 @@ class UpdateCampusRequest extends CampusFormRequest
      */
     public function after(): array
     {
+        /** @var Campus $campus */
         $campus = $this->route('campus');
         $allowedKeys = ['name', 'address', 'phone', 'legal_representative_name', 'legal_representative_position', 'insurance_company_name', 'insurance_policy_number'];
 

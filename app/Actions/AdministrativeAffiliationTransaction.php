@@ -30,7 +30,8 @@ class AdministrativeAffiliationTransaction
     {
         $selectedId = $actor === null ? null : $this->context->currentFor($actor, app('session.store'))?->id;
 
-        return DB::transaction(function () use ($actor, $selectedId, $write, $allowCampusActor): Model {
+        /** @var TResult $result */
+        $result = DB::transaction(function () use ($actor, $selectedId, $write, $allowCampusActor): Model {
             $this->lockWrites();
             Affiliation::query()->where('type', AffiliationType::SystemAdministrator)->orderBy('id')->lockForUpdate()->first();
 
@@ -47,6 +48,8 @@ class AdministrativeAffiliationTransaction
 
             return $this->causerResolver->withCauser($current, fn (): Model => $write($selectedId));
         });
+
+        return $result;
     }
 
     /** Serializa alterações de contas e vínculos entre campi até o fim da transação. */
