@@ -14,6 +14,7 @@ use Illuminate\Validation\Rule;
 trait CampusAffiliationValidationRules
 {
     use AdministrativeAffiliationValidationRules;
+    use SupervisorProfessionalDataValidationRules;
 
     /** @return array<string, array<int, mixed>> */
     public function campusAffiliationEditableRules(Affiliation $affiliation, User $user): array
@@ -27,10 +28,7 @@ trait CampusAffiliationValidationRules
         return [
             'email' => $this->administrativeAffiliationEditableRules($user)['email'],
             'registration_number' => $registrationRules,
-            'job_role' => [Rule::prohibitedIf(! $isSupervisor), 'nullable', 'string', 'max:255'],
-            'qualification' => [Rule::prohibitedIf(! $isSupervisor), 'nullable', 'string', 'max:255'],
-            'training' => [Rule::prohibitedIf(! $isSupervisor), 'nullable', 'string'],
-            'professional_experience' => [Rule::prohibitedIf(! $isSupervisor), 'nullable', 'string'],
+            ...array_map(fn (array $rules): array => [Rule::prohibitedIf(! $isSupervisor), ...$rules], $this->supervisorProfessionalReferenceRules()),
         ];
     }
 
@@ -48,10 +46,7 @@ trait CampusAffiliationValidationRules
             'course_id' => ['bail', 'required_if:type,student', 'prohibited_unless:type,student', 'nullable', 'integer', Rule::exists(Course::class, 'id')->where('campus_id', $campusId)->whereNull('deactivated_at')],
             'email' => $this->administrativeAffiliationEditableRules($user)['email'],
             'registration_number' => $registrationRules,
-            'job_role' => ['prohibited_unless:type,supervisor', 'nullable', 'string', 'max:255'],
-            'qualification' => ['prohibited_unless:type,supervisor', 'nullable', 'string', 'max:255'],
-            'training' => ['prohibited_unless:type,supervisor', 'nullable', 'string'],
-            'professional_experience' => ['prohibited_unless:type,supervisor', 'nullable', 'string'],
+            ...array_map(fn (array $rules): array => ['prohibited_unless:type,supervisor', ...$rules], $this->supervisorProfessionalReferenceRules()),
         ];
     }
 }

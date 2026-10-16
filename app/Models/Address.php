@@ -86,6 +86,15 @@ class Address extends Model
                 ->exists();
     }
 
+    public function hasReferencesOutsidePersonalData(UserPersonalData $personalData): bool
+    {
+        return Campus::query()->where('address_id', $this->id)->exists()
+            || GrantingParty::query()->where('address_id', $this->id)->exists()
+            || UserPersonalData::query()->where('address_id', $this->id)->whereKeyNot($personalData->id)->exists()
+            || Internship::query()->where(fn ($query) => $query->where('student_address_id', $this->id)
+                ->orWhere('workplace_address_id', $this->id))->exists();
+    }
+
     public function hasReferences(): bool
     {
         return Campus::query()->where('address_id', $this->id)->exists()

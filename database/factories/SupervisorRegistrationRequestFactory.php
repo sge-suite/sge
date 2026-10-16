@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\EducationLevel;
 use App\Enums\RegistrationRequestStatus;
 use App\Models\SupervisorRegistrationRequest;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -20,13 +21,14 @@ class SupervisorRegistrationRequestFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'cpf' => fake()->unique()->cpf(false),
+            'cpf' => fake()->unique()->format('cpf', [false]),
             'phone' => '(55) 99999-9999',
             'email' => fake()->safeEmail(),
             'job_role' => 'Supervisora de estágio',
-            'qualification' => 'Bacharel em Administração',
-            'training' => null,
-            'professional_experience' => null,
+            'has_academic_background' => true,
+            'training_course' => 'Administração',
+            'education_level' => EducationLevel::UndergraduateTechnologist,
+            'experience_time' => null,
             'status' => RegistrationRequestStatus::Draft,
             'supervisor_affiliation_id' => null,
             'reviewed_at' => null,

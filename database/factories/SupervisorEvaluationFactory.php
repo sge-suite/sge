@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\EducationLevel;
 use App\Enums\EvaluationConcept;
 use App\Enums\EvaluationStatus;
 use App\Models\Internship;
@@ -22,7 +23,7 @@ class SupervisorEvaluationFactory extends Factory
     {
         return [
             'internship_id' => Internship::factory(),
-            'supervisor_affiliation_id' => fn (array $attributes): int => Internship::findOrFail($attributes['internship_id'])->supervisor_affiliation_id,
+            'supervisor_affiliation_id' => fn (array $attributes): int => Internship::query()->whereKey($attributes['internship_id'])->firstOrFail()->supervisor_affiliation_id,
             'status' => EvaluationStatus::Draft,
             'has_academic_background' => null,
             'training_course' => null,
@@ -59,7 +60,7 @@ class SupervisorEvaluationFactory extends Factory
             'status' => EvaluationStatus::Submitted,
             'has_academic_background' => true,
             'training_course' => 'Tecnologia em Sistemas',
-            'education_level' => 'superior',
+            'education_level' => EducationLevel::UndergraduateTechnologist,
             'job_role' => 'Supervisor de estágio',
             'experience_time' => null,
             'hours_requirement_met' => true,

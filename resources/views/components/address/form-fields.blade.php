@@ -7,6 +7,7 @@
     'cityMessage' => '',
     'cityHintPlacement' => 'top',
     'cepLookupChanges' => [],
+    'personalData' => false,
 ])
 
 @if ($cityHintPlacement === 'top')
@@ -22,7 +23,7 @@
     @if ($cityHintPlacement === 'selection')
         <flux:text class="sm:col-span-2" role="status">{{ $cityMessage !== '' ? $cityMessage : 'Selecione a UF e digite pelo menos 2 caracteres para buscar a cidade.' }}</flux:text>
     @endif
-    <livewire:cities.select :selected-city-id="$selectedCityId" :campus-id="$campusId" :key="$selectionKey" :city-error="$errors->first('address.city_id')" />
+    <livewire:cities.select :selected-city-id="$selectedCityId" :campus-id="$campusId" :personal-data="$personalData" :key="$selectionKey" :city-error="$errors->first('address.city_id')" />
     <flux:input name="address[street]" error:name="address.street" label="Logradouro" wire:model="{{ $model }}.street" :value="$values['street'] ?? ''" :invalid="$errors->has('address.street')" maxlength="255" autocomplete="address-line1" required />
     <flux:input name="address[number]" error:name="address.number" label="Número" wire:model="{{ $model }}.number" :value="$values['number'] ?? ''" :invalid="$errors->has('address.number')" maxlength="255" required />
     <flux:input name="address[neighborhood]" error:name="address.neighborhood" label="Bairro" wire:model="{{ $model }}.neighborhood" :value="$values['neighborhood'] ?? ''" :invalid="$errors->has('address.neighborhood')" maxlength="255" required />

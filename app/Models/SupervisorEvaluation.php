@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Concerns\SupervisorProfessionalDataValidationRules;
 use App\Enums\AffiliationType;
+use App\Enums\EducationLevel;
 use App\Enums\EvaluationConcept;
 use App\Enums\EvaluationStatus;
 use Database\Factories\SupervisorEvaluationFactory;
@@ -17,6 +19,10 @@ use Illuminate\Validation\Validator as LaravelValidator;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property EvaluationStatus $status
+ * @property EducationLevel|null $education_level
+ */
 #[Fillable([
     'internship_id', 'supervisor_affiliation_id', 'status',
     'has_academic_background', 'training_course', 'education_level', 'job_role',
@@ -33,6 +39,7 @@ class SupervisorEvaluation extends Model
     use HasFactory;
 
     use LogsActivity;
+    use SupervisorProfessionalDataValidationRules;
 
     private const array CRITERIA = [
         'performance', 'comprehension', 'technical_knowledge', 'organization',
@@ -62,6 +69,7 @@ class SupervisorEvaluation extends Model
             'supervisor_affiliation_id' => 'integer',
             'status' => EvaluationStatus::class,
             'has_academic_background' => 'boolean',
+            'education_level' => EducationLevel::class,
             'hours_requirement_met' => 'boolean',
             'estimated_hours_remaining' => 'integer',
             'submitted_at' => 'datetime',
@@ -95,7 +103,7 @@ class SupervisorEvaluation extends Model
             $needsReview = in_array($status, [EvaluationStatus::Returned, EvaluationStatus::Approved], true);
 
             foreach ([
-                'training_course', 'education_level', 'job_role', 'experience_time',
+                'training_course', 'job_role', 'experience_time',
                 'considerations', 'suggestions_to_institution', 'performance_issues',
                 'other_observations', 'review_notes', 'cancellation_reason',
             ] as $attribute) {
@@ -109,11 +117,7 @@ class SupervisorEvaluation extends Model
                 'internship_id' => ['required', 'integer', Rule::exists(Internship::class, 'id')],
                 'supervisor_affiliation_id' => ['required', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Supervisor->value)],
                 'status' => ['required', Rule::enum(EvaluationStatus::class)],
-                'has_academic_background' => [$required, 'boolean'],
-                'training_course' => [Rule::requiredIf(! $isDraft && $evaluation->has_academic_background === true), 'nullable', 'string', 'max:255'],
-                'education_level' => [Rule::requiredIf(! $isDraft && $evaluation->has_academic_background === true), 'nullable', 'string', 'max:255'],
-                'job_role' => [$required, 'string', 'max:255'],
-                'experience_time' => [Rule::requiredIf(! $isDraft && $evaluation->has_academic_background === false), 'nullable', 'string', 'max:255'],
+                ...$evaluation->supervisorQualificationRules($isDraft, $evaluation->has_academic_background),
                 'hours_requirement_met' => [$required, 'boolean'],
                 'estimated_hours_remaining' => [Rule::requiredIf(! $isDraft && $evaluation->hours_requirement_met === false), 'nullable', 'integer', 'min:1', 'max:65535'],
                 'submitted_at' => [$required, 'date'],
@@ -133,14 +137,6 @@ class SupervisorEvaluation extends Model
 
             $validator = Validator::make($evaluation->getAttributes(), $rules);
             $validator->after(function (LaravelValidator $validator) use ($evaluation, $status): void {
-                if ($evaluation->has_academic_background === true && filled($evaluation->experience_time)) {
-                    $validator->errors()->add('experience_time', 'Informe tempo de experiência apenas no ramo sem formação acadêmica.');
-                }
-
-                if ($evaluation->has_academic_background === false && (filled($evaluation->training_course) || filled($evaluation->education_level))) {
-                    $validator->errors()->add('training_course', 'Os dados de formação devem ficar vazios no ramo de experiência.');
-                }
-
                 if ($status === EvaluationStatus::Approved && $evaluation->hours_requirement_met !== true) {
                     $validator->errors()->add('hours_requirement_met', 'A carga horária deve estar cumprida para aprovar a avaliação.');
                 }

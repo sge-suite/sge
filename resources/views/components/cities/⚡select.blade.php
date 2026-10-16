@@ -3,6 +3,7 @@
 use App\Enums\BrazilianState;
 use App\Models\Campus;
 use App\Models\City;
+use App\Models\UserPersonalData;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -13,6 +14,9 @@ new class extends Component
 {
     #[Locked]
     public ?int $campusId = null;
+
+    #[Locked]
+    public bool $personalData = false;
 
     public string $state = '';
 
@@ -30,10 +34,11 @@ new class extends Component
     #[\Livewire\Attributes\Locked]
     public string $fieldName = 'address[city_id]';
 
-    public function mount(mixed $selectedCityId = null, string $cityError = '', ?int $campusId = null, string $fieldName = 'address[city_id]'): void
+    public function mount(mixed $selectedCityId = null, string $cityError = '', ?int $campusId = null, string $fieldName = 'address[city_id]', bool $personalData = false): void
     {
         $this->fieldName = $fieldName;
         $this->campusId = $campusId;
+        $this->personalData = $personalData;
         $this->authorizeSelection();
         $key = is_scalar($selectedCityId)
             ? filter_var($selectedCityId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
@@ -49,6 +54,12 @@ new class extends Component
 
     private function authorizeSelection(): void
     {
+        if ($this->personalData) {
+            Gate::authorize('updateStudentData', UserPersonalData::class);
+
+            return;
+        }
+
         Gate::authorize($this->campusId === null ? 'create' : 'update', $this->campusId === null ? Campus::class : Campus::findOrFail($this->campusId));
     }
 

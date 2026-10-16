@@ -5,12 +5,13 @@ namespace App\Concerns;
 use App\Models\Address;
 use App\Models\User;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Exists;
 
 trait UserPersonalDataValidationRules
 {
+    use SupervisorProfessionalDataValidationRules;
+
     /**
-     * @return array<string, array<int, Exists|string>>
+     * @return array<string, array<int, mixed>>
      */
     protected function userPersonalDataRules(): array
     {
@@ -21,20 +22,8 @@ trait UserPersonalDataValidationRules
             'rg_issue_date' => ['nullable', 'date', 'before_or_equal:today', 'required_with:rg,rg_issuer'],
             'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
             'phone' => ['nullable', 'string', 'max:255'],
-            'job_role' => ['nullable', 'string', 'max:255'],
-            'qualification' => ['nullable', 'string', 'max:255'],
-            'training' => ['nullable', 'string'],
-            'professional_experience' => ['nullable', 'string'],
+            ...$this->supervisorProfessionalReferenceRules(),
             'address_id' => ['nullable', 'integer', Rule::exists(Address::class, 'id')],
         ];
-    }
-
-    protected function nullifyBlankOptionalValues(): void
-    {
-        foreach (['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'qualification', 'training', 'professional_experience', 'address_id'] as $attribute) {
-            if (blank($this->getAttributes()[$attribute] ?? null)) {
-                $this->{$attribute} = null;
-            }
-        }
     }
 }

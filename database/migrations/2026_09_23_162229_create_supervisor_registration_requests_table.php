@@ -18,9 +18,10 @@ return new class extends Migration
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
             $table->string('job_role')->nullable();
-            $table->string('qualification')->nullable();
-            $table->text('training')->nullable();
-            $table->text('professional_experience')->nullable();
+            $table->boolean('has_academic_background')->nullable();
+            $table->string('training_course')->nullable();
+            $table->string('education_level')->nullable();
+            $table->string('experience_time')->nullable();
             $table->string('status');
             $table->foreignId('supervisor_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();
             $table->timestamp('reviewed_at')->nullable();

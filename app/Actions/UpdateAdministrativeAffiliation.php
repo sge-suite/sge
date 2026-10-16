@@ -19,12 +19,12 @@ class UpdateAdministrativeAffiliation
 
     public function __construct(private AdministrativeAffiliationTransaction $transaction, private RequestEmailDelivery $emailDelivery) {}
 
-    /** @param array{email?: string, registration_number?: string|null, job_role?: string|null, qualification?: string|null, training?: string|null, professional_experience?: string|null, current_password?: string, confirmed?: mixed} $data */
+    /** @param array{email?: string, registration_number?: string|null, job_role?: string|null, training_course?: string|null, education_level?: string|null, experience_time?: string|null, current_password?: string, confirmed?: mixed} $data */
     public function handle(User $actor, User $target, Affiliation $affiliation, string $operation, array $data): Affiliation
     {
         abort_unless(in_array($operation, ['update', 'deactivate', 'delete', 'reactivate'], true), 404);
         $allowCampusActor = in_array($operation, ['update', 'deactivate', 'delete'], true)
-            || ($operation === 'reactivate' && $affiliation->user_id === $actor->id);
+            || $affiliation->user_id === $actor->id;
 
         return $this->transaction->handle($actor, function (?int $selectedId) use ($actor, $target, $affiliation, $operation, $data, $allowCampusActor): Affiliation {
             $user = User::query()->lockForUpdate()->findOrFail($target->id);
@@ -41,19 +41,20 @@ class UpdateAdministrativeAffiliation
                 if (is_string($data['registration_number'] ?? null)) {
                     $data['registration_number'] = trim($data['registration_number']);
                 }
+                $data = $this->normalizeSupervisorProfessionalReference($data);
                 $rules = $actor->can('createOnCampus', User::class)
                     ? $this->campusAffiliationEditableRules($affiliation, $user)
                     : $this->administrativeAffiliationEditableRules($user);
                 $data = Validator::make($data, $rules)->validate();
                 $affiliation->update(collect($data)->only(['email', 'registration_number'])->all());
-                $professionalData = collect($data)->only(['job_role', 'qualification', 'training', 'professional_experience']);
+                $professionalData = collect($data)->only(['job_role', 'training_course', 'education_level', 'experience_time']);
                 if ($affiliation->type === AffiliationType::Supervisor && $professionalData->isNotEmpty()
                     && ($professionalData->contains(fn (mixed $value): bool => filled($value)) || $user->personalData()->exists())) {
                     $user->personalData()->updateOrCreate([], $professionalData->all());
                 }
             } elseif (in_array($operation, ['deactivate', 'delete'], true)) {
-                Validator::make($data, ['confirmed' => ['accepted'], 'current_password' => ['required', 'string']])->validate();
-                if (! Hash::check($data['current_password'], $actor->fresh()->password)) {
+                $confirmation = Validator::make($data, ['confirmed' => ['accepted'], 'current_password' => ['required', 'string']])->validate();
+                if (! Hash::check($confirmation['current_password'], $actor->fresh()->password)) {
                     throw ValidationException::withMessages(['current_password' => 'A senha informada está incorreta.']);
                 }
                 if ($affiliation->type === AffiliationType::SystemAdministrator && $affiliation->deactivated_at === null && Affiliation::query()->active()->where('type', AffiliationType::SystemAdministrator)->count() <= 1) {

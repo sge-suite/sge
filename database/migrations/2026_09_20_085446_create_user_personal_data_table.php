@@ -20,9 +20,9 @@ return new class extends Migration
             $table->date('birth_date')->nullable();
             $table->string('phone')->nullable();
             $table->string('job_role')->nullable();
-            $table->string('qualification')->nullable();
-            $table->text('training')->nullable();
-            $table->text('professional_experience')->nullable();
+            $table->string('training_course')->nullable();
+            $table->string('education_level')->nullable();
+            $table->string('experience_time')->nullable();
             $table->foreignId('address_id')->nullable()->index()->constrained()->restrictOnDelete();
             $table->timestamp('emancipation_verified_at')->nullable();
             $table->timestamps();

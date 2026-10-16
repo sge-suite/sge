@@ -4,6 +4,9 @@
     <div class="me-10 w-full pb-4 md:w-55">
         <flux:navlist aria-label="Configurações">
             <flux:navlist.item :href="route('profile.edit')" wire:navigate>Perfil</flux:navlist.item>
+            @can('viewOwn', \App\Models\UserPersonalData::class)
+                <flux:navlist.item :href="route('personal-data.edit')" wire:navigate>Dados pessoais</flux:navlist.item>
+            @endcan
             <flux:navlist.item :href="route('security.edit')" wire:navigate>Segurança</flux:navlist.item>
             <flux:navlist.item :href="route('appearance.edit')" wire:navigate>Aparência</flux:navlist.item>
         </flux:navlist>

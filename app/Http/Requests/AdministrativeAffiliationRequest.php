@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Concerns\AdministrativeAffiliationValidationRules;
 use App\Helpers\DigitsHelper;
 use App\Models\Affiliation;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -12,11 +13,16 @@ abstract class AdministrativeAffiliationRequest extends FormRequest
 {
     use AdministrativeAffiliationValidationRules;
 
+    /** @return array<string, array<int, mixed>> */
+    abstract public function rules(): array;
+
     public function authorize(): bool
     {
         $affiliation = $this->route('affiliation');
+        abort_unless($affiliation === null || $affiliation instanceof Affiliation, 404);
         if ($affiliation !== null) {
-            abort_unless($affiliation->user_id === $this->route('user')->id, 404);
+            $user = $this->route('user');
+            abort_unless($user instanceof User && $affiliation->user_id === $user->id, 404);
         }
 
         return $this->user()?->can($this->ability(), $affiliation ?? Affiliation::class) ?? false;
@@ -54,7 +60,7 @@ abstract class AdministrativeAffiliationRequest extends FormRequest
         }];
     }
 
-    /** @return array{cpf: string, name: string, email: string, type: string, campus_id: int|null, course_id: int|null, registration_number: string|null, job_role: string|null, qualification: string|null, training: string|null, professional_experience: string|null} */
+    /** @return array{cpf: string, name: string, email: string, type: string, campus_id: int|null, course_id: int|null, registration_number: string|null, job_role: string|null, training_course: string|null, education_level: string|null, experience_time: string|null} */
     public function campusCreationData(): array
     {
         $data = $this->safe();
@@ -68,15 +74,15 @@ abstract class AdministrativeAffiliationRequest extends FormRequest
             'course_id' => $data->filled('course_id') ? $data->integer('course_id') : null,
             'registration_number' => $data->filled('registration_number') ? $data->string('registration_number')->toString() : null,
             'job_role' => $data->filled('job_role') ? $data->string('job_role')->toString() : null,
-            'qualification' => $data->filled('qualification') ? $data->string('qualification')->toString() : null,
-            'training' => $data->filled('training') ? $data->string('training')->toString() : null,
-            'professional_experience' => $data->filled('professional_experience') ? $data->string('professional_experience')->toString() : null,
+            'training_course' => $data->filled('training_course') ? $data->string('training_course')->toString() : null,
+            'education_level' => $data->filled('education_level') ? $data->string('education_level')->toString() : null,
+            'experience_time' => $data->filled('experience_time') ? $data->string('experience_time')->toString() : null,
         ];
     }
 
     /** @return array<string, string> */
     public function attributes(): array
     {
-        return ['name' => 'nome completo', 'cpf' => 'CPF', 'email' => 'e-mail', 'type' => 'tipo de vínculo', 'campus_id' => 'campus', 'registration_number' => 'matrícula', 'course_id' => 'curso', 'job_role' => 'cargo', 'qualification' => 'qualificação', 'training' => 'formação', 'professional_experience' => 'experiência profissional', 'current_password' => 'senha atual', 'confirmed' => 'confirmação'];
+        return ['name' => 'nome completo', 'cpf' => 'CPF', 'email' => 'e-mail', 'type' => 'tipo de vínculo', 'campus_id' => 'campus', 'registration_number' => 'matrícula', 'course_id' => 'curso', 'job_role' => 'cargo', 'training_course' => 'curso de formação', 'education_level' => 'nível', 'experience_time' => 'tempo de experiência na função', 'current_password' => 'senha atual', 'confirmed' => 'confirmação'];
     }
 }

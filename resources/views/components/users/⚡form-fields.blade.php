@@ -38,9 +38,9 @@ new class extends Component
     public string $registrationSourceId = '';
     public string $courseId = '';
     public string $jobRole = '';
-    public string $qualification = '';
-    public string $training = '';
-    public string $professionalExperience = '';
+    public string $trainingCourse = '';
+    public string $educationLevel = '';
+    public string $experienceTime = '';
 
     public function boot(): void
     {
@@ -78,9 +78,9 @@ new class extends Component
         $this->courseId = $value('course_id');
         $professionalData = $affiliation?->type === AffiliationType::Supervisor ? $user?->personalData : null;
         $this->jobRole = $value('job_role', $professionalData?->job_role ?? '');
-        $this->qualification = $value('qualification', $professionalData?->qualification ?? '');
-        $this->training = $value('training', $professionalData?->training ?? '');
-        $this->professionalExperience = $value('professional_experience', $professionalData?->professional_experience ?? '');
+        $this->trainingCourse = $value('training_course', $professionalData?->training_course ?? '');
+        $this->educationLevel = $value('education_level', $professionalData?->education_level?->value ?? '');
+        $this->experienceTime = $value('experience_time', $professionalData?->experience_time ?? '');
         if ($user !== null || (old('consulted_cpf') !== null && old('consulted_cpf') === DigitsHelper::only($this->cpf))) {
             $this->consultedCpf = DigitsHelper::only($this->cpf);
         }
@@ -94,9 +94,9 @@ new class extends Component
         $this->registrationSourceId = '';
         $this->registrationNumber = '';
         $this->jobRole = '';
-        $this->qualification = '';
-        $this->training = '';
-        $this->professionalExperience = '';
+        $this->trainingCourse = '';
+        $this->educationLevel = '';
+        $this->experienceTime = '';
         $this->resetValidation();
         unset($this->account);
     }
@@ -110,9 +110,9 @@ new class extends Component
             $this->registrationSourceId = '';
         } else {
             $this->jobRole = '';
-            $this->qualification = '';
-            $this->training = '';
-            $this->professionalExperience = '';
+            $this->trainingCourse = '';
+            $this->educationLevel = '';
+            $this->experienceTime = '';
         }
     }
 
@@ -286,10 +286,10 @@ new class extends Component
                 <flux:input name="registration_number" required label="Matrícula" wire:model="registrationNumber" :value="$registrationNumber" maxlength="255" error:name="registration_number" />
             @elseif ($this->campusRegistration)
                 <flux:text size="sm">Supervisor não possui matrícula. Os dados profissionais são opcionais e poderão ser preenchidos ou confirmados posteriormente.</flux:text>
-                <flux:input name="job_role" label="Cargo (opcional)" wire:model="jobRole" :value="$jobRole" maxlength="255" error:name="job_role" />
-                <flux:input name="qualification" label="Qualificação (opcional)" wire:model="qualification" :value="$qualification" maxlength="255" error:name="qualification" />
-                <flux:textarea name="training" label="Formação (opcional)" wire:model="training" error:name="training">{{ $training }}</flux:textarea>
-                <flux:textarea name="professional_experience" label="Experiência profissional (opcional)" wire:model="professionalExperience" error:name="professional_experience">{{ $professionalExperience }}</flux:textarea>
+                <x-supervisor.professional-fields
+                    :values="['job_role' => $jobRole, 'training_course' => $trainingCourse, 'education_level' => $educationLevel, 'experience_time' => $experienceTime]"
+                    :models="['job_role' => 'jobRole', 'training_course' => 'trainingCourse', 'education_level' => 'educationLevel', 'experience_time' => 'experienceTime']"
+                />
             @endif
         </section>
     @endif

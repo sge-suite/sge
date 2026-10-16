@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Casts\CpfCast;
 use App\Casts\PhoneCast;
+use App\Concerns\SupervisorProfessionalDataValidationRules;
 use App\Enums\AffiliationType;
+use App\Enums\EducationLevel;
 use App\Enums\RegistrationRequestStatus;
 use Database\Factories\SupervisorRegistrationRequestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -19,8 +21,8 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 #[Fillable([
-    'name', 'cpf', 'phone', 'email', 'job_role', 'qualification',
-    'training', 'professional_experience', 'status',
+    'name', 'cpf', 'phone', 'email', 'job_role', 'has_academic_background',
+    'training_course', 'education_level', 'experience_time', 'status',
     'supervisor_affiliation_id', 'reviewed_at', 'decision_reason',
 ])]
 #[Hidden(['cpf'])]
@@ -30,6 +32,7 @@ class SupervisorRegistrationRequest extends Model
     use HasFactory;
 
     use LogsActivity;
+    use SupervisorProfessionalDataValidationRules;
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -43,6 +46,8 @@ class SupervisorRegistrationRequest extends Model
             'phone' => PhoneCast::class,
             'cpf' => CpfCast::class,
             'status' => RegistrationRequestStatus::class,
+            'has_academic_background' => 'boolean',
+            'education_level' => EducationLevel::class,
             'supervisor_affiliation_id' => 'integer',
             'reviewed_at' => 'datetime',
         ];
@@ -58,8 +63,8 @@ class SupervisorRegistrationRequest extends Model
     {
         static::saving(function (self $registrationRequest): void {
             foreach ([
-                'name', 'cpf', 'phone', 'email', 'job_role', 'qualification', 'training',
-                'professional_experience', 'decision_reason',
+                'name', 'cpf', 'phone', 'email', 'job_role', 'training_course',
+                'experience_time', 'decision_reason',
             ] as $attribute) {
                 $value = $registrationRequest->getAttribute($attribute);
 
@@ -85,10 +90,7 @@ class SupervisorRegistrationRequest extends Model
                 'cpf' => [$requiredWhenSubmitted],
                 'phone' => [$requiredWhenSubmitted, 'string', 'regex:/^\d{10,11}$/'],
                 'email' => [$requiredWhenSubmitted, 'string', 'email', 'max:254'],
-                'job_role' => [$requiredWhenSubmitted, 'string', 'max:255'],
-                'qualification' => [$requiredWhenSubmitted, 'string', 'max:255'],
-                'training' => ['nullable', 'string'],
-                'professional_experience' => ['nullable', 'string'],
+                ...$registrationRequest->supervisorQualificationRules($isDraft, $registrationRequest->has_academic_background),
                 'status' => ['required', Rule::enum(RegistrationRequestStatus::class)],
                 'supervisor_affiliation_id' => [
                     'bail',
