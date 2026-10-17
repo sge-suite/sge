@@ -4,12 +4,15 @@ namespace App\Actions;
 
 use App\Enums\EmailDeliveryAttemptStatus;
 use App\Enums\EmailMessagePurpose;
+use App\Enums\InternshipRequestStatus;
 use App\Jobs\SendEmailDelivery;
 use App\Models\Affiliation;
 use App\Models\EmailDeliveryAttempt;
 use App\Models\EmailMessage;
+use App\Models\InternshipRequest;
 use App\Models\User;
 use App\Support\EmailDeliveryContext;
+use App\Support\InternshipRequestReceipt;
 use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +23,46 @@ use Spatie\Activitylog\Support\CauserResolver;
 
 class RequestEmailDelivery
 {
+    public function internshipRequestSubmitted(InternshipRequest $request, string $deliveryKey, bool $resubmission = false): EmailDeliveryAttempt
+    {
+        $this->validateKey($deliveryKey);
+        $request->load('affiliation');
+        $recipientEmail = $request->affiliation->email;
+        Validator::make(['email' => $recipientEmail, 'status' => $request->status->value], [
+            'email' => ['required', 'email'],
+            'status' => ['required', Rule::in([InternshipRequestStatus::Submitted->value])],
+        ])->validate();
+
+        $subject = ($resubmission ? 'Reenvio' : 'Envio').' da solicitação de estágio nº '.$request->id;
+        $sections = app(InternshipRequestReceipt::class)->sections($request);
+        $url = route('internship-requests.show', $request);
+        $contentHtml = (string) app(Markdown::class)->render('emails.internship-request-submitted', [
+            'messageSubject' => $subject, 'sections' => $sections, 'requestUrl' => $url,
+        ]);
+        $lines = [$subject, 'Recebemos sua solicitação para análise. Estes são os dados registrados neste envio.'];
+        foreach ($sections as $section) {
+            $lines[] = $section['title'];
+            foreach ($section['fields'] as $label => $value) {
+                $lines[] = $label.': '.$value;
+            }
+        }
+        $lines[] = 'Acompanhe a solicitação: '.$url;
+        $contentText = implode("\n\n", $lines);
+
+        return DB::transaction(function () use ($deliveryKey, $recipientEmail, $subject, $contentHtml, $contentText): EmailDeliveryAttempt {
+            $purpose = EmailMessagePurpose::InternshipRequestSubmitted;
+            $message = EmailMessage::query()->firstOrCreate(['idempotency_key' => $deliveryKey], [
+                'purpose' => $purpose, 'subject' => $subject, 'content_text' => $contentText, 'content_html' => $contentHtml,
+                'template_key' => 'internship-request.submitted', 'template_version' => '1',
+            ]);
+            if ($message->purpose !== $purpose || $message->subject !== $subject || $message->content_text !== $contentText || $message->content_html !== $contentHtml) {
+                throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
+            }
+
+            return $this->reserve($deliveryKey, $purpose, $recipientEmail, $message);
+        });
+    }
+
     public function notification(DatabaseNotification $notification, string $subject, string $contentText, ?string $contentHtml, string $deliveryKey): EmailDeliveryAttempt
     {
         $this->validateKey($deliveryKey);

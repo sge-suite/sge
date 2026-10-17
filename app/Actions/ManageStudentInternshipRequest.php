@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Support\CauserResolver;
@@ -37,7 +38,8 @@ class ManageStudentInternshipRequest
     use InternshipRequestValidationRules;
 
     public function __construct(private StudentInternshipContext $context, private CauserResolver $causerResolver,
-        private InternshipRequestSnapshots $snapshots, private ProjectInternshipRequestEndDate $project) {}
+        private InternshipRequestSnapshots $snapshots, private ProjectInternshipRequestEndDate $project,
+        private RequestEmailDelivery $emailDelivery) {}
 
     /** @param array<string, mixed> $data */
     public function handle(User $actor, int $expectedAffiliationId, ?InternshipRequest $target, string $operation, array $data = [], bool $termsAccepted = false, ?string $expectedUpdatedAt = null): InternshipRequest
@@ -136,6 +138,7 @@ class ManageStudentInternshipRequest
                     if ($correction !== null) {
                         $correction->update(['status' => InternshipRequestCorrectionStatus::Responded, 'responded_at' => now()]);
                     }
+                    $this->emailDelivery->internshipRequestSubmitted($request, (string) Str::uuid(), $correction !== null);
                 } else {
                     if ($request->status === InternshipRequestStatus::PendingCorrection) {
                         $request->projected_end_date = $this->project->handle($request);
