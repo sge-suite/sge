@@ -21,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $id
  * @property int $course_id
  * @property string $name
+ * @property list<string> $allowed_academic_periods
  * @property int $required_hours
  * @property int $supervisor_evaluation_weight
  * @property int $report_weight
@@ -40,6 +41,7 @@ use Spatie\Activitylog\Support\LogOptions;
 #[Fillable([
     'course_id',
     'name',
+    'allowed_academic_periods',
     'required_hours',
     'supervisor_evaluation_weight',
     'report_weight',
@@ -71,6 +73,7 @@ class InternshipType extends Model
     {
         return [
             'course_id' => 'integer',
+            'allowed_academic_periods' => 'array',
             'required_hours' => 'integer',
             'supervisor_evaluation_weight' => 'integer',
             'report_weight' => 'integer',
@@ -104,6 +107,14 @@ class InternshipType extends Model
         return $this->hasMany(InternshipRequest::class);
     }
 
+    /** @return array<string, string> */
+    public function academicPeriodOptions(): array
+    {
+        $periods = $this->allowed_academic_periods ?? [];
+
+        return array_combine($periods, $periods);
+    }
+
     public function hasLinkedRecords(): bool
     {
         return $this->internships()->exists() || $this->internshipRequests()->exists();
@@ -135,6 +146,7 @@ class InternshipType extends Model
     {
         static::saving(function (self $internshipType): void {
             $attributes = $internshipType->getAttributes();
+            $attributes['allowed_academic_periods'] = $internshipType->allowed_academic_periods;
             $requiresActiveCourse = ! $internshipType->exists
                 || (int) ($attributes['course_id'] ?? null) !== (int) $internshipType->getOriginal('course_id')
                 || ($internshipType->getOriginal('deactivated_at') !== null && ($attributes['deactivated_at'] ?? null) === null);

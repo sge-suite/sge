@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('course_id')->constrained()->restrictOnDelete();
             $table->string('name');
+            $table->jsonb('allowed_academic_periods');
             $table->unsignedInteger('required_hours');
             $table->integer('supervisor_evaluation_weight');
             $table->integer('report_weight');

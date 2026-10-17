@@ -20,6 +20,8 @@ trait InternshipTypeValidationRules
         return [
             'course_id' => ['bail', 'required', 'integer', $courseExists],
             'name' => ['required', 'string', 'max:255'],
+            'allowed_academic_periods' => ['required', 'array', 'list', 'min:1', 'max:50'],
+            'allowed_academic_periods.*' => ['required', 'string', 'distinct', 'regex:/^[1-9][0-9]?º (ano|semestre)$/u'],
             'required_hours' => ['required', 'integer', 'min:1'],
             'supervisor_evaluation_weight' => ['required', 'integer', 'min:1'],
             'report_weight' => ['required', 'integer', 'min:1'],
@@ -41,6 +43,9 @@ trait InternshipTypeValidationRules
     protected function internshipTypeValidationMessages(): array
     {
         return [
+            'allowed_academic_periods.required' => 'Adicione pelo menos um ano ou semestre permitido.',
+            'allowed_academic_periods.*.regex' => 'Informe um período no formato 3º ano ou 6º semestre.',
+            'allowed_academic_periods.*.distinct' => 'Não repita um período permitido.',
             'required' => 'O campo :attribute é obrigatório.',
             'integer' => 'O campo :attribute deve ser um número inteiro.',
             'numeric' => 'O campo :attribute deve ser numérico.',
@@ -61,6 +66,8 @@ trait InternshipTypeValidationRules
         return [
             'course_id' => 'curso',
             'name' => 'nome do tipo de estágio',
+            'allowed_academic_periods' => 'anos ou semestres permitidos',
+            'allowed_academic_periods.*' => 'ano ou semestre permitido',
             'required_hours' => 'carga horária obrigatória',
             'supervisor_evaluation_weight' => 'peso da avaliação do supervisor',
             'report_weight' => 'peso do relatório',

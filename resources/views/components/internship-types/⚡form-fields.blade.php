@@ -20,6 +20,10 @@ new class extends Component
     /** @var array<string, mixed> */
     public array $values = [];
 
+    public string $periodNumber = '';
+
+    public string $periodUnit = 'semester';
+
     public function boot(): void
     {
         Gate::authorize('viewAny', InternshipType::class);
@@ -42,6 +46,37 @@ new class extends Component
             $value = old($field, $internshipType?->{$field} ?? $default);
             $this->values[$field] = is_scalar($value) ? $value : '';
         }
+        $periods = old('allowed_academic_periods', $internshipType?->allowed_academic_periods ?? []);
+        $this->values['allowed_academic_periods'] = is_array($periods) ? array_values($periods) : [];
+    }
+
+    public function addAcademicPeriod(): void
+    {
+        $this->validate(['periodNumber' => ['required', 'integer', 'min:1', 'max:99'],
+            'periodUnit' => ['required', \Illuminate\Validation\Rule::in(['year', 'semester'])]],
+            attributes: ['periodNumber' => 'número do ano ou semestre', 'periodUnit' => 'tipo de período']);
+        $period = (int) $this->periodNumber.'º '.($this->periodUnit === 'year' ? 'ano' : 'semestre');
+        $periods = $this->values['allowed_academic_periods'];
+        if (in_array($period, $periods, true)) {
+            $this->addError('periodNumber', 'Este período já foi adicionado.');
+
+            return;
+        }
+        if (count($periods) >= 50) {
+            $this->addError('allowed_academic_periods', 'Adicione no máximo 50 períodos.');
+
+            return;
+        }
+        $this->values['allowed_academic_periods'][] = $period;
+        $this->periodNumber = '';
+        $this->resetValidation(['allowed_academic_periods', 'periodNumber']);
+    }
+
+    public function removeAcademicPeriod(int $index): void
+    {
+        abort_unless(array_key_exists($index, $this->values['allowed_academic_periods']), 422);
+        array_splice($this->values['allowed_academic_periods'], $index, 1);
+        $this->resetValidation('allowed_academic_periods');
     }
 
     /** @return array<int|string, string> */
@@ -80,6 +115,28 @@ new class extends Component
                 <flux:callout.text>Cadastre ou reative um curso deste campus antes de cadastrar um tipo de estágio.</flux:callout.text>
             </flux:callout>
         @endif
+    </section>
+    <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="type-periods-heading">
+        <flux:heading id="type-periods-heading" size="lg" level="2">Anos ou semestres permitidos</flux:heading>
+        <flux:text>Adicione os períodos do curso em que o discente pode solicitar este estágio. Por exemplo: 3º ano ou 5º e 6º semestres. No formulário, ele escolherá uma das opções cadastradas aqui.</flux:text>
+        <div class="grid items-start gap-5 sm:grid-cols-3">
+            <x-select wire:model="periodUnit" :value="$periodUnit" label="Tipo de período" :options="['year' => 'Ano', 'semester' => 'Semestre']" :error="$errors->first('periodUnit')" />
+            <flux:input name="" wire:model="periodNumber" label="Número do ano ou semestre" type="number" min="1" max="99" step="1" wire:keydown.enter.prevent="addAcademicPeriod" :error:message="$errors->first('periodNumber')" />
+            <div class="self-end"><flux:button type="button" icon="plus" wire:click="addAcademicPeriod" wire:loading.attr="disabled">Adicionar período</flux:button></div>
+        </div>
+        <flux:error name="allowed_academic_periods" />
+        <div class="flex flex-wrap gap-3">
+            @forelse ($values['allowed_academic_periods'] as $index => $period)
+                <div wire:key="academic-period-{{ $index }}-{{ $period }}" class="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-700">
+                    <input type="hidden" name="allowed_academic_periods[]" value="{{ $period }}" />
+                    <span class="text-sm">{{ $period }}</span>
+                    <flux:button type="button" size="xs" variant="ghost" icon="x-mark" :aria-label="'Remover '.$period" wire:click="removeAcademicPeriod({{ $index }})" />
+                    <flux:error name="allowed_academic_periods.{{ $index }}" />
+                </div>
+            @empty
+                <flux:text size="sm">Nenhum período adicionado. Adicione pelo menos uma opção antes de salvar.</flux:text>
+            @endforelse
+        </div>
     </section>
     <section class="space-y-6 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="type-weights-heading">
         <div>

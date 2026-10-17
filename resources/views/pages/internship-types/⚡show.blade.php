@@ -188,6 +188,7 @@ new #[Title('Detalhes do tipo de estágio')] class extends Component
         <flux:heading id="type-rules-heading" size="lg" level="2">Regras do tipo de estágio</flux:heading>
         <dl class="mt-5 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             @foreach ([
+                'Anos ou semestres permitidos' => implode(', ', $internshipType->allowed_academic_periods ?? []),
                 'Carga horária obrigatória' => $internshipType->required_hours.' horas',
                 'Peso da avaliação do supervisor' => $internshipType->supervisor_evaluation_weight,
                 'Peso do relatório' => $internshipType->report_weight,

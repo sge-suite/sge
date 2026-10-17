@@ -21,6 +21,7 @@ class InternshipTypeFactory extends Factory
         return [
             'course_id' => Course::factory(),
             'name' => fake()->unique()->words(3, true),
+            'allowed_academic_periods' => ['3º ano', '5º semestre', '6º semestre'],
             'required_hours' => 300,
             'supervisor_evaluation_weight' => 4,
             'report_weight' => 3,
