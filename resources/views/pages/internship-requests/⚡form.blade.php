@@ -184,7 +184,7 @@ new #[Title('Solicitação de estágio')] class extends Component
             }
             $this->values[$field] = $value ?? '';
         }
-        $this->values['weekly_hours'] = $request->weekly_hours ?? array_fill_keys(InternshipEndDateCalculator::DAYS, '');
+        $this->values['weekly_hours'] = array_replace(array_fill_keys(InternshipEndDateCalculator::DAYS, 0), $request->weekly_hours ?? []);
         $this->values['planned_pauses'] = $request->planned_pauses ?? [];
         $this->values['personal_data'] = app(InternshipRequestPersonalData::class)->values($request, $this->personal['owner']);
         $this->values['granting_party_mode'] = $request->granting_party_registration_request_id === null ? 'existing' : 'pending';
