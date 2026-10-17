@@ -83,6 +83,9 @@ new #[Title('Auditoria')] class extends Component
         $query = app(ActivityAccess::class)->forCurrentContext(auth()->user(), app('session.store'));
         abort_if($query === null, 403);
         $types = ['campus' => new Campus, 'course' => new Course, 'internship_type' => new InternshipType, 'granting_party' => new GrantingParty, 'address' => new Address, 'user' => new User, 'affiliation' => new Affiliation];
+        $types += ['internship_request' => new \App\Models\InternshipRequest, 'internship_request_correction' => new \App\Models\InternshipRequestCorrection,
+            'supervisor_registration_request' => new \App\Models\SupervisorRegistrationRequest, 'granting_party_registration_request' => new \App\Models\GrantingPartyRegistrationRequest,
+            'emancipation_evidence' => new \App\Models\EmancipationEvidence];
         $types += ['holiday' => new \App\Models\Holiday, 'holiday_recurrence' => new \App\Models\HolidayRecurrence];
 
         if (isset($types[$this->entity], $this->entityOptions[$this->entity])) {

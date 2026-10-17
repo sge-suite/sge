@@ -3,16 +3,27 @@
 namespace App\Support;
 
 use App\Enums\AffiliationType;
+use App\Enums\EducationLevel;
+use App\Enums\EmancipationEvidenceStatus;
+use App\Enums\InternshipRequestCorrectionStatus;
+use App\Enums\InternshipRequestStatus;
+use App\Enums\LegalCapacityDeclaration;
 use App\Enums\PartyDocumentType;
+use App\Enums\RegistrationRequestStatus;
 use App\Models\Address;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\City;
 use App\Models\Course;
+use App\Models\EmancipationEvidence;
 use App\Models\GrantingParty;
+use App\Models\GrantingPartyRegistrationRequest;
 use App\Models\Holiday;
 use App\Models\HolidayRecurrence;
+use App\Models\InternshipRequest;
+use App\Models\InternshipRequestCorrection;
 use App\Models\InternshipType;
+use App\Models\SupervisorRegistrationRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -105,6 +116,11 @@ class AdministrativeActivityPresenter
         }
 
         $label = match ($activity->subject_type) {
+            (new InternshipRequest)->getMorphClass() => 'Solicitação de estágio',
+            (new InternshipRequestCorrection)->getMorphClass() => 'Correção de solicitação',
+            (new GrantingPartyRegistrationRequest)->getMorphClass() => 'Pedido de concedente',
+            (new SupervisorRegistrationRequest)->getMorphClass() => 'Pedido de supervisor',
+            (new EmancipationEvidence)->getMorphClass() => 'Análise de emancipação',
             (new Holiday)->getMorphClass() => 'Feriado',
             (new HolidayRecurrence)->getMorphClass() => 'Recorrência municipal',
             (new Campus)->getMorphClass() => 'Campus',
@@ -132,13 +148,48 @@ class AdministrativeActivityPresenter
                 .' · '.$subject->user->name.' (identificação atual)';
         }
 
-        return $label.' #'.$activity->subject_id.' (indisponível)';
+        return $label.' #'.$activity->subject_id.($subject === null ? ' (indisponível)' : '');
     }
 
     /** @return list<array{field: string, before: string, after: string}> */
     private function changes(Activity $activity): array
     {
         $fields = match ($activity->subject_type) {
+            (new InternshipRequest)->getMorphClass() => [
+                'affiliation_id' => 'Vínculo discente', 'course_id' => 'Curso', 'internship_type_id' => 'Tipo de estágio',
+                'advisor_affiliation_id' => 'Orientador', 'granting_party_id' => 'Concedente',
+                'granting_party_registration_request_id' => 'Pedido de concedente', 'supervisor_affiliation_id' => 'Supervisor',
+                'supervisor_registration_request_id' => 'Pedido de supervisor', 'student_year_semester' => 'Ano/semestre',
+                'legal_capacity_declaration' => 'Capacidade civil', 'activities' => 'Atividades', 'internship_sector' => 'Setor/área',
+                'weekly_hours' => 'Jornada semanal', 'planned_pauses' => 'Pausas previstas',
+                'planned_start_date' => 'Início previsto', 'projected_end_date' => 'Término previsto',
+                'is_remunerated' => 'Remunerado', 'grant_value' => 'Bolsa', 'transportation_allowance' => 'Auxílio-transporte',
+                'observations' => 'Observações', 'status' => 'Situação', 'internship_id' => 'Estágio criado',
+                'terms_accepted_at' => 'Ciência do envio', 'decision_reason' => 'Motivo da recusa',
+            ],
+            (new InternshipRequestCorrection)->getMorphClass() => [
+                'internship_request_id' => 'Solicitação de estágio', 'message' => 'Orientações', 'general_message' => 'Orientação geral',
+                'affected_sections' => 'Etapas devolvidas', 'section_messages' => 'Mensagens por etapa', 'status' => 'Situação',
+                'responded_at' => 'Respondida em', 'resolved_at' => 'Resolvida em',
+            ],
+            (new SupervisorRegistrationRequest)->getMorphClass() => [
+                'name' => 'Nome', 'cpf' => 'CPF', 'phone' => 'Telefone', 'email' => 'E-mail', 'job_role' => 'Cargo/função',
+                'has_academic_background' => 'Possui formação na área', 'training_course' => 'Curso de formação',
+                'education_level' => 'Nível de formação', 'experience_time' => 'Tempo de experiência',
+                'status' => 'Situação', 'supervisor_affiliation_id' => 'Supervisor associado',
+                'reviewed_at' => 'Analisado em', 'decision_reason' => 'Motivo da decisão',
+            ],
+            (new GrantingPartyRegistrationRequest)->getMorphClass() => [
+                'campus_id' => 'Campus', 'document_type' => 'Tipo de documento', 'document_number' => 'CPF/CNPJ',
+                'name' => 'Nome / razão social', 'street' => 'Logradouro', 'number' => 'Número', 'neighborhood' => 'Bairro',
+                'zip_code' => 'CEP', 'city_id' => 'Cidade', 'city' => 'Nome da cidade', 'uf' => 'UF',
+                'representative_name' => 'Representante', 'representative_role' => 'Cargo do representante',
+                'phone' => 'Telefone', 'email' => 'E-mail', 'status' => 'Situação', 'granting_party_id' => 'Concedente associada',
+                'reviewed_at' => 'Analisado em', 'decision_reason' => 'Motivo da decisão',
+            ],
+            (new EmancipationEvidence)->getMorphClass() => [
+                'internship_request_id' => 'Solicitação de estágio', 'status' => 'Situação', 'reviewed_at' => 'Analisado em',
+            ],
             (new Holiday)->getMorphClass() => ['date' => 'Data', 'name' => 'Nome', 'scope' => 'Escopo', 'state_code' => 'UF', 'city_id' => 'Cidade', 'origin' => 'Origem', 'is_manually_adjusted' => 'Ajuste manual', 'holiday_recurrence_id' => 'Recorrência', 'occurrence_year' => 'Ano da ocorrência'],
             (new HolidayRecurrence)->getMorphClass() => ['name' => 'Nome', 'city_id' => 'Cidade', 'month' => 'Mês', 'day' => 'Dia', 'starts_year' => 'Ano inicial', 'ends_year' => 'Ano final', 'notes' => 'Referência / observação'],
             (new Campus)->getMorphClass() => [
@@ -197,8 +248,8 @@ class AdministrativeActivityPresenter
 
             $changes[] = [
                 'field' => $label,
-                'before' => array_key_exists($field, $old) ? $this->value($field, $old[$field], $references) : 'Não registrado',
-                'after' => array_key_exists($field, $new) ? $this->value($field, $new[$field], $references) : 'Não registrado',
+                'before' => array_key_exists($field, $old) ? $this->value($field, $old[$field], $references, $activity->subject_type) : 'Não registrado',
+                'after' => array_key_exists($field, $new) ? $this->value($field, $new[$field], $references, $activity->subject_type) : 'Não registrado',
             ];
         }
 
@@ -212,6 +263,11 @@ class AdministrativeActivityPresenter
             'user_id' => ['model' => User::class, 'label' => 'Conta'],
             'campus_id' => ['model' => Campus::class, 'label' => 'Campus'],
             'course_id' => ['model' => Course::class, 'label' => 'Curso'],
+            'internship_type_id' => ['model' => InternshipType::class, 'label' => 'Tipo de estágio'],
+            'granting_party_id' => ['model' => GrantingParty::class, 'label' => 'Concedente'],
+            'affiliation_id' => ['model' => Affiliation::class, 'label' => 'Vínculo'],
+            'advisor_affiliation_id' => ['model' => Affiliation::class, 'label' => 'Vínculo'],
+            'supervisor_affiliation_id' => ['model' => Affiliation::class, 'label' => 'Vínculo'],
             'address_id' => ['model' => Address::class, 'label' => 'Endereço'],
             'city_id' => ['model' => City::class, 'label' => 'Cidade'],
             'primary_coordinator_affiliation_id' => ['model' => Affiliation::class, 'label' => 'Vínculo'],
@@ -268,7 +324,8 @@ class AdministrativeActivityPresenter
             if ($selected?->type === AffiliationType::InternshipOffice) {
                 match ($model) {
                     Campus::class => $query->whereKey($selected->campus_id),
-                    Course::class => $query->where('campus_id', $selected->campus_id),
+                    Course::class, GrantingParty::class => $query->where('campus_id', $selected->campus_id),
+                    InternshipType::class => $query->whereHas('course', fn (Builder $query) => $query->where('campus_id', $selected->campus_id)),
                     Affiliation::class => $query->where('campus_id', $selected->campus_id)->where('type', '!=', AffiliationType::SystemAdministrator->value),
                     User::class => $query->whereHas('affiliations', fn (Builder $query): Builder => $query
                         ->where('campus_id', $selected->campus_id)->where('type', '!=', AffiliationType::SystemAdministrator->value)),
@@ -315,7 +372,7 @@ class AdministrativeActivityPresenter
     }
 
     /** @param array<class-string<Model>, array<int, string>> $references */
-    private function value(string $field, mixed $value, array $references): string
+    private function value(string $field, mixed $value, array $references, ?string $subjectType = null): string
     {
         if ($value === null) {
             return 'Sem valor';
@@ -325,8 +382,44 @@ class AdministrativeActivityPresenter
             return 'Vazio';
         }
 
+        if (is_array($value)) {
+            return $this->structuredValue($field, $value);
+        }
+
         if (! is_scalar($value)) {
             return 'Valor não exibido';
+        }
+
+        if ($field === 'status') {
+            $status = match ($subjectType) {
+                (new InternshipRequest)->getMorphClass() => InternshipRequestStatus::tryFrom((string) $value),
+                (new InternshipRequestCorrection)->getMorphClass() => InternshipRequestCorrectionStatus::tryFrom((string) $value),
+                (new SupervisorRegistrationRequest)->getMorphClass(), (new GrantingPartyRegistrationRequest)->getMorphClass() => RegistrationRequestStatus::tryFrom((string) $value),
+                (new EmancipationEvidence)->getMorphClass() => EmancipationEvidenceStatus::tryFrom((string) $value),
+                default => null,
+            };
+
+            return $status?->label() ?? 'Situação não reconhecida';
+        }
+
+        if ($field === 'education_level') {
+            return EducationLevel::tryFrom((string) $value)?->label() ?? 'Nível não reconhecido';
+        }
+
+        if ($field === 'legal_capacity_declaration') {
+            return LegalCapacityDeclaration::tryFrom((string) $value)?->label() ?? 'Declaração não reconhecida';
+        }
+
+        if (in_array($field, ['grant_value', 'transportation_allowance'], true)) {
+            return is_numeric($value) ? formatCurrency((float) $value) : 'Valor não exibido';
+        }
+
+        if (in_array($field, ['planned_start_date', 'projected_end_date'], true)) {
+            return formatShort((string) $value);
+        }
+
+        if (in_array($field, ['terms_accepted_at', 'reviewed_at', 'responded_at', 'resolved_at'], true)) {
+            return formatDateTime((string) $value);
         }
 
         $reference = $this->referenceFields()[$field] ?? null;
@@ -359,5 +452,39 @@ class AdministrativeActivityPresenter
         }
 
         return (string) $value;
+    }
+
+    /** @param array<string|int, mixed> $value */
+    private function structuredValue(string $field, array $value): string
+    {
+        if ($value === []) {
+            return 'Nenhum item';
+        }
+
+        if ($field === 'affected_sections') {
+            return collect($value)->filter(fn (mixed $section): bool => is_string($section))
+                ->map(fn (string $section): string => InternshipRequestCorrection::sectionLabel($section))->implode('; ');
+        }
+
+        if ($field === 'section_messages') {
+            return collect($value)->filter(fn (mixed $message): bool => is_string($message))
+                ->map(fn (string $message, int|string $section): string => InternshipRequestCorrection::sectionLabel((string) $section).': '.$message)->implode('; ');
+        }
+
+        if ($field === 'weekly_hours') {
+            $days = ['sunday' => 'Domingo', 'monday' => 'Segunda-feira', 'tuesday' => 'Terça-feira', 'wednesday' => 'Quarta-feira',
+                'thursday' => 'Quinta-feira', 'friday' => 'Sexta-feira', 'saturday' => 'Sábado'];
+
+            return collect($days)->filter(fn (string $label, string $day): bool => array_key_exists($day, $value))
+                ->map(fn (string $label, string $day): string => $label.': '.$value[$day].' h')->implode('; ');
+        }
+
+        if ($field === 'planned_pauses') {
+            return collect($value)->filter(fn (mixed $pause): bool => is_array($pause))
+                ->map(fn (array $pause): string => formatShort($pause['starts_at'] ?? null).' a '.formatShort($pause['ends_at'] ?? null)
+                    .(filled($pause['reason'] ?? null) ? ' — '.$pause['reason'] : ''))->implode('; ');
+        }
+
+        return 'Valor não exibido';
     }
 }

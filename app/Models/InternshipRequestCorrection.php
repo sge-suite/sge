@@ -87,7 +87,7 @@ class InternshipRequestCorrection extends Model
             }
 
             $status = $correction->status;
-            $validator = Validator::make([...$correction->getAttributes(), 'affected_sections' => $correction->affected_sections], [
+            $validator = Validator::make([...$correction->getAttributes(), 'affected_sections' => $correction->affected_sections, 'section_messages' => $correction->section_messages], [
                 'internship_request_id' => ['required', 'integer', Rule::exists(InternshipRequest::class, 'id')],
                 'message' => ['required', 'string'],
                 'general_message' => ['nullable', 'string', 'max:5000'],

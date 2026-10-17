@@ -6,6 +6,7 @@ use App\Models\Address;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\GrantingParty;
+use App\Models\InternshipRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +25,12 @@ class ActivityHistory
     public function forSubject(Model $subject, Builder $query): LengthAwarePaginator
     {
         $query->where(function (Builder $query) use ($subject): void {
+            if ($subject instanceof InternshipRequest) {
+                app(InternshipRequestActivityScope::class)->apply($query, $subject->affiliation->campus_id, $subject->id);
+
+                return;
+            }
+
             if ($subject instanceof User) {
                 $query->where(function (Builder $query) use ($subject): void {
                     $query->where('subject_type', $subject->getMorphClass())

@@ -27,6 +27,8 @@ class CampusActivityScope
     {
         return $query->where(function (Builder $query) use ($campusId, $actor): void {
             $query->where(function (Builder $query) use ($campusId): void {
+                app(InternshipRequestActivityScope::class)->apply($query, $campusId);
+            })->orWhere(function (Builder $query) use ($campusId): void {
                 $query->where('subject_type', (new Campus)->getMorphClass())->where('subject_id', $campusId);
             })->orWhere(function (Builder $query) use ($campusId): void {
                 $query->where('subject_type', (new Course)->getMorphClass());

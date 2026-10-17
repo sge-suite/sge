@@ -7,16 +7,22 @@ use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\GrantingParty;
 use App\Models\InternshipRequest;
+use App\Support\ActivityAccess;
+use App\Support\ActivityHistory;
 use App\Support\StudentInternshipContext;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('Análise da solicitação de estágio')] class extends Component
 {
+    use WithPagination;
+
     #[Locked] public int $requestId;
     #[Locked] public int $affiliationId;
     public string $message = '';
@@ -65,6 +71,16 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         return $request;
     }
 
+    /** @return LengthAwarePaginator<int, array{id: int, actor: string, subject: string, event: string, occurred_at: string}>|null */
+    #[Computed]
+    public function activityHistory(): ?LengthAwarePaginator
+    {
+        Gate::authorize('review', $this->record);
+        $query = app(ActivityAccess::class)->forCurrentContext(Auth::user(), app('session.store'));
+
+        return $query === null ? null : app(ActivityHistory::class)->forSubject($this->record, $query);
+    }
+
     #[Computed]
     public function choices(): array
     {
@@ -84,7 +100,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     public function decide(string $operation, ReviewInternshipRequest $action): void
     {
         $result = $action->handle(Auth::user(), $this->record, $operation, $this->message, $this->sections, $this->advisorId, $this->supervisorQualificationId, $this->sectionMessages);
-        unset($this->record, $this->choices);
+        unset($this->record, $this->choices, $this->activityHistory);
         \Flux\Flux::toast($operation === 'accept' ? 'Solicitação aceita. Estágio nº '.$result->internship_id.' em formalização.' : 'Decisão registrada.', variant: 'success');
     }
 
@@ -124,7 +140,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
             return;
         }
         $action->handle(Auth::user(), $this->record, $kind, $approve ? $id : null, $this->message ?: null);
-        unset($this->record, $this->choices);
+        unset($this->record, $this->choices, $this->activityHistory);
         \Flux\Flux::toast('Análise do cadastro registrada. Os dados propostos foram preservados.', variant: 'success');
     }
 
@@ -133,7 +149,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         $evidence = $this->record->emancipationEvidences->firstWhere('id', $id);
         abort_if($evidence === null, 404);
         $action->handle(Auth::user(), $evidence, $approve, $this->evidenceReason ?: null);
-        unset($this->record, $this->choices);
+        unset($this->record, $this->choices, $this->activityHistory);
         \Flux\Flux::toast('Análise do comprovante registrada.', variant: 'success');
     }
 }; ?>
@@ -240,4 +256,5 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     @else
         <flux:callout>O campus está desativado. A solicitação está disponível somente para consulta.</flux:callout>
     @endif
+    <x-audit.activity-history :activities="$this->activityHistory" description="Alterações na solicitação, correções, pedidos de cadastro e decisões sobre emancipação. Selecione um evento para conferir os valores registrados." />
 </div>
