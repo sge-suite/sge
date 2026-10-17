@@ -40,7 +40,7 @@ class UserController extends Controller
 
             return redirect()->route('users.show', $affiliation->user_id)->with('status', 'Vínculo cadastrado com sucesso. Os avisos foram enfileirados.');
         }
-        $affiliation = $create->handle($request->safe()->except('consulted_cpf'), $request->user());
+        $affiliation = $create->handle($request->administrativeCreationData(), $request->user());
 
         return redirect()->route('users.show', $affiliation->user_id)->with('status', 'Vínculo administrativo cadastrado com sucesso. Os avisos foram enfileirados.');
     }

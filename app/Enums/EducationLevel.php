@@ -5,7 +5,7 @@ namespace App\Enums;
 enum EducationLevel: string
 {
     case SecondaryTechnical = 'secondary_technical';
-    case UndergraduateTechnologist = 'undergraduate_technologist';
+    case Undergraduate = 'undergraduate';
     case Specialization = 'specialization';
     case Masters = 'masters';
     case Doctorate = 'doctorate';
@@ -14,7 +14,7 @@ enum EducationLevel: string
     {
         return match ($this) {
             self::SecondaryTechnical => 'Médio/Técnico',
-            self::UndergraduateTechnologist => 'Graduação/Tecnólogo',
+            self::Undergraduate => 'Graduação',
             self::Specialization => 'Especialização',
             self::Masters => 'Mestrado',
             self::Doctorate => 'Doutorado',

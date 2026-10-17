@@ -28,7 +28,7 @@ trait CampusAffiliationValidationRules
         return [
             'email' => $this->administrativeAffiliationEditableRules($user)['email'],
             'registration_number' => $registrationRules,
-            ...array_map(fn (array $rules): array => [Rule::prohibitedIf(! $isSupervisor), ...$rules], $this->supervisorProfessionalReferenceRules()),
+            ...array_map(fn (array $rules): array => [Rule::prohibitedIf(! $isSupervisor), ...$rules], $this->supervisorProfileRules()),
         ];
     }
 
@@ -46,7 +46,7 @@ trait CampusAffiliationValidationRules
             'course_id' => ['bail', 'required_if:type,student', 'prohibited_unless:type,student', 'nullable', 'integer', Rule::exists(Course::class, 'id')->where('campus_id', $campusId)->whereNull('deactivated_at')],
             'email' => $this->administrativeAffiliationEditableRules($user)['email'],
             'registration_number' => $registrationRules,
-            ...array_map(fn (array $rules): array => ['prohibited_unless:type,supervisor', ...$rules], $this->supervisorProfessionalReferenceRules()),
+            ...array_map(fn (array $rules): array => ['prohibited_unless:type,supervisor', ...$rules], $this->supervisorProfileRules()),
         ];
     }
 }

@@ -17,9 +17,9 @@ class UpdateAdministrativeAffiliation
 {
     use CampusAffiliationValidationRules;
 
-    public function __construct(private AdministrativeAffiliationTransaction $transaction, private RequestEmailDelivery $emailDelivery) {}
+    public function __construct(private AdministrativeAffiliationTransaction $transaction, private RequestEmailDelivery $emailDelivery, private SyncSupervisorQualifications $qualifications) {}
 
-    /** @param array{email?: string, registration_number?: string|null, job_role?: string|null, training_course?: string|null, education_level?: string|null, experience_time?: string|null, current_password?: string, confirmed?: mixed} $data */
+    /** @param array{email?: string, registration_number?: string|null, job_role?: string|null, phone?: string|null, qualifications?: array<array-key, array<string, mixed>>, current_password?: string, confirmed?: mixed} $data */
     public function handle(User $actor, User $target, Affiliation $affiliation, string $operation, array $data): Affiliation
     {
         abort_unless(in_array($operation, ['update', 'deactivate', 'delete', 'reactivate'], true), 404);
@@ -47,10 +47,13 @@ class UpdateAdministrativeAffiliation
                     : $this->administrativeAffiliationEditableRules($user);
                 $data = Validator::make($data, $rules)->validate();
                 $affiliation->update(collect($data)->only(['email', 'registration_number'])->all());
-                $professionalData = collect($data)->only(['job_role', 'training_course', 'education_level', 'experience_time']);
+                $professionalData = collect($data)->only(['job_role', 'phone']);
                 if ($affiliation->type === AffiliationType::Supervisor && $professionalData->isNotEmpty()
                     && ($professionalData->contains(fn (mixed $value): bool => filled($value)) || $user->personalData()->exists())) {
                     $user->personalData()->updateOrCreate([], $professionalData->all());
+                }
+                if ($affiliation->type === AffiliationType::Supervisor && array_key_exists('qualifications', $data)) {
+                    $this->qualifications->handle($user, $data['qualifications']);
                 }
             } elseif (in_array($operation, ['deactivate', 'delete'], true)) {
                 $confirmation = Validator::make($data, ['confirmed' => ['accepted'], 'current_password' => ['required', 'string']])->validate();

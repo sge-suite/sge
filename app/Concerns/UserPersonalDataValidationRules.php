@@ -22,7 +22,7 @@ trait UserPersonalDataValidationRules
             'rg_issue_date' => ['nullable', 'date', 'before_or_equal:today', 'required_with:rg,rg_issuer'],
             'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
             'phone' => ['nullable', 'string', 'max:255'],
-            ...$this->supervisorProfessionalReferenceRules(),
+            'job_role' => ['nullable', 'string', 'max:255'],
             'address_id' => ['nullable', 'integer', Rule::exists(Address::class, 'id')],
         ];
     }

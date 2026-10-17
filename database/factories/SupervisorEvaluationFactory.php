@@ -60,7 +60,7 @@ class SupervisorEvaluationFactory extends Factory
             'status' => EvaluationStatus::Submitted,
             'has_academic_background' => true,
             'training_course' => 'Tecnologia em Sistemas',
-            'education_level' => EducationLevel::UndergraduateTechnologist,
+            'education_level' => EducationLevel::Undergraduate,
             'job_role' => 'Supervisor de estágio',
             'experience_time' => null,
             'hours_requirement_met' => true,

@@ -20,7 +20,7 @@ class UpdateOwnPersonalData
 {
     use OwnPersonalDataValidationRules;
 
-    public function __construct(private ActiveAffiliationContext $context, private CauserResolver $causerResolver) {}
+    public function __construct(private ActiveAffiliationContext $context, private CauserResolver $causerResolver, private SyncSupervisorQualifications $qualifications) {}
 
     /** @param array<string, mixed> $data */
     public function handle(User $actor, int $expectedAffiliationId, array $data): UserPersonalData
@@ -44,7 +44,7 @@ class UpdateOwnPersonalData
             $inputValidator->after(fn (LaravelValidator $validator) => $this->validateOwnPersonalDataFields($validator, $data, $affiliation->type));
             $input = $inputValidator->validate();
 
-            $candidate = $personalData->only($this->ownPersonalDataFields($affiliation->type));
+            $candidate = $personalData->only(array_diff($this->ownPersonalDataFields($affiliation->type), ['qualifications']));
             foreach (['rg_issue_date', 'birth_date'] as $field) {
                 if (array_key_exists($field, $candidate)) {
                     $candidate[$field] = $personalData->{$field}?->toDateString();
@@ -59,8 +59,8 @@ class UpdateOwnPersonalData
             $candidate = $this->normalizeOwnPersonalData($candidate);
             $validated = Validator::make($candidate, $this->ownPersonalDataRules($affiliation->type, partial: false), attributes: $this->ownPersonalDataAttributes())->validate();
 
-            return $this->causerResolver->withCauser($affiliation, function () use ($personalData, $validated, $input, $address): UserPersonalData {
-                $personalData->fill(collect($validated)->only(array_keys($input))->except('address')->all());
+            return $this->causerResolver->withCauser($affiliation, function () use ($personalData, $validated, $input, $address, $user): UserPersonalData {
+                $personalData->fill(collect($validated)->only(array_keys($input))->except(['address', 'qualifications'])->all());
                 if (array_key_exists('address', $input)) {
                     $addressData = $validated['address'];
                     if ($addressData === null) {
@@ -85,6 +85,10 @@ class UpdateOwnPersonalData
                 if ($address !== null && $address->id !== $personalData->address_id && ! $address->hasReferences()) {
                     $address->auditOwners = [['type' => $personalData->getMorphClass(), 'id' => $personalData->id, 'name' => '', 'campus_id' => null]];
                     $address->delete();
+                }
+
+                if (array_key_exists('qualifications', $input)) {
+                    $this->qualifications->handle($user, $validated['qualifications']);
                 }
 
                 return $personalData;

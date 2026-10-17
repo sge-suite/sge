@@ -26,9 +26,10 @@ class CreateCampusAffiliation
         private CauserResolver $causerResolver,
         private AdministrativeAffiliationTransaction $transaction,
         private RequestEmailDelivery $emailDelivery,
+        private SyncSupervisorQualifications $qualifications,
     ) {}
 
-    /** @param array{cpf?: string, name?: string|null, email: string, type: string, campus_id?: int|string|null, course_id?: int|string|null, registration_number?: string|null, job_role?: string|null, training_course?: string|null, education_level?: string|null, experience_time?: string|null} $data */
+    /** @param array{cpf?: string, name?: string|null, email: string, type: string, campus_id?: int|string|null, course_id?: int|string|null, registration_number?: string|null, job_role?: string|null, phone?: string|null, qualifications?: array<array-key, array<string, mixed>>} $data */
     public function handle(User $actor, array $data, ?User $target = null): Affiliation
     {
         Gate::forUser($actor)->authorize('createOnCampus', User::class);
@@ -80,9 +81,12 @@ class CreateCampusAffiliation
                     'registration_number' => $type === AffiliationType::Supervisor ? null : ($data['registration_number'] ?? null),
                     'email' => $data['email'],
                 ]);
-                $professionalData = collect($data)->only(['job_role', 'training_course', 'education_level', 'experience_time'])->filter(fn (mixed $value): bool => filled($value))->all();
+                $professionalData = collect($data)->only(['job_role', 'phone'])->filter(fn (mixed $value): bool => filled($value))->all();
                 if ($type === AffiliationType::Supervisor && $professionalData !== []) {
                     $user->personalData()->updateOrCreate([], $professionalData);
+                }
+                if ($type === AffiliationType::Supervisor && array_key_exists('qualifications', $data)) {
+                    $this->qualifications->handle($user, $data['qualifications']);
                 }
                 if ($isNewAccount) {
                     $this->emailDelivery->accountCreated($user->email, (string) Str::uuid(), $affiliation);

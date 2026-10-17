@@ -50,10 +50,16 @@ class User extends Authenticatable
         return ['id' => $this->id, 'name' => $this->name];
     }
 
-    /** @param Builder<User> $query */
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     protected function makeAllSearchableUsing(Builder $query): Builder
     {
-        return $query->whereHas('affiliations', fn (Builder $query) => $query->administrative());
+        return $query->whereHas('affiliations', function (Builder $query): void {
+            /** @var Builder<Affiliation> $query */
+            $query->administrative();
+        });
     }
 
     public function getActivitylogOptions(): LogOptions
@@ -117,6 +123,12 @@ class User extends Authenticatable
     public function affiliations(): HasMany
     {
         return $this->hasMany(Affiliation::class);
+    }
+
+    /** @return HasMany<SupervisorQualification, $this> */
+    public function supervisorQualifications(): HasMany
+    {
+        return $this->hasMany(SupervisorQualification::class)->orderBy('id');
     }
 
     public function hasLinkedRecords(): bool

@@ -15,6 +15,7 @@ use LaravelLegends\PtBrValidator\Rules\Cpf;
 
 new class extends Component
 {
+    use \App\Concerns\InteractsWithSupervisorQualifications;
     #[Locked]
     public ?int $activeAffiliationId = null;
 
@@ -38,9 +39,7 @@ new class extends Component
     public string $registrationSourceId = '';
     public string $courseId = '';
     public string $jobRole = '';
-    public string $trainingCourse = '';
-    public string $educationLevel = '';
-    public string $experienceTime = '';
+    public string $phone = '';
 
     public function boot(): void
     {
@@ -78,11 +77,48 @@ new class extends Component
         $this->courseId = $value('course_id');
         $professionalData = $affiliation?->type === AffiliationType::Supervisor ? $user?->personalData : null;
         $this->jobRole = $value('job_role', $professionalData?->job_role ?? '');
-        $this->trainingCourse = $value('training_course', $professionalData?->training_course ?? '');
-        $this->educationLevel = $value('education_level', $professionalData?->education_level?->value ?? '');
-        $this->experienceTime = $value('experience_time', $professionalData?->experience_time ?? '');
+        $this->phone = $value('phone', filled($professionalData?->phone) ? \App\Helpers\BrazilianContactHelper::formatPhone($professionalData->phone) : '');
+        $this->loadSupervisorQualifications($user);
         if ($user !== null || (old('consulted_cpf') !== null && old('consulted_cpf') === DigitsHelper::only($this->cpf))) {
             $this->consultedCpf = DigitsHelper::only($this->cpf);
+        }
+        if ($user === null && $affiliation === null && request()->has('internship_request')) {
+            $this->prefillFromInternshipRequest();
+        }
+    }
+
+    private function prefillFromInternshipRequest(): void
+    {
+        Gate::authorize('createOnCampus', User::class);
+        $data = request()->validate(['internship_request' => ['required', 'integer', 'min:1']]);
+        $request = \App\Models\InternshipRequest::query()->with('supervisorRegistrationRequest')->findOrFail($data['internship_request']);
+        Gate::authorize('review', $request);
+        abort_unless(in_array($request->status->value, ['submitted', 'under_review', 'pending_correction'], true), 409);
+        $proposal = $request->supervisorRegistrationRequest;
+        abort_unless($proposal !== null && in_array($proposal->status->value, ['submitted', 'under_review'], true), 409);
+        if (session()->hasOldInput()) {
+            return;
+        }
+
+        $this->cpf = $proposal->cpf;
+        $this->lookupCpf();
+        $this->type = AffiliationType::Supervisor->value;
+        $this->name = $this->account?->name ?? $proposal->name;
+        $this->email = $proposal->email;
+        $this->phone = \App\Helpers\BrazilianContactHelper::formatPhone($proposal->phone);
+        $this->jobRole = $proposal->job_role;
+        $qualification = [
+            'type' => $proposal->has_academic_background ? 'academic' : 'professional',
+            'training_course' => $proposal->training_course ?? '',
+            'education_level' => $proposal->education_level?->value ?? '',
+            'experience_area' => $proposal->has_academic_background ? '' : $proposal->job_role,
+            'experience_time' => $proposal->experience_time ?? '',
+        ];
+        $alreadyStored = collect($this->qualifications)->contains(fn (array $row): bool => collect($qualification)
+            ->every(fn (mixed $value, string $field): bool => ($row[$field] ?? '') === $value));
+        if (! $alreadyStored && count($this->qualifications) < 25) {
+            $this->addSupervisorQualification($qualification['type']);
+            $this->qualifications[array_key_last($this->qualifications)] = ['id' => null, ...$qualification];
         }
     }
 
@@ -94,9 +130,8 @@ new class extends Component
         $this->registrationSourceId = '';
         $this->registrationNumber = '';
         $this->jobRole = '';
-        $this->trainingCourse = '';
-        $this->educationLevel = '';
-        $this->experienceTime = '';
+        $this->phone = '';
+        $this->qualifications = [];
         $this->resetValidation();
         unset($this->account);
     }
@@ -106,13 +141,15 @@ new class extends Component
         $this->campusId = '';
         $this->courseId = '';
         if ($this->type === AffiliationType::Supervisor->value) {
+            $this->loadSupervisorQualifications($this->account);
+            $this->jobRole = $this->account?->personalData?->job_role ?? '';
+            $this->phone = filled($this->account?->personalData?->phone) ? \App\Helpers\BrazilianContactHelper::formatPhone($this->account->personalData->phone) : '';
             $this->registrationNumber = '';
             $this->registrationSourceId = '';
         } else {
             $this->jobRole = '';
-            $this->trainingCourse = '';
-            $this->educationLevel = '';
-            $this->experienceTime = '';
+            $this->phone = '';
+            $this->qualifications = [];
         }
     }
 
@@ -124,6 +161,9 @@ new class extends Component
         $this->consultedCpf = $this->cpf;
         unset($this->account);
         $this->email = $this->account?->email ?? $this->email;
+        $this->jobRole = $this->account?->personalData?->job_role ?? '';
+        $this->phone = filled($this->account?->personalData?->phone) ? \App\Helpers\BrazilianContactHelper::formatPhone($this->account->personalData->phone) : '';
+        $this->loadSupervisorQualifications($this->account);
     }
 
     #[Computed]
@@ -286,9 +326,9 @@ new class extends Component
                 <flux:input name="registration_number" required label="Matrícula" wire:model="registrationNumber" :value="$registrationNumber" maxlength="255" error:name="registration_number" />
             @elseif ($this->campusRegistration)
                 <flux:text size="sm">Supervisor não possui matrícula. Os dados profissionais são opcionais e poderão ser preenchidos ou confirmados posteriormente.</flux:text>
+                <flux:input name="phone" wire:model="phone" :value="$phone" label="Telefone com DDD" placeholder="(00) 00000-0000" maxlength="20" error:name="phone" />
                 <x-supervisor.professional-fields
-                    :values="['job_role' => $jobRole, 'training_course' => $trainingCourse, 'education_level' => $educationLevel, 'experience_time' => $experienceTime]"
-                    :models="['job_role' => 'jobRole', 'training_course' => 'trainingCourse', 'education_level' => 'educationLevel', 'experience_time' => 'experienceTime']"
+                    :values="['job_role' => $jobRole]" :models="['job_role' => 'jobRole']" :qualifications="$qualifications"
                 />
             @endif
         </section>

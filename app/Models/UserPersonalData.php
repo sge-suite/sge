@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Casts\PhoneCast;
 use App\Concerns\HasOwnedAddresses;
 use App\Concerns\UserPersonalDataValidationRules;
-use App\Enums\EducationLevel;
 use Database\Factories\UserPersonalDataFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -26,9 +25,6 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property Carbon|null $birth_date
  * @property string|null $phone
  * @property string|null $job_role
- * @property string|null $training_course
- * @property EducationLevel|null $education_level
- * @property string|null $experience_time
  * @property int|null $address_id
  * @property Carbon|null $emancipation_verified_at
  * @property Carbon|null $created_at
@@ -36,8 +32,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property-read User $user
  * @property-read Address|null $address
  */
-#[Fillable(['user_id', 'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'training_course', 'education_level', 'experience_time', 'address_id'])]
-#[Hidden(['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'training_course', 'education_level', 'experience_time', 'emancipation_verified_at'])]
+#[Fillable(['user_id', 'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'address_id'])]
+#[Hidden(['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'emancipation_verified_at'])]
 class UserPersonalData extends Model
 {
     /** @use HasFactory<UserPersonalDataFactory> */
@@ -70,9 +66,6 @@ class UserPersonalData extends Model
             'birth_date' => 'date',
             'phone' => PhoneCast::class,
             'job_role' => 'string',
-            'training_course' => 'string',
-            'education_level' => EducationLevel::class,
-            'experience_time' => 'string',
             'emancipation_verified_at' => 'datetime',
         ];
     }
@@ -91,7 +84,7 @@ class UserPersonalData extends Model
 
     protected function nullifyBlankOptionalValues(): void
     {
-        foreach (['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'training_course', 'education_level', 'experience_time', 'address_id'] as $attribute) {
+        foreach (['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'address_id'] as $attribute) {
             if (blank($this->getAttributes()[$attribute] ?? null)) {
                 $this->{$attribute} = null;
             }

@@ -20,7 +20,7 @@ trait OwnPersonalDataValidationRules
     {
         return match ($type) {
             AffiliationType::Student => ['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone'],
-            AffiliationType::Supervisor => [...array_keys($this->supervisorProfessionalReferenceRules()), 'phone'],
+            AffiliationType::Supervisor => ['job_role', 'qualifications', 'phone'],
             default => [],
         };
     }
@@ -30,7 +30,7 @@ trait OwnPersonalDataValidationRules
     {
         $rules = [];
         foreach ($this->ownPersonalDataFields($type) as $field) {
-            $fieldRules = $this->userPersonalDataRules()[$field];
+            $fieldRules = ($this->userPersonalDataRules() + $this->supervisorProfileQualificationRules())[$field];
             if ($partial) {
                 $fieldRules = array_values(array_filter($fieldRules, fn (mixed $rule): bool => ! is_string($rule) || ! str_starts_with($rule, 'required_with:')));
             }
@@ -57,7 +57,7 @@ trait OwnPersonalDataValidationRules
             }
         }
 
-        return $rules;
+        return $type === AffiliationType::Supervisor ? $rules + $this->supervisorProfileQualificationRules() : $rules;
     }
 
     /**
@@ -78,7 +78,7 @@ trait OwnPersonalDataValidationRules
             }
         }
 
-        return $data;
+        return $this->normalizeSupervisorProfessionalReference($data);
     }
 
     /**
@@ -105,6 +105,6 @@ trait OwnPersonalDataValidationRules
             'training_course' => 'curso de formação', 'education_level' => 'nível', 'experience_time' => 'tempo de experiência na função',
             'address' => 'endereço', 'address.city_id' => 'cidade', 'address.street' => 'logradouro',
             'address.number' => 'número', 'address.neighborhood' => 'bairro', 'address.zip_code' => 'CEP',
-        ];
+        ] + $this->supervisorQualificationAttributes();
     }
 }

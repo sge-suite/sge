@@ -25,7 +25,7 @@ class AdministrativeAffiliationController extends Controller
             return redirect()->route('users.show', $user)->with('status', 'Vínculo cadastrado com sucesso.');
         }
 
-        $create->handle($request->validated(), $request->user(), $user);
+        $create->handle($request->administrativeCreationData(), $request->user(), $user);
 
         return redirect()->route('users.show', $user)->with('status', 'Vínculo administrativo cadastrado com sucesso.');
     }

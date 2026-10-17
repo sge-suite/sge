@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\OwnPersonalDataValidationRules;
+use App\Concerns\InteractsWithSupervisorQualifications;
 use App\Concerns\InteractsWithAddressLookup;
 use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\BrazilianContactHelper;
@@ -15,6 +16,7 @@ use Livewire\Component;
 new #[Title('Dados pessoais')] class extends Component
 {
     use OwnPersonalDataValidationRules;
+    use InteractsWithSupervisorQualifications;
     use InteractsWithAddressLookup;
 
     #[Locked]
@@ -37,7 +39,7 @@ new #[Title('Dados pessoais')] class extends Component
         $this->ownerId = $user->id;
         $this->affiliationId = $affiliation->id;
         $personalData = $user->personalData()->with('address')->first();
-        foreach ($this->ownPersonalDataFields($affiliation->type) as $field) {
+        foreach (array_diff($this->ownPersonalDataFields($affiliation->type), ['qualifications']) as $field) {
             $value = $personalData?->{$field};
             if (in_array($field, ['rg_issue_date', 'birth_date'], true)) {
                 $value = $value?->toDateString();
@@ -48,6 +50,9 @@ new #[Title('Dados pessoais')] class extends Component
             }
             $oldValue = old($field, $value);
             $this->values[$field] = is_scalar($oldValue) ? (string) $oldValue : '';
+        }
+        if ($user->can('updateProfessionalData', UserPersonalData::class)) {
+            $this->loadSupervisorQualifications($user);
         }
         if ($user->can('updateStudentData', UserPersonalData::class)) {
             $address = $personalData?->address;
@@ -110,7 +115,7 @@ new #[Title('Dados pessoais')] class extends Component
                     <flux:text size="sm">Ao informar o RG, preencha também o órgão emissor e a data de emissão. Para limpar o RG, deixe os três campos vazios.</flux:text>
                     <div class="grid items-start gap-5 sm:grid-cols-2">
                         <flux:input name="rg" wire:model="values.rg" :value="$values['rg']" error:name="rg" label="RG" maxlength="255" />
-                        <flux:input name="rg_issuer" wire:model="values.rg_issuer" :value="$values['rg_issuer']" error:name="rg_issuer" label="Órgão emissor" maxlength="255" />
+                        <flux:input name="rg_issuer" wire:model="values.rg_issuer" :value="$values['rg_issuer']" error:name="rg_issuer" label="Órgão emissor" placeholder="SSP/RS" maxlength="255" />
                         <flux:input name="rg_issue_date" wire:model="values.rg_issue_date" :value="$values['rg_issue_date']" error:name="rg_issue_date" label="Data de emissão do RG" type="date" />
                         <flux:input name="birth_date" wire:model="values.birth_date" :value="$values['birth_date']" error:name="birth_date" label="Data de nascimento" type="date" autocomplete="bday" />
                     </div>
@@ -134,7 +139,7 @@ new #[Title('Dados pessoais')] class extends Component
                 <flux:separator />
                 <section aria-labelledby="supervisor-professional-heading" class="space-y-4">
                     <flux:heading id="supervisor-professional-heading" level="2" size="lg">Dados profissionais do supervisor</flux:heading>
-                    <x-supervisor.professional-fields :values="$values" />
+                    <x-supervisor.professional-fields :values="$values" :qualifications="$qualifications" />
                 </section>
             @endcan
 

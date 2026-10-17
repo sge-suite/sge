@@ -20,12 +20,20 @@ return new class extends Migration
             $table->date('birth_date')->nullable();
             $table->string('phone')->nullable();
             $table->string('job_role')->nullable();
-            $table->string('training_course')->nullable();
-            $table->string('education_level')->nullable();
-            $table->string('experience_time')->nullable();
             $table->foreignId('address_id')->nullable()->index()->constrained()->restrictOnDelete();
             $table->timestamp('emancipation_verified_at')->nullable();
             $table->timestamps();
+        });
+        Schema::create('supervisor_qualifications', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('type');
+            $table->string('training_course')->nullable();
+            $table->string('education_level')->nullable();
+            $table->string('experience_area')->nullable();
+            $table->string('experience_time')->nullable();
+            $table->timestamps();
+            $table->index(['user_id', 'type']);
         });
     }
 
@@ -34,6 +42,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('supervisor_qualifications');
         Schema::dropIfExists('user_personal_data');
     }
 };
