@@ -28,7 +28,7 @@ class InternshipFactory extends Factory
             'course_id' => Course::factory(),
             'student_affiliation_id' => fn (array $attributes): int => Affiliation::factory()->student()->create([
                 'course_id' => $attributes['course_id'],
-                'campus_id' => Course::findOrFail($attributes['course_id'])->campus_id,
+                'campus_id' => Course::query()->whereKey($attributes['course_id'])->firstOrFail()->campus_id,
             ])->id,
             'advisor_affiliation_id' => Affiliation::factory()->state(['type' => AffiliationType::Advisor]),
             'supervisor_affiliation_id' => Affiliation::factory()->supervisor(),
@@ -37,7 +37,7 @@ class InternshipFactory extends Factory
                 'course_id' => $attributes['course_id'],
             ])->id,
             'granting_party_id' => fn (array $attributes): int => GrantingParty::factory()->create([
-                'campus_id' => Course::findOrFail($attributes['course_id'])->campus_id,
+                'campus_id' => Course::query()->whereKey($attributes['course_id'])->firstOrFail()->campus_id,
             ])->id,
             'workplace_address_id' => Address::factory(),
             'student_snapshot' => ['name' => fake()->name(), 'student_year_semester' => '2026/2'],

@@ -15,6 +15,14 @@
                     Painel
                 </flux:sidebar.item>
 
+                @can('viewAny', \App\Models\InternshipRequest::class)
+                    <flux:sidebar.item :href="route('internship-requests.index')" :current="request()->routeIs('internship-requests.*')" wire:navigate>Minhas solicitações</flux:sidebar.item>
+                @endcan
+
+                @can('viewReviewList', \App\Models\InternshipRequest::class)
+                    <flux:sidebar.item icon="clipboard-document-check" :href="route('internship-review.index')" :current="request()->routeIs('internship-review.*')" wire:navigate>Solicitações de estágio</flux:sidebar.item>
+                @endcan
+
                 @if (auth()->user()->can('viewAdministration', \App\Models\Campus::class)
                     || auth()->user()->can('viewOwn', \App\Models\Campus::class)
                     || auth()->user()->can('viewAny', \App\Models\User::class)

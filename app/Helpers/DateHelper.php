@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Helpers;
 
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
+use Carbon\Exceptions\InvalidFormatException;
 use DateTimeInterface;
 use Illuminate\Support\Str;
 
@@ -62,6 +64,26 @@ final class DateHelper
         }
 
         return Str::title(self::parse($date)->isoFormat('MMMM YYYY'));
+    }
+
+    public static function isAdult(?string $birthDate, ?DateTimeInterface $onDate = null): ?bool
+    {
+        if (blank($birthDate)) {
+            return null;
+        }
+
+        $timezone = config('app.timezone');
+        $reference = ($onDate === null ? CarbonImmutable::now($timezone) : CarbonImmutable::instance($onDate)->setTimezone($timezone))->startOfDay();
+        try {
+            $birth = CarbonImmutable::createFromFormat('!Y-m-d', $birthDate, $timezone);
+        } catch (InvalidFormatException) {
+            return null;
+        }
+        if ($birth === null || $birth->toDateString() !== $birthDate || $birth->isAfter($reference)) {
+            return null;
+        }
+
+        return $birth->addYears(18)->lessThanOrEqualTo($reference);
     }
 
     private static function parse(string|DateTimeInterface $date): Carbon

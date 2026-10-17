@@ -27,7 +27,7 @@ class SupervisorRegistrationRequestFactory extends Factory
             'job_role' => 'Supervisora de estágio',
             'has_academic_background' => true,
             'training_course' => 'Administração',
-            'education_level' => EducationLevel::UndergraduateTechnologist,
+            'education_level' => EducationLevel::Undergraduate,
             'experience_time' => null,
             'status' => RegistrationRequestStatus::Draft,
             'supervisor_affiliation_id' => null,

@@ -1,5 +1,5 @@
 @props([
-    'label', 'options' => [], 'name' => '', 'value' => '', 'selectedLabel' => '',
+    'label', 'options' => [], 'name' => '', 'value' => '', 'selectedLabel' => '', 'searchModel' => null,
     'placeholder' => 'Selecione uma opção', 'searchable' => false,
     'disabled' => false, 'required' => false, 'invalid' => false, 'error' => '', 'openOnMount' => false,
     'empty' => 'Nenhuma opção encontrada.',
@@ -8,11 +8,11 @@
 
 @php($selectId = $attributes->get('id') ?? 'select-'.md5($name.$label.$attributes->wire('model')->value()))
 
-<flux:field class="w-full min-w-0">
+<flux:field class="w-full min-w-0" :wire:key="($attributes->get('wire:key') ?? $selectId).'-'.md5((string) $value)">
     <flux:label :for="$selectId" :required="$required" :class="$disabled ? '' : 'opacity-100!'">{{ $label }}</flux:label>
     <div
         {{ $attributes->whereStartsWith(['wire:model', 'x-model']) }}
-        {{ $attributes->only(['wire:key', 'class'])->class('relative w-full min-w-0') }}
+        {{ $attributes->only('class')->class('relative w-full min-w-0') }}
         x-data="{
         value: String(@js((string) $value)),
         openOnMount: @js($openOnMount),
@@ -34,6 +34,11 @@
                 this.measureLabel();
             });
             this.$nextTick(() => {
+                const owner = document.documentElement;
+                if (owner.dataset.selectRefocus === this.$refs.trigger?.id) {
+                    delete owner.dataset.selectRefocus;
+                    if (document.activeElement === document.body) this.$refs.trigger.focus({ preventScroll: true });
+                }
                 this.optionsObserver = new MutationObserver(() => {
                     this.optionsRevision++;
                     const options = this.options();
@@ -43,7 +48,8 @@
                     }
                     this.measureLabel();
                 });
-                this.optionsObserver.observe(this.$refs.list, {
+                if (!this.listElement()) return;
+                this.optionsObserver.observe(this.listElement(), {
                     childList: true,
                     subtree: true,
                     attributes: true,
@@ -89,15 +95,19 @@
             return this.normalize(label).includes(this.normalize(this.query.trim()));
         },
 
+        listElement() {
+            return this.$refs.list ?? this.$root.querySelector('[data-select-list]');
+        },
+
         options() {
             this.optionsRevision;
-            return Array.from(this.$refs.list.querySelectorAll('[data-select-option]'))
+            return Array.from(this.listElement()?.querySelectorAll('[data-select-option]') ?? [])
                 .filter(option => !option.disabled && this.matches(option.dataset.label));
         },
 
         label() {
             this.optionsRevision;
-            const option = Array.from(this.$refs.list.querySelectorAll('[data-select-option]'))
+            const option = Array.from(this.listElement()?.querySelectorAll('[data-select-option]') ?? [])
                 .find(option => option.dataset.value === String(this.value));
 
             if (option) return option.dataset.label;
@@ -119,7 +129,7 @@
                     ?? '';
                 const focusTarget = focusTrigger
                     ? this.$refs.trigger
-                    : (this.$refs.search?.querySelector('input') ?? this.$refs.list);
+                    : (this.$refs.search?.querySelector('input') ?? this.listElement());
                 requestAnimationFrame(() => focusTarget.focus());
             });
         },
@@ -169,6 +179,9 @@
 
         choose(option) {
             if (!option || option.disabled) return;
+            if (@js($attributes->wire('model')->hasModifier('live')) && String(this.value) !== option.dataset.value) {
+                document.documentElement.dataset.selectRefocus = this.$refs.trigger.id;
+            }
             this.value = option.dataset.value;
             this.query = '';
             this.missing = false;
@@ -249,12 +262,17 @@
                     @isset($search)
                         {{ $search }}
                     @else
-                        <flux:input x-model="query" wire:ignore.self size="sm" icon="magnifying-glass" placeholder="Buscar opção…" aria-label="Buscar {{ mb_strtolower($label) }}"
-                            role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
+                        @if ($searchModel)
+                            <flux:input x-model="query" wire:model.live.debounce.400ms="{{ $searchModel }}" wire:ignore.self size="sm" icon="magnifying-glass" placeholder="Buscar opção…" aria-label="Buscar {{ mb_strtolower($label) }}"
+                                role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
+                        @else
+                            <flux:input x-model="query" wire:ignore.self size="sm" icon="magnifying-glass" placeholder="Buscar opção…" aria-label="Buscar {{ mb_strtolower($label) }}"
+                                role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
+                        @endif
                     @endisset
                 </div>
             @endif
-            <div id="{{ $selectId }}-list" x-ref="list" role="listbox" aria-label="{{ $label }}" tabindex="-1"
+            <div id="{{ $selectId }}-list" x-ref="list" data-select-list role="listbox" aria-label="{{ $label }}" tabindex="-1"
                 x-bind:aria-activedescendant="activeId()" class="select-options max-h-60 overflow-y-auto p-1 outline-hidden">
                 @foreach ($options as $optionValue => $optionLabel)
                     <button type="button" role="option" tabindex="-1" id="{{ $selectId }}-option-{{ $loop->index }}"

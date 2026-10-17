@@ -7,6 +7,7 @@ use App\Helpers\DigitsHelper;
 use App\Models\City;
 use App\Support\BrasilApiCepLookup;
 use Flux\Flux;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -33,20 +34,29 @@ trait InteractsWithAddressLookup
 
     public bool $showCepLookupPreview = false;
 
+    #[Locked]
+    public string $cepLookupAddressPath = '';
+
+    protected function addressLookupPath(): string
+    {
+        return 'address';
+    }
+
     abstract protected function authorizeAddressLookup(): void;
 
     public function lookupCep(BrasilApiCepLookup $lookup): void
     {
         $this->authorizeAddressLookup();
         $this->cancelCepLookup();
-        $this->resetValidation(['address.zip_code', 'values.address.zip_code']);
-        $cep = BrazilianAddressHelper::cepForValidation($this->values['address']['zip_code'] ?? null);
-        Validator::make(['values' => ['address' => ['zip_code' => $cep]]], ['values.address.zip_code' => ['bail', 'required', 'string', new FormatoCep]], attributes: ['values.address.zip_code' => 'CEP'])->validate();
+        $path = $this->addressLookupPath();
+        $this->resetValidation([$path.'.zip_code', 'values.'.$path.'.zip_code']);
+        $cep = BrazilianAddressHelper::cepForValidation(data_get($this->values, $this->addressLookupPath().'.zip_code'));
+        Validator::make(Arr::undot([$path.'.zip_code' => $cep]), [$path.'.zip_code' => ['bail', 'required', 'string', new FormatoCep]], attributes: [$path.'.zip_code' => 'CEP'])->validate();
 
         try {
             $data = $lookup->lookup($cep);
         } catch (ValidationException $exception) {
-            $this->addError('values.address.zip_code', $exception->validator->errors()->first('zip_code'));
+            $this->addError($this->addressLookupPath().'.zip_code', $exception->validator->errors()->first('zip_code'));
 
             return;
         }
@@ -57,6 +67,7 @@ trait InteractsWithAddressLookup
         $city = $cities->count() === 1 ? $cities->first() : null;
         $this->pendingCepLookup = [...$data, 'city_id' => $city?->id,
             'city_display' => $city === null ? $data['city_name'].' ('.$data['state'].') — selecione no catálogo' : $city->name.' ('.$city->state->value.')'];
+        $this->cepLookupAddressPath = $path;
         $this->showCepLookupPreview = true;
     }
 
@@ -69,10 +80,11 @@ trait InteractsWithAddressLookup
 
         $changes = [];
         foreach (['street' => 'Logradouro', 'neighborhood' => 'Bairro'] as $field => $label) {
-            $this->addCepLookupPreviewChange($changes, $label, $this->values['address'][$field] ?? '', $this->pendingCepLookup[$field]);
+            $this->addCepLookupPreviewChange($changes, $label, data_get($this->values, $this->addressLookupPath().'.'.$field, ''), $this->pendingCepLookup[$field]);
         }
-        $selectedCityId = is_int($this->selectedCityId) || is_string($this->selectedCityId)
-            ? filter_var($this->selectedCityId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+        $currentCityId = data_get($this->values, $this->addressLookupPath().'.city_id', $this->selectedCityId);
+        $selectedCityId = is_int($currentCityId) || is_string($currentCityId)
+            ? filter_var($currentCityId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
             : false;
         $city = $selectedCityId === false ? null : City::find($selectedCityId);
         $this->addCepLookupPreviewChange($changes, 'Cidade', $city === null ? '' : $city->name.' ('.$city->state->value.')', $this->pendingCepLookup['city_display']);
@@ -84,30 +96,33 @@ trait InteractsWithAddressLookup
     {
         $this->pendingCepLookup = [];
         $this->showCepLookupPreview = false;
+        $this->cepLookupAddressPath = '';
     }
 
     public function applyCepLookup(): void
     {
         $this->authorizeAddressLookup();
-        $cep = BrazilianAddressHelper::cepForValidation($this->values['address']['zip_code'] ?? null);
+        $cep = BrazilianAddressHelper::cepForValidation(data_get($this->values, $this->addressLookupPath().'.zip_code'));
         $validCep = is_string($cep) && Validator::make(['cep' => $cep], ['cep' => ['required', new FormatoCep]])->passes();
-        if ($this->pendingCepLookup === [] || ! $validCep || ! hash_equals($this->pendingCepLookup['zip_code'], DigitsHelper::only($cep))) {
+        if ($this->pendingCepLookup === [] || $this->cepLookupAddressPath !== $this->addressLookupPath() || ! $validCep || ! hash_equals($this->pendingCepLookup['zip_code'], DigitsHelper::only($cep))) {
             $this->cancelCepLookup();
-            $this->addError('values.address.zip_code', 'O CEP mudou desde a consulta. Consulte novamente antes de aplicar os dados.');
+            $this->addError($this->addressLookupPath().'.zip_code', 'O CEP mudou desde a consulta. Consulte novamente antes de aplicar os dados.');
 
             return;
         }
 
         foreach (['street', 'neighborhood'] as $field) {
             if ($this->pendingCepLookup[$field] !== '') {
-                $this->values['address'][$field] = $this->pendingCepLookup[$field];
+                data_set($this->values, $this->addressLookupPath().'.'.$field, $this->pendingCepLookup[$field]);
             }
         }
-        $this->values['address']['zip_code'] = BrazilianAddressHelper::formatCep($this->pendingCepLookup['zip_code']);
+        data_set($this->values, $this->addressLookupPath().'.zip_code', BrazilianAddressHelper::formatCep($this->pendingCepLookup['zip_code']));
         $this->selectedCityId = $this->pendingCepLookup['city_id'];
+        data_set($this->values, $this->addressLookupPath().'.city_id', $this->selectedCityId);
         $this->citySelectionVersion++;
         $this->cityLookupMessage = $this->selectedCityId === null ? 'Cidade não encontrada de forma única no catálogo. Selecione a UF e busque a cidade.' : '';
-        $this->resetValidation(['address.zip_code', 'values.address.zip_code']);
+        $path = $this->addressLookupPath();
+        $this->resetValidation([$path.'.zip_code', 'values.'.$path.'.zip_code']);
         $this->cancelCepLookup();
         Flux::toast(variant: 'success', text: 'Endereço aplicado ao formulário. Confira as informações antes de salvar.');
     }

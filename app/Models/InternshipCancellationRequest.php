@@ -16,6 +16,9 @@ use Illuminate\Validation\Validator as LaravelValidator;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property InternshipCancellationRequestStatus $status
+ */
 #[Fillable(['internship_id', 'reason', 'status', 'reviewed_at', 'decision_reason', 'effective_date'])]
 class InternshipCancellationRequest extends Model
 {

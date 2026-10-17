@@ -4,6 +4,7 @@ namespace App\Support;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\DatabaseNotification;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class AuditInfrastructureModel
 {
@@ -29,6 +30,11 @@ class AuditInfrastructureModel
      */
     private function record(Model $model, string $event, array $attributes, array $old): void
     {
+        if ($model instanceof Media
+            && $model->collection_name === 'emancipation_evidence') {
+            return;
+        }
+
         $logger = activity()
             ->event($event)
             ->withChanges(['attributes' => $attributes, 'old' => $old]);

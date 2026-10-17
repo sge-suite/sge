@@ -47,6 +47,6 @@ class HolidayCalendar
     /** @return list<string> */
     public function blockedDates(City $city, string $startsOn, string $endsOn): array
     {
-        return $this->occurrences($city, $startsOn, $endsOn)->map(fn (Holiday $holiday): string => $holiday->date->toDateString())->unique()->values()->all();
+        return array_values($this->occurrences($city, $startsOn, $endsOn)->map(fn (Holiday $holiday): string => $holiday->date->toDateString())->unique()->all());
     }
 }

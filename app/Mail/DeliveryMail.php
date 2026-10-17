@@ -28,6 +28,12 @@ class DeliveryMail extends Mailable
         $message = $this->attempt->emailMessage;
         $body = $message->content_text ?? strip_tags((string) $message->content_html);
 
+        if (filled($message->content_html)) {
+            return $this->subject($message->subject)
+                ->html($message->content_html)
+                ->text('emails.delivery-text', ['body' => $body]);
+        }
+
         return $this->subject($message->subject)
             ->markdown('emails.notification', [
                 'messageSubject' => $message->subject,

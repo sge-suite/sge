@@ -16,6 +16,11 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
+/**
+ * @property int $id
+ * @property int $internship_request_id
+ * @property EmancipationEvidenceStatus $status
+ */
 #[Fillable(['internship_request_id', 'status', 'reviewed_at', 'return_reason'])]
 class EmancipationEvidence extends Model implements HasMedia
 {
@@ -56,7 +61,7 @@ class EmancipationEvidence extends Model implements HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logOnly(['internship_request_id', 'status', 'reviewed_at', 'return_reason'])
+        return LogOptions::defaults()->logOnly(['internship_request_id', 'status', 'reviewed_at'])
             ->logOnlyDirty();
     }
 

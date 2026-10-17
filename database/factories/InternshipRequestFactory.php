@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\AffiliationType;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\LegalCapacityDeclaration;
 use App\Models\Affiliation;
@@ -55,15 +56,19 @@ class InternshipRequestFactory extends Factory
     public function submitted(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'course_id' => Affiliation::findOrFail($attributes['affiliation_id'])->course_id,
+            'course_id' => Affiliation::query()->whereKey($attributes['affiliation_id'])->firstOrFail()->course_id,
             'internship_type_id' => fn (array $attributes): int => InternshipType::factory()->create([
                 'course_id' => $attributes['course_id'],
             ])->id,
             'granting_party_id' => fn (array $attributes): int => GrantingParty::factory()->create([
-                'campus_id' => Affiliation::findOrFail($attributes['affiliation_id'])->campus_id,
+                'campus_id' => Affiliation::query()->whereKey($attributes['affiliation_id'])->firstOrFail()->campus_id,
             ])->id,
             'supervisor_affiliation_id' => Affiliation::factory()->supervisor(),
-            'student_year_semester' => '2026/2',
+            'advisor_affiliation_id' => fn (array $attributes): int => Affiliation::factory()->create([
+                'type' => AffiliationType::Advisor,
+                'campus_id' => Affiliation::query()->findOrFail($attributes['affiliation_id'])->campus_id,
+            ])->id,
+            'student_year_semester' => fn (array $attributes): string => InternshipType::query()->findOrFail($attributes['internship_type_id'])->allowed_academic_periods[0],
             'legal_capacity_declaration' => LegalCapacityDeclaration::Minor,
             'legal_guardian_name' => fake()->name(),
             'legal_guardian_cpf' => '529.982.247-25',

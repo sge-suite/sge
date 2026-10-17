@@ -8,6 +8,7 @@ use App\Http\Controllers\GrantingPartyController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\HolidayImportController;
 use App\Http\Controllers\HolidayRecurrenceController;
+use App\Http\Controllers\InternshipRequestController;
 use App\Http\Controllers\InternshipTypeController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RequireActiveAffiliation;
@@ -18,6 +19,7 @@ use App\Models\GrantingParty;
 use App\Models\Holiday;
 use App\Models\HolidayRecurrence;
 use App\Models\HolidaySource;
+use App\Models\InternshipRequest;
 use App\Models\InternshipType;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +33,21 @@ Route::middleware(['auth'])->group(function () {
     Route::post('affiliations/switch', [AffiliationSelectionController::class, 'switch'])->name('affiliations.switch');
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
+        Route::livewire('internship-review', 'pages::internship-requests.review-index')
+            ->middleware('can:viewReviewList,'.InternshipRequest::class)->name('internship-review.index');
+        Route::livewire('internship-review/{internshipRequest}', 'pages::internship-requests.review')
+            ->middleware('can:review,internshipRequest')->name('internship-review.show');
+        Route::middleware('can:viewAny,'.InternshipRequest::class)->group(function (): void {
+            Route::livewire('internship-requests', 'pages::internship-requests.index')->name('internship-requests.index');
+            Route::livewire('internship-requests/{internshipRequest}', 'pages::internship-requests.form')
+                ->middleware('can:view,internshipRequest')->name('internship-requests.show');
+            Route::put('internship-requests/{internshipRequest}', [InternshipRequestController::class, 'update'])->name('internship-requests.update');
+            Route::post('internship-requests/{internshipRequest}/submit', [InternshipRequestController::class, 'update'])->name('internship-requests.submit');
+            Route::post('internship-requests/{internshipRequest}/withdraw', [InternshipRequestController::class, 'update'])->name('internship-requests.withdraw');
+        });
+        Route::get('internship-evidences/{evidence}', [InternshipRequestController::class, 'evidence'])
+            ->middleware('can:view,evidence')->name('internship-requests.evidence');
+
         Route::middleware('can:viewAny,'.Holiday::class)->group(function (): void {
             Route::livewire('holidays', 'pages::holidays.index')->name('holidays.index');
             Route::livewire('holidays/trash', 'pages::holidays.index')->defaults('trash', true)->name('holidays.trash');

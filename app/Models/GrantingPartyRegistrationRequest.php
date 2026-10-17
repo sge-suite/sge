@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\CnpjCast;
 use App\Casts\CpfCast;
 use App\Casts\PhoneCast;
+use App\Concerns\InternshipRequestValidationRules;
 use App\Enums\BrazilianState;
 use App\Enums\PartyDocumentType;
 use App\Enums\RegistrationRequestStatus;
@@ -23,9 +24,19 @@ use LaravelLegends\PtBrValidator\Rules\FormatoCep;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property int $id
+ * @property int $campus_id
+ * @property RegistrationRequestStatus $status
+ * @property PartyDocumentType|null $document_type
+ * @property BrazilianState|null $uf
+ * @property string|null $city
+ * @property string|null $name
+ * @property int|null $granting_party_id
+ */
 #[Fillable([
     'campus_id', 'document_type', 'document_number', 'name', 'street', 'number', 'neighborhood',
-    'city', 'uf', 'zip_code', 'representative_name', 'representative_role',
+    'city', 'city_id', 'uf', 'zip_code', 'representative_name', 'representative_role',
     'phone', 'email', 'field_of_activity', 'professional_council',
     'council_registration_number', 'credentialing_process_number', 'status',
     'granting_party_id', 'reviewed_at', 'decision_reason',
@@ -36,6 +47,7 @@ class GrantingPartyRegistrationRequest extends Model
     /** @use HasFactory<GrantingPartyRegistrationRequestFactory> */
     use HasFactory;
 
+    use InternshipRequestValidationRules;
     use LogsActivity;
 
     public function getActivitylogOptions(): LogOptions
@@ -48,6 +60,7 @@ class GrantingPartyRegistrationRequest extends Model
     {
         return [
             'campus_id' => 'integer',
+            'city_id' => 'integer',
             'document_type' => PartyDocumentType::class,
             'uf' => BrazilianState::class,
             'phone' => PhoneCast::class,
@@ -67,6 +80,12 @@ class GrantingPartyRegistrationRequest extends Model
     public function campus(): BelongsTo
     {
         return $this->belongsTo(Campus::class);
+    }
+
+    /** @return BelongsTo<City, $this> */
+    public function proposedCity(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
     }
 
     protected static function booted(): void
@@ -102,12 +121,15 @@ class GrantingPartyRegistrationRequest extends Model
                 RegistrationRequestStatus::Cancelled,
             ], true);
             $requiredWhenSubmitted = $isDraft ? 'nullable' : 'required';
+            $isCompany = ($attributes['document_type'] ?? null) === PartyDocumentType::CNPJ->value;
+            $addressPresence = ! $isDraft && ! $isCompany ? 'required' : 'nullable';
+            $representativePresence = ! $isDraft && $isCompany ? 'required' : 'nullable';
 
             Validator::make($attributes, [
                 'campus_id' => ['required', 'integer', Rule::exists(Campus::class, 'id')],
                 'document_type' => [$requiredWhenSubmitted, 'required_with:document_number', Rule::in(PartyDocumentType::values())],
                 'status' => ['required', Rule::enum(RegistrationRequestStatus::class)],
-            ])->validate();
+            ], attributes: $registrationRequest->internshipFieldLabels())->validate();
 
             if (filled($attributes['document_number'] ?? null)) {
                 $type = PartyDocumentType::from($attributes['document_type']);
@@ -123,17 +145,18 @@ class GrantingPartyRegistrationRequest extends Model
                 'document_type' => [$requiredWhenSubmitted, Rule::in(PartyDocumentType::values())],
                 'document_number' => [$requiredWhenSubmitted, 'string'],
                 'name' => [$requiredWhenSubmitted, 'string', 'max:255'],
-                'street' => [$requiredWhenSubmitted, 'string', 'max:255'],
-                'number' => [$requiredWhenSubmitted, 'string', 'max:255'],
-                'neighborhood' => [$requiredWhenSubmitted, 'string', 'max:255'],
+                'street' => [$addressPresence, 'string', 'max:255'],
+                'number' => [$addressPresence, 'string', 'max:255'],
+                'neighborhood' => [$addressPresence, 'string', 'max:255'],
                 'city' => [$requiredWhenSubmitted, 'string', 'max:255'],
+                'city_id' => [$requiredWhenSubmitted, 'integer', Rule::exists(City::class, 'id')->where('state', $attributes['uf'] ?? null)],
                 'uf' => [$requiredWhenSubmitted, Rule::in(BrazilianState::values())],
-                'zip_code' => ['bail', $requiredWhenSubmitted, 'string', new FormatoCep],
-                'representative_name' => [$requiredWhenSubmitted, 'string', 'max:255'],
-                'representative_role' => [$requiredWhenSubmitted, 'string', 'max:255'],
-                'phone' => ['nullable', 'string', 'max:20'],
-                'email' => ['nullable', 'string', 'email', 'max:254'],
-                'field_of_activity' => [$requiredWhenSubmitted, 'string', 'max:255'],
+                'zip_code' => ['bail', $addressPresence, 'string', new FormatoCep],
+                'representative_name' => [$representativePresence, 'string', 'max:255'],
+                'representative_role' => [$representativePresence, 'string', 'max:255'],
+                'phone' => [$requiredWhenSubmitted, 'string', 'max:20'],
+                'email' => [$requiredWhenSubmitted, 'string', 'email', 'max:254'],
+                'field_of_activity' => ['nullable', 'string', 'max:255'],
                 'professional_council' => ['nullable', 'string', 'max:120'],
                 'council_registration_number' => ['nullable', 'string', 'max:64'],
                 'credentialing_process_number' => ['nullable', 'string', 'max:100'],
@@ -149,7 +172,7 @@ class GrantingPartyRegistrationRequest extends Model
                 'decision_reason' => [
                     Rule::requiredIf($requiresDecisionReason), 'nullable', 'string',
                 ],
-            ])->validate();
+            ], attributes: $registrationRequest->internshipFieldLabels())->validate();
 
             if (filled($validationAttributes['zip_code'])) {
                 $registrationRequest->zip_code = DigitsHelper::only($validationAttributes['zip_code']);

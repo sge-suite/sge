@@ -21,6 +21,8 @@ return new class extends Migration
             $table->foreignId('granting_party_registration_request_id')->nullable()->constrained('granting_party_registration_requests')->restrictOnDelete();
             $table->foreignId('supervisor_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();
             $table->foreignId('supervisor_registration_request_id')->nullable()->constrained('supervisor_registration_requests')->restrictOnDelete();
+            $table->foreignId('student_address_id')->nullable()->constrained('addresses')->restrictOnDelete();
+            $table->foreignId('workplace_address_id')->nullable()->constrained('addresses')->restrictOnDelete();
             $table->string('student_year_semester')->nullable();
             $table->string('legal_capacity_declaration')->nullable();
             $table->string('legal_guardian_name')->nullable();
@@ -30,6 +32,7 @@ return new class extends Migration
             $table->text('activities')->nullable();
             $table->string('internship_sector')->nullable();
             $table->jsonb('weekly_hours')->nullable();
+            $table->jsonb('planned_pauses')->nullable();
             $table->date('planned_start_date')->nullable();
             $table->date('projected_end_date')->nullable();
             $table->boolean('is_remunerated')->nullable();
@@ -37,8 +40,13 @@ return new class extends Migration
             $table->decimal('transportation_allowance', 10, 2)->nullable();
             $table->text('observations')->nullable();
             $table->string('status')->default('draft');
+            $table->text('decision_reason')->nullable();
             $table->foreignId('internship_id')->nullable()->unique()->constrained()->restrictOnDelete();
             $table->timestamp('terms_accepted_at')->nullable();
+            $table->jsonb('student_snapshot')->nullable();
+            $table->jsonb('internship_type_snapshot')->nullable();
+            $table->jsonb('granting_party_snapshot')->nullable();
+            $table->jsonb('supervisor_snapshot')->nullable();
             $table->timestamps();
 
             $table->index(['affiliation_id', 'status']);

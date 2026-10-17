@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Concerns\HasOwnedAddresses;
 use App\Enums\AffiliationType;
 use App\Enums\InternshipStatus;
+use App\Support\InternshipPlannedPauses;
 use Database\Factories\InternshipFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,17 +13,29 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as LaravelValidator;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property int $id
+ * @property int $student_affiliation_id
+ * @property int $workplace_address_id
+ * @property InternshipStatus $status
+ * @property Carbon $planned_start_date
+ * @property array<string, mixed> $student_snapshot
+ * @property array<string, mixed> $supervisor_snapshot
+ * @property array<string, mixed> $internship_type_snapshot
+ * @property array<string|int, array{starts_at: string, ends_at: string, reason: string}>|null $planned_pauses
+ */
 #[Fillable([
     'student_affiliation_id', 'advisor_affiliation_id', 'supervisor_affiliation_id',
     'student_address_id', 'course_id', 'internship_type_id', 'granting_party_id',
     'workplace_address_id', 'student_snapshot', 'internship_type_snapshot',
-    'granting_party_snapshot', 'supervisor_snapshot', 'weekly_hours', 'activities',
+    'granting_party_snapshot', 'supervisor_snapshot', 'weekly_hours', 'planned_pauses', 'activities',
     'internship_sector', 'planned_start_date', 'projected_end_date', 'released_at',
     'released_by_affiliation_id', 'is_remunerated', 'grant_value',
     'transportation_allowance', 'protocol_number', 'observations', 'supervisor_grade',
@@ -62,6 +75,7 @@ class Internship extends Model
             'granting_party_snapshot' => 'array',
             'supervisor_snapshot' => 'array',
             'weekly_hours' => 'array',
+            'planned_pauses' => 'array',
             'planned_start_date' => 'date',
             'projected_end_date' => 'date',
             'released_at' => 'datetime',
@@ -206,7 +220,7 @@ class Internship extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logFillable()->logOnlyDirty();
+        return LogOptions::defaults()->logFillable()->logExcept(['student_snapshot', 'supervisor_snapshot'])->logOnlyDirty()->dontLogEmptyChanges();
     }
 
     protected static function booted(): void
@@ -231,6 +245,7 @@ class Internship extends Model
                 $typeExists->where('course_id', $attributes['course_id'] ?? null);
             }
 
+            app(InternshipPlannedPauses::class)->validate($internship->planned_pauses, $internship->planned_start_date->toDateString(), complete: true);
             $data = [
                 ...$attributes,
                 'student_snapshot' => $internship->student_snapshot,
@@ -290,7 +305,7 @@ class Internship extends Model
                     $validator->errors()->add('granting_party_id', 'A parte concedente deve pertencer ao campus do estágio.');
                 }
 
-                $hours = $internship->weekly_hours;
+                $hours = $internship->getAttribute('weekly_hours');
                 $days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
                 if (! is_array($hours) || array_diff(array_keys($hours), $days) !== [] || array_diff($days, array_keys($hours)) !== []) {
@@ -299,7 +314,7 @@ class Internship extends Model
                     return;
                 }
 
-                $rules = $internship->internship_type_snapshot['rules'] ?? null;
+                $rules = $internship->getAttribute('internship_type_snapshot')['rules'] ?? null;
                 if (! is_array($rules) || ! is_int($rules['max_daily_hours'] ?? null) || ! is_int($rules['max_weekly_hours'] ?? null)) {
                     return;
                 }

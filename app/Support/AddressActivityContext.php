@@ -6,6 +6,7 @@ use App\Models\Address;
 use App\Models\Campus;
 use App\Models\GrantingParty;
 use App\Models\Internship;
+use App\Models\InternshipRequest;
 use App\Models\UserPersonalData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -84,7 +85,7 @@ class AddressActivityContext
                         $this->ownerHistory($history);
                         $history->whereNot(fn (QueryBuilder $allowed) => $this->allowedOwner($allowed, $campusId));
                     });
-                    foreach ([UserPersonalData::class => ['address_id'], Internship::class => ['student_address_id', 'workplace_address_id']] as $model => $fields) {
+                    foreach ([UserPersonalData::class => ['address_id'], Internship::class => ['student_address_id', 'workplace_address_id'], InternshipRequest::class => ['student_address_id', 'workplace_address_id']] as $model => $fields) {
                         $table = (new $model)->getTable();
                         $query->whereNotExists(function (QueryBuilder $references) use ($table, $fields): void {
                             $references->selectRaw('1')->from($table)->where(function (QueryBuilder $references) use ($table, $fields): void {

@@ -8,12 +8,17 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as LaravelValidator;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property Carbon|null $starts_at
+ * @property Carbon|null $ends_at
+ */
 #[Fillable(['internship_id', 'starts_at', 'ends_at', 'reason'])]
 class InternshipPause extends Model
 {
@@ -42,7 +47,7 @@ class InternshipPause extends Model
     protected static function booted(): void
     {
         static::saving(function (self $pause): void {
-            if (is_string($pause->reason)) {
+            if (is_string($pause->getAttribute('reason'))) {
                 $pause->reason = trim($pause->reason);
             }
 

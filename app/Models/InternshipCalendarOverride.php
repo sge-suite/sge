@@ -41,7 +41,7 @@ class InternshipCalendarOverride extends Model
     protected static function booted(): void
     {
         static::saving(function (self $override): void {
-            if (is_string($override->reason)) {
+            if (is_string($override->getAttribute('reason'))) {
                 $override->reason = trim($override->reason);
             }
 

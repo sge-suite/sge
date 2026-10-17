@@ -26,6 +26,7 @@ return new class extends Migration
             $table->jsonb('granting_party_snapshot');
             $table->jsonb('supervisor_snapshot');
             $table->jsonb('weekly_hours');
+            $table->jsonb('planned_pauses')->nullable();
             $table->text('activities');
             $table->string('internship_sector')->nullable();
             $table->date('planned_start_date');

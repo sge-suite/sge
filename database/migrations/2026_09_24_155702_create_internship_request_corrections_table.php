@@ -15,7 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('internship_request_id')->constrained()->restrictOnDelete();
             $table->text('message');
+            $table->text('general_message')->nullable();
             $table->jsonb('affected_sections');
+            $table->jsonb('section_messages')->nullable();
             $table->string('status')->default('open');
             $table->timestamp('responded_at')->nullable();
             $table->timestamp('resolved_at')->nullable();

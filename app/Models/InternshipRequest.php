@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use App\Casts\CpfCast;
+use App\Concerns\InternshipRequestValidationRules;
 use App\Enums\AffiliationType;
 use App\Enums\EmancipationEvidenceStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\LegalCapacityDeclaration;
+use App\Helpers\DateHelper;
+use App\Support\InternshipPlannedPauses;
+use Carbon\CarbonInterface;
 use Database\Factories\InternshipRequestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -14,6 +18,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -21,23 +26,50 @@ use Illuminate\Validation\Validator as LaravelValidator;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property int $id
+ * @property int $affiliation_id
+ * @property int|null $course_id
+ * @property int|null $internship_type_id
+ * @property int|null $advisor_affiliation_id
+ * @property int|null $granting_party_id
+ * @property int|null $granting_party_registration_request_id
+ * @property int|null $supervisor_affiliation_id
+ * @property int|null $supervisor_registration_request_id
+ * @property int|null $internship_id
+ * @property int|null $student_address_id
+ * @property int|null $workplace_address_id
+ * @property InternshipRequestStatus $status
+ * @property LegalCapacityDeclaration|null $legal_capacity_declaration
+ * @property array<string, int>|null $weekly_hours
+ * @property array<string|int, array{starts_at: string|null, ends_at: string|null, reason: string|null}>|null $planned_pauses
+ * @property array<string, mixed>|null $student_snapshot
+ * @property array<string, mixed>|null $internship_type_snapshot
+ * @property array<string, mixed>|null $granting_party_snapshot
+ * @property array<string, mixed>|null $supervisor_snapshot
+ * @property bool|null $is_remunerated
+ * @property Carbon|null $planned_start_date
+ * @property CarbonInterface|null $projected_end_date
+ * @property Carbon|null $terms_accepted_at
+ */
 #[Fillable([
     'affiliation_id', 'course_id', 'internship_type_id', 'advisor_affiliation_id',
     'granting_party_id', 'granting_party_registration_request_id',
     'supervisor_affiliation_id', 'supervisor_registration_request_id',
     'student_year_semester', 'legal_capacity_declaration', 'legal_guardian_name',
     'legal_guardian_cpf', 'legal_guardian_kinship', 'legal_guardian_email',
-    'activities', 'internship_sector', 'weekly_hours', 'planned_start_date',
+    'activities', 'internship_sector', 'weekly_hours', 'planned_pauses', 'planned_start_date',
     'projected_end_date', 'is_remunerated', 'grant_value',
     'transportation_allowance', 'observations', 'status', 'internship_id',
     'terms_accepted_at',
 ])]
-#[Hidden(['legal_guardian_cpf'])]
+#[Hidden(['legal_guardian_cpf', 'student_snapshot', 'supervisor_snapshot'])]
 class InternshipRequest extends Model
 {
     /** @use HasFactory<InternshipRequestFactory> */
     use HasFactory;
 
+    use InternshipRequestValidationRules;
     use LogsActivity;
 
     protected $attributes = [
@@ -59,6 +91,7 @@ class InternshipRequest extends Model
             'legal_capacity_declaration' => LegalCapacityDeclaration::class,
             'legal_guardian_cpf' => CpfCast::class,
             'weekly_hours' => 'array',
+            'planned_pauses' => 'array',
             'planned_start_date' => 'date',
             'projected_end_date' => 'date',
             'is_remunerated' => 'boolean',
@@ -67,6 +100,12 @@ class InternshipRequest extends Model
             'status' => InternshipRequestStatus::class,
             'internship_id' => 'integer',
             'terms_accepted_at' => 'datetime',
+            'student_snapshot' => 'array',
+            'internship_type_snapshot' => 'array',
+            'granting_party_snapshot' => 'array',
+            'supervisor_snapshot' => 'array',
+            'student_address_id' => 'integer',
+            'workplace_address_id' => 'integer',
         ];
     }
 
@@ -138,12 +177,29 @@ class InternshipRequest extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logFillable()->logOnlyDirty();
+        return LogOptions::defaults()->logFillable()->logOnly(['decision_reason'])->logExcept(['legal_guardian_cpf'])
+            ->logOnlyDirty()->dontLogEmptyChanges();
+    }
+
+    /** @return BelongsTo<Address, $this> */
+    public function studentAddress(): BelongsTo
+    {
+        return $this->belongsTo(Address::class, 'student_address_id');
+    }
+
+    /** @return BelongsTo<Address, $this> */
+    public function workplaceAddress(): BelongsTo
+    {
+        return $this->belongsTo(Address::class, 'workplace_address_id');
     }
 
     protected static function booted(): void
     {
         static::saving(function (self $request): void {
+            if ($request->exists && ! in_array($request->getRawOriginal('status'), ['draft', 'pending_correction'], true)
+                && $request->isDirty(['student_snapshot', 'internship_type_snapshot', 'granting_party_snapshot', 'supervisor_snapshot', 'student_address_id', 'workplace_address_id'])) {
+                throw ValidationException::withMessages(['snapshot' => 'Os dados históricos enviados estão protegidos.']);
+            }
             foreach ([
                 'student_year_semester', 'legal_guardian_name', 'legal_guardian_cpf',
                 'legal_guardian_kinship', 'legal_guardian_email', 'activities',
@@ -180,17 +236,23 @@ class InternshipRequest extends Model
                 $typeExists->whereNull('deactivated_at');
             }
 
+            $advisorExists = Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Advisor->value);
+            if (! $request->exists || $request->isDirty('advisor_affiliation_id') || in_array($status, [InternshipRequestStatus::Submitted, InternshipRequestStatus::Accepted], true)) {
+                $advisorExists->whereNull('deactivated_at');
+            }
+
+            app(InternshipPlannedPauses::class)->validate($request->planned_pauses, $request->planned_start_date?->toDateString(), complete: ! $isIncomplete);
             $data = [...$attributes, 'weekly_hours' => $request->weekly_hours];
             $validator = Validator::make($data, [
                 'affiliation_id' => ['required', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Student->value)->whereNull('deactivated_at')],
                 'course_id' => [$required, 'integer', $courseExists],
                 'internship_type_id' => [$required, 'integer', $typeExists],
-                'advisor_affiliation_id' => [$isAccepted ? 'required' : 'nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Advisor->value)],
+                'advisor_affiliation_id' => [$required, 'integer', $advisorExists],
                 'granting_party_id' => ['nullable', 'integer', $partyExists],
                 'granting_party_registration_request_id' => ['nullable', 'integer', Rule::exists(GrantingPartyRegistrationRequest::class, 'id')],
                 'supervisor_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Supervisor->value)],
                 'supervisor_registration_request_id' => ['nullable', 'integer', Rule::exists(SupervisorRegistrationRequest::class, 'id')],
-                'student_year_semester' => [$required, 'string', 'max:255'],
+                'student_year_semester' => [$required, 'string', 'max:255', ...($isIncomplete ? [] : [Rule::in($request->internship_type_snapshot['rules']['allowed_academic_periods'] ?? $request->internshipType?->allowed_academic_periods ?? [])])],
                 'legal_capacity_declaration' => [$required, Rule::enum(LegalCapacityDeclaration::class)],
                 'legal_guardian_name' => [$isMinor ? 'required' : 'nullable', 'string', 'max:255'],
                 'legal_guardian_cpf' => [$isMinor ? 'required' : 'nullable', 'string'],
@@ -208,10 +270,14 @@ class InternshipRequest extends Model
                 'status' => ['required', Rule::enum(InternshipRequestStatus::class)],
                 'internship_id' => [$isAccepted ? 'required' : 'nullable', 'integer', Rule::exists(Internship::class, 'id')],
                 'terms_accepted_at' => [$required, 'date'],
-            ]);
+            ], messages: ['student_year_semester.in' => 'Selecione um ano ou semestre permitido para este tipo de estágio.'], attributes: $request->internshipFieldLabels());
 
             $validator->after(function (LaravelValidator $validator) use ($request, $status, $declaration, $isIncomplete): void {
                 $owner = Affiliation::find($request->affiliation_id);
+                if ($request->advisor_affiliation_id !== null && $owner !== null
+                    && Affiliation::query()->whereKey($request->advisor_affiliation_id)->value('campus_id') !== $owner->campus_id) {
+                    $validator->errors()->add('advisor_affiliation_id', 'O orientador deve pertencer ao campus do vínculo discente.');
+                }
                 if ($owner && $request->course_id !== null && $owner->course_id !== $request->course_id) {
                     $validator->errors()->add('course_id', 'O curso deve pertencer ao vínculo discente.');
                 }
@@ -259,20 +325,23 @@ class InternshipRequest extends Model
                     $validator->errors()->add('legal_capacity_declaration', 'Dados do responsável são exclusivos da opção menor de idade.');
                 }
 
-                if ($declaration === LegalCapacityDeclaration::Adult && ! $isIncomplete && ! $validator->errors()->has('terms_accepted_at')) {
-                    $birthDate = $owner?->user?->personalData?->birth_date;
-                    if ($birthDate === null || $birthDate->copy()->addYears(18)->isAfter($request->terms_accepted_at)) {
-                        $validator->errors()->add('legal_capacity_declaration', 'A opção maior de idade exige 18 anos completos na data do envio.');
+                if (! $isIncomplete && ! $validator->errors()->has('terms_accepted_at')) {
+                    $snapshotBirth = $request->student_snapshot['birth_date'] ?? null;
+                    $birth = $snapshotBirth ?? $owner?->user?->personalData?->birth_date?->toDateString();
+                    $adult = DateHelper::isAdult($birth, $request->terms_accepted_at);
+                    if ($adult === null || $adult !== ($declaration === LegalCapacityDeclaration::Adult)) {
+                        $validator->errors()->add('legal_capacity_declaration', 'A capacidade civil deve corresponder à data de nascimento na data do envio.');
                     }
                 }
 
                 if ($declaration === LegalCapacityDeclaration::EmancipatedMinor && ! $isIncomplete) {
-                    $evidences = $request->emancipationEvidences()->whereHas('media', fn ($query) => $query->where('collection_name', 'emancipation_evidence'));
-                    if (! $evidences->exists()) {
+                    $latestEvidence = $request->emancipationEvidences()->with('media')->latest('id')->first();
+                    if ($latestEvidence === null || ! $latestEvidence->hasMedia('emancipation_evidence')
+                        || ($status !== InternshipRequestStatus::PendingCorrection && $latestEvidence->status === EmancipationEvidenceStatus::Returned)) {
                         $validator->errors()->add('legal_capacity_declaration', 'O envio exige comprovante de emancipação anexado.');
                     }
 
-                    if ($status === InternshipRequestStatus::Accepted && ! $evidences->where('status', EmancipationEvidenceStatus::Approved->value)->exists()) {
+                    if ($status === InternshipRequestStatus::Accepted && $latestEvidence?->status !== EmancipationEvidenceStatus::Approved) {
                         $validator->errors()->add('legal_capacity_declaration', 'O aceite exige comprovante de emancipação aprovado.');
                     }
                 }
@@ -281,7 +350,7 @@ class InternshipRequest extends Model
                     $validator->errors()->add('is_remunerated', 'Valores monetários devem ficar vazios quando não há remuneração.');
                 }
 
-                $hours = $request->weekly_hours;
+                $hours = $request->getAttribute('weekly_hours');
                 if (! is_array($hours)) {
                     return;
                 }

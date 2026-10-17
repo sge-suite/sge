@@ -67,7 +67,7 @@ class Holiday extends Model
             'date' => $this->date?->toDateString(),
             'year' => $this->date?->year,
             'scope' => $this->scope->value,
-            'state_code' => $this->state_code?->value ?? '',
+            'state_code' => $this->state_code->value ?? '',
             'city_id' => (int) ($this->city_id ?? 0),
             'origin' => $this->origin,
         ];

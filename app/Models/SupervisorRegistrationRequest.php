@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\CpfCast;
 use App\Casts\PhoneCast;
+use App\Concerns\InternshipRequestValidationRules;
 use App\Concerns\SupervisorProfessionalDataValidationRules;
 use App\Enums\AffiliationType;
 use App\Enums\EducationLevel;
@@ -20,6 +21,13 @@ use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property int $id
+ * @property RegistrationRequestStatus $status
+ * @property bool|null $has_academic_background
+ * @property EducationLevel|null $education_level
+ * @property int|null $supervisor_affiliation_id
+ */
 #[Fillable([
     'name', 'cpf', 'phone', 'email', 'job_role', 'has_academic_background',
     'training_course', 'education_level', 'experience_time', 'status',
@@ -31,6 +39,7 @@ class SupervisorRegistrationRequest extends Model
     /** @use HasFactory<SupervisorRegistrationRequestFactory> */
     use HasFactory;
 
+    use InternshipRequestValidationRules;
     use LogsActivity;
     use SupervisorProfessionalDataValidationRules;
 
@@ -103,7 +112,7 @@ class SupervisorRegistrationRequest extends Model
                 'decision_reason' => [
                     Rule::requiredIf($requiresDecisionReason), 'nullable', 'string',
                 ],
-            ])->validate();
+            ], attributes: $registrationRequest->internshipFieldLabels())->validate();
         });
 
         static::deleting(function (): void {

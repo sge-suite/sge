@@ -6,6 +6,7 @@ use App\Enums\BrazilianState;
 use App\Enums\PartyDocumentType;
 use App\Enums\RegistrationRequestStatus;
 use App\Models\Campus;
+use App\Models\City;
 use App\Models\GrantingPartyRegistrationRequest;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -29,6 +30,7 @@ class GrantingPartyRegistrationRequestFactory extends Factory
             'street' => 'Rua das Flores',
             'number' => '123',
             'neighborhood' => 'Centro',
+            'city_id' => City::factory()->state(['state' => BrazilianState::RioGrandeDoSul, 'name' => 'Santa Maria']),
             'city' => 'Santa Maria',
             'uf' => BrazilianState::RioGrandeDoSul,
             'zip_code' => '97010-100',

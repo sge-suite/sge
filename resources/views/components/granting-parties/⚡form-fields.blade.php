@@ -96,6 +96,41 @@ new class extends Component
             $this->values['address'][$field] = is_scalar($value) ? $value : '';
         }
         $this->selectedCityId = old('address.city_id', $grantingParty?->address?->city_id);
+        if ($grantingParty === null && request()->has('internship_request')) {
+            $this->prefillFromInternshipRequest();
+        }
+    }
+
+    private function prefillFromInternshipRequest(): void
+    {
+        Gate::authorize('create', GrantingParty::class);
+        $data = request()->validate(['internship_request' => ['required', 'integer', 'min:1']]);
+        $request = \App\Models\InternshipRequest::query()->with('grantingPartyRegistrationRequest')->findOrFail($data['internship_request']);
+        Gate::authorize('review', $request);
+        abort_unless(in_array($request->status->value, ['submitted', 'under_review', 'pending_correction'], true), 409);
+        $proposal = $request->grantingPartyRegistrationRequest;
+        abort_unless($proposal !== null && $proposal->campus_id === $this->campusId
+            && in_array($proposal->status->value, ['submitted', 'under_review'], true), 409);
+        if (session()->hasOldInput()) {
+            return;
+        }
+
+        $this->values['document_type'] = $proposal->document_type->value;
+        $this->values['document_number'] = $proposal->document_number;
+        $this->validate(['values.document_number' => ['required', 'string', $proposal->document_type === \App\Enums\PartyDocumentType::CPF ? new Cpf : new Cnpj]],
+            attributes: ['values.document_number' => $proposal->document_type->label()]);
+        foreach (['name', 'representative_name', 'representative_role', 'email', 'field_of_activity',
+            'professional_council', 'council_registration_number', 'credentialing_process_number'] as $field) {
+            $this->values[$field] = $proposal->{$field} ?? '';
+        }
+        $this->values['phone'] = filled($proposal->phone) ? BrazilianContactHelper::formatPhone($proposal->phone) : '';
+        foreach (['street', 'number', 'neighborhood'] as $field) {
+            $this->values['address'][$field] = $proposal->{$field} ?? '';
+        }
+        $this->values['address']['zip_code'] = filled($proposal->zip_code) ? BrazilianAddressHelper::formatCep($proposal->zip_code) : '';
+        $this->selectedCityId = $proposal->city_id;
+        $this->values['address']['city_id'] = $proposal->city_id;
+        $this->citySelectionVersion++;
     }
 
     public function lookupCnpj(BrasilApiCompanyLookup $lookup): void

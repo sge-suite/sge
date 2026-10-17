@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -16,6 +17,10 @@ use Illuminate\Validation\Validator as LaravelValidator;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property Carbon|null $starts_on
+ * @property Carbon|null $ends_on
+ */
 #[Fillable(['internship_id', 'starts_on', 'ends_on', 'weekly_hours', 'generated_document_id'])]
 class InternshipWorkSchedule extends Model
 {
@@ -87,7 +92,7 @@ class InternshipWorkSchedule extends Model
                     $validator->errors()->add('starts_on', 'O aditivo deve começar depois da jornada inicial.');
                 }
 
-                $hours = $schedule->weekly_hours;
+                $hours = $schedule->getAttribute('weekly_hours');
                 $days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
                 $rules = $internship->internship_type_snapshot['rules'] ?? [];
                 if (! is_array($hours) || array_diff(array_keys($hours), $days) !== [] || array_diff($days, array_keys($hours)) !== []) {

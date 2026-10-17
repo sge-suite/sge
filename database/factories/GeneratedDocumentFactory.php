@@ -26,7 +26,7 @@ class GeneratedDocumentFactory extends Factory
             'snapshot' => ['student' => ['name' => fake()->name()]],
             'generation_token' => fake()->uuid(),
             'output_filename' => 'documento.docx',
-            'template_sha256' => fn (array $attributes): string => TemplateVersion::findOrFail($attributes['template_version_id'])->file_sha256,
+            'template_sha256' => fn (array $attributes): string => TemplateVersion::query()->whereKey($attributes['template_version_id'])->firstOrFail()->file_sha256,
             'generated_at' => now(),
             'cancelled_at' => null,
             'cancellation_reason' => null,

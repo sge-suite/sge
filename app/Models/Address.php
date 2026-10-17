@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -76,6 +77,7 @@ class Address extends Model
             ->where('address_id', $addressId)
             ->where('id', '!=', $campus->getKey())
             ->exists()
+            || $this->hasRequestReferences()
             || UserPersonalData::query()->where('address_id', $addressId)->exists()
             || GrantingParty::query()->where('address_id', $addressId)->exists()
             || Internship::query()
@@ -88,7 +90,7 @@ class Address extends Model
 
     public function hasReferencesOutsidePersonalData(UserPersonalData $personalData): bool
     {
-        return Campus::query()->where('address_id', $this->id)->exists()
+        return $this->hasRequestReferences() || Campus::query()->where('address_id', $this->id)->exists()
             || GrantingParty::query()->where('address_id', $this->id)->exists()
             || UserPersonalData::query()->where('address_id', $this->id)->whereKeyNot($personalData->id)->exists()
             || Internship::query()->where(fn ($query) => $query->where('student_address_id', $this->id)
@@ -97,11 +99,17 @@ class Address extends Model
 
     public function hasReferences(): bool
     {
-        return Campus::query()->where('address_id', $this->id)->exists()
+        return $this->hasRequestReferences() || Campus::query()->where('address_id', $this->id)->exists()
             || GrantingParty::query()->where('address_id', $this->id)->exists()
             || UserPersonalData::query()->where('address_id', $this->id)->exists()
             || Internship::query()->where(fn ($query) => $query->where('student_address_id', $this->id)
                 ->orWhere('workplace_address_id', $this->id))->exists();
+    }
+
+    public function hasRequestReferences(): bool
+    {
+        return InternshipRequest::query()->where(fn ($query) => $query->where('student_address_id', $this->id)
+            ->orWhere('workplace_address_id', $this->id))->exists();
     }
 
     public function beforeActivityLogged(Activity $activity, string $eventName): void
@@ -119,6 +127,10 @@ class Address extends Model
     protected static function booted(): void
     {
         static::saving(function (self $address): void {
+            if ($address->exists && $address->isDirty() && ($address->hasRequestReferences()
+                || Internship::query()->where(fn ($query) => $query->where('student_address_id', $address->id)->orWhere('workplace_address_id', $address->id))->exists())) {
+                throw ValidationException::withMessages(['address' => 'Endereços históricos não podem ser alterados. Crie uma nova cópia.']);
+            }
             $attributes = $address->getAttributes();
             $attributes['zip_code'] = BrazilianAddressHelper::cepForValidation($attributes['zip_code'] ?? null);
             Validator::make($attributes, $address->addressRules())->validate();

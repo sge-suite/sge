@@ -26,14 +26,16 @@ class PrepareSupervisorEvaluationReference
         abort_unless($affiliation !== null && $affiliation->id === $expectedAffiliationId, 403);
         $internship = Internship::query()->findOrFail($internshipId);
         abort_unless($internship->supervisor_affiliation_id === $affiliation->id, 403);
-        $reference = $actor->personalData()->first();
+        $reference = $internship->supervisor_snapshot ?? [];
+        $experience = collect([$reference['experience_area'] ?? null, $reference['experience_time'] ?? null])->filter()->implode(' · ');
+        $matches = ($reference['has_academic_background'] ?? null) === $hasAcademicBackground;
 
         return [
             'has_academic_background' => $hasAcademicBackground,
-            'job_role' => $reference?->job_role,
-            'training_course' => $hasAcademicBackground ? $reference?->training_course : null,
-            'education_level' => $hasAcademicBackground ? $reference?->education_level?->value : null,
-            'experience_time' => $hasAcademicBackground ? null : $reference?->experience_time,
+            'job_role' => $reference['job_role'] ?? null,
+            'training_course' => $hasAcademicBackground && $matches ? ($reference['training_course'] ?? null) : null,
+            'education_level' => $hasAcademicBackground && $matches ? ($reference['education_level'] ?? null) : null,
+            'experience_time' => ! $hasAcademicBackground && $matches && $experience !== '' ? $experience : null,
         ];
     }
 }

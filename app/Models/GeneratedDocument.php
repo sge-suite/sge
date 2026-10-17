@@ -18,6 +18,11 @@ use Illuminate\Validation\Validator as LaravelValidator;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * @property GeneratedDocumentOrigin $origin
+ * @property GeneratedDocumentType $type
+ * @property GeneratedDocumentStatus $status
+ */
 #[Fillable([
     'internship_id', 'template_version_id', 'origin', 'type', 'status',
     'signature_availability_location', 'snapshot', 'generation_token',
