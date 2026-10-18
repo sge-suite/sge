@@ -19,6 +19,7 @@ use App\Models\GrantingParty;
 use App\Models\Holiday;
 use App\Models\HolidayRecurrence;
 use App\Models\HolidaySource;
+use App\Models\Internship;
 use App\Models\InternshipRequest;
 use App\Models\InternshipType;
 use App\Models\User;
@@ -33,6 +34,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('affiliations/switch', [AffiliationSelectionController::class, 'switch'])->name('affiliations.switch');
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
+        Route::livewire('internships', 'pages::internships.index')
+            ->middleware('can:viewAny,'.Internship::class)->name('internships.index');
+        Route::livewire('internships/{internship}', 'pages::internships.show')
+            ->middleware('can:view,internship')->name('internships.show');
+        Route::livewire('internships/{internship}/edit', 'pages::internships.edit')
+            ->middleware('can:update,internship')->name('internships.edit');
         Route::livewire('internship-review', 'pages::internship-requests.review-index')
             ->middleware('can:viewReviewList,'.InternshipRequest::class)->name('internship-review.index');
         Route::livewire('internship-review/{internshipRequest}', 'pages::internship-requests.review')

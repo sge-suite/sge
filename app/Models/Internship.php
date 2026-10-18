@@ -6,6 +6,7 @@ use App\Concerns\HasOwnedAddresses;
 use App\Enums\AffiliationType;
 use App\Enums\InternshipStatus;
 use App\Support\InternshipPlannedPauses;
+use Carbon\CarbonImmutable;
 use Database\Factories\InternshipFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as LaravelValidator;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -26,9 +28,13 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $workplace_address_id
  * @property InternshipStatus $status
  * @property Carbon $planned_start_date
+ * @property-read Carbon $projected_end_date
+ * @property-write \DateTimeInterface|string $projected_end_date
  * @property array<string, mixed> $student_snapshot
  * @property array<string, mixed> $supervisor_snapshot
+ * @property array<string, mixed> $granting_party_snapshot
  * @property array<string, mixed> $internship_type_snapshot
+ * @property array<string, int> $weekly_hours
  * @property array<string|int, array{starts_at: string, ends_at: string, reason: string}>|null $planned_pauses
  */
 #[Fillable([
@@ -52,6 +58,11 @@ class Internship extends Model
 
     use HasOwnedAddresses;
     use LogsActivity;
+
+    public ?string $managementChangeReason = null;
+
+    /** @var array{completion_date: CarbonImmutable, projected_end_date: CarbonImmutable, credited_hours: int, calendar: list<array{date: string, scheduled_hours: int, credited_hours: int, accumulated_hours: int, kind: string, reason?: string}>}|null */
+    public ?array $endDateCalculation = null;
 
     protected $attributes = [
         'is_remunerated' => false,
@@ -221,6 +232,13 @@ class Internship extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logFillable()->logExcept(['student_snapshot', 'supervisor_snapshot'])->logOnlyDirty()->dontLogEmptyChanges();
+    }
+
+    public function beforeActivityLogged(Activity $activity, string $eventName): void
+    {
+        if ($this->managementChangeReason !== null) {
+            $activity->properties = ($activity->properties ?? collect())->put('management_change_reason', $this->managementChangeReason);
+        }
     }
 
     protected static function booted(): void

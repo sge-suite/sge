@@ -7,6 +7,7 @@ use App\Enums\EducationLevel;
 use App\Enums\EmancipationEvidenceStatus;
 use App\Enums\InternshipRequestCorrectionStatus;
 use App\Enums\InternshipRequestStatus;
+use App\Enums\InternshipStatus;
 use App\Enums\LegalCapacityDeclaration;
 use App\Enums\PartyDocumentType;
 use App\Enums\RegistrationRequestStatus;
@@ -20,6 +21,9 @@ use App\Models\GrantingParty;
 use App\Models\GrantingPartyRegistrationRequest;
 use App\Models\Holiday;
 use App\Models\HolidayRecurrence;
+use App\Models\Internship;
+use App\Models\InternshipCalendarOverride;
+use App\Models\InternshipPause;
 use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
 use App\Models\InternshipType;
@@ -116,6 +120,9 @@ class AdministrativeActivityPresenter
         }
 
         $label = match ($activity->subject_type) {
+            (new Internship)->getMorphClass() => 'Estágio',
+            (new InternshipPause)->getMorphClass() => 'Pausa de estágio',
+            (new InternshipCalendarOverride)->getMorphClass() => 'Exceção do calendário de estágio',
             (new InternshipRequest)->getMorphClass() => 'Solicitação de estágio',
             (new InternshipRequestCorrection)->getMorphClass() => 'Correção de solicitação',
             (new GrantingPartyRegistrationRequest)->getMorphClass() => 'Pedido de concedente',
@@ -155,6 +162,23 @@ class AdministrativeActivityPresenter
     private function changes(Activity $activity): array
     {
         $fields = match ($activity->subject_type) {
+            (new Internship)->getMorphClass() => [
+                'status' => 'Situação', 'projected_end_date' => 'Término previsto',
+                'student_year_semester' => 'Ano/semestre',
+                'protocol_number' => 'Protocolo', 'observations' => 'Observações',
+                'internship_type_id' => 'Tipo de estágio', 'advisor_affiliation_id' => 'Orientador',
+                'supervisor_affiliation_id' => 'Supervisor', 'granting_party_id' => 'Concedente',
+                'granting_party_snapshot' => 'Dados da concedente no estágio', 'workplace_address_id' => 'Endereço do local de estágio',
+                'activities' => 'Atividades', 'internship_sector' => 'Setor/área',
+                'planned_start_date' => 'Início planejado', 'weekly_hours' => 'Jornada semanal', 'planned_pauses' => 'Pausas previstas',
+                'is_remunerated' => 'Remunerado', 'grant_value' => 'Bolsa', 'transportation_allowance' => 'Auxílio-transporte',
+            ],
+            (new InternshipPause)->getMorphClass() => [
+                'internship_id' => 'Estágio', 'starts_at' => 'Início da pausa', 'ends_at' => 'Fim da pausa', 'reason' => 'Motivo',
+            ],
+            (new InternshipCalendarOverride)->getMorphClass() => [
+                'internship_id' => 'Estágio', 'date' => 'Data da exceção', 'is_working_day' => 'Expediente liberado', 'reason' => 'Justificativa',
+            ],
             (new InternshipRequest)->getMorphClass() => [
                 'affiliation_id' => 'Vínculo discente', 'course_id' => 'Curso', 'internship_type_id' => 'Tipo de estágio',
                 'advisor_affiliation_id' => 'Orientador', 'granting_party_id' => 'Concedente',
@@ -251,6 +275,33 @@ class AdministrativeActivityPresenter
                 'before' => array_key_exists($field, $old) ? $this->value($field, $old[$field], $references, $activity->subject_type) : 'Não registrado',
                 'after' => array_key_exists($field, $new) ? $this->value($field, $new[$field], $references, $activity->subject_type) : 'Não registrado',
             ];
+        }
+
+        if ($activity->subject_type === (new Internship)->getMorphClass()) {
+            $ruleLabels = ['required_hours' => 'Carga horária exigida', 'max_daily_hours' => 'Limite diário de horas',
+                'max_weekly_hours' => 'Limite semanal de horas', 'safety_margin_days' => 'Margem de segurança em dias',
+                'allowed_academic_periods' => 'Anos ou semestres permitidos', 'supervisor_evaluation_weight' => 'Peso da avaliação do supervisor',
+                'report_weight' => 'Peso do relatório', 'presentation_weight' => 'Peso da apresentação',
+                'very_good_value' => 'Conceito Muito bom', 'good_value' => 'Conceito Bom',
+                'satisfactory_value' => 'Conceito Satisfatório', 'unsatisfactory_value' => 'Conceito Insatisfatório'];
+            $oldRules = $old['internship_type_snapshot']['rules'] ?? [];
+            $newRules = $new['internship_type_snapshot']['rules'] ?? [];
+            foreach ($ruleLabels as $rule => $label) {
+                if ((! array_key_exists($rule, $oldRules) && ! array_key_exists($rule, $newRules))
+                    || (array_key_exists($rule, $oldRules) && array_key_exists($rule, $newRules) && $oldRules[$rule] === $newRules[$rule])) {
+                    continue;
+                }
+                $changes[] = ['field' => $label.' no estágio',
+                    'before' => array_key_exists($rule, $oldRules) ? $this->value($rule, $oldRules[$rule], []) : 'Não registrado',
+                    'after' => array_key_exists($rule, $newRules) ? $this->value($rule, $newRules[$rule], []) : 'Não registrado'];
+            }
+            $reason = $activity->properties?->get('management_change_reason');
+            if (is_string($reason) && $reason !== '') {
+                $changes[] = ['field' => 'Motivo da substituição', 'before' => 'Não registrado', 'after' => $reason];
+            }
+            if (in_array('supervisor', $activity->properties?->get('changed_sections', []) ?? [], true)) {
+                $changes[] = ['field' => 'Dados do supervisor', 'before' => 'Não registrado', 'after' => 'Atualização registrada'];
+            }
         }
 
         return $changes;
@@ -392,6 +443,7 @@ class AdministrativeActivityPresenter
 
         if ($field === 'status') {
             $status = match ($subjectType) {
+                (new Internship)->getMorphClass() => InternshipStatus::tryFrom((string) $value),
                 (new InternshipRequest)->getMorphClass() => InternshipRequestStatus::tryFrom((string) $value),
                 (new InternshipRequestCorrection)->getMorphClass() => InternshipRequestCorrectionStatus::tryFrom((string) $value),
                 (new SupervisorRegistrationRequest)->getMorphClass(), (new GrantingPartyRegistrationRequest)->getMorphClass() => RegistrationRequestStatus::tryFrom((string) $value),
@@ -414,7 +466,9 @@ class AdministrativeActivityPresenter
             return is_numeric($value) ? formatCurrency((float) $value) : 'Valor não exibido';
         }
 
-        if (in_array($field, ['planned_start_date', 'projected_end_date'], true)) {
+        if (in_array($field, ['planned_start_date', 'projected_end_date'], true)
+            || ($subjectType === (new InternshipPause)->getMorphClass() && in_array($field, ['starts_at', 'ends_at'], true))
+            || ($subjectType === (new InternshipCalendarOverride)->getMorphClass() && $field === 'date')) {
             return formatShort((string) $value);
         }
 
@@ -461,9 +515,22 @@ class AdministrativeActivityPresenter
             return 'Nenhum item';
         }
 
+        if ($field === 'granting_party_snapshot') {
+            $labels = ['name' => 'Nome', 'document_number' => 'CPF/CNPJ', 'phone' => 'Telefone', 'email' => 'E-mail',
+                'representative_name' => 'Representante', 'representative_role' => 'Cargo do representante', 'field_of_activity' => 'Área de atuação',
+                'professional_council' => 'Conselho profissional', 'council_registration_number' => 'Registro no conselho', 'credentialing_process_number' => 'Processo de credenciamento'];
+
+            return collect($labels)->filter(fn (string $label, string $key): bool => isset($value[$key]) && is_scalar($value[$key]))
+                ->map(fn (string $label, string $key): string => $label.': '.$value[$key])->implode('; ');
+        }
+
         if ($field === 'affected_sections') {
             return collect($value)->filter(fn (mixed $section): bool => is_string($section))
                 ->map(fn (string $section): string => InternshipRequestCorrection::sectionLabel($section))->implode('; ');
+        }
+
+        if ($field === 'allowed_academic_periods') {
+            return collect($value)->filter(fn (mixed $period): bool => is_string($period))->implode('; ');
         }
 
         if ($field === 'section_messages') {

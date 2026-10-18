@@ -38,7 +38,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     {
         Gate::authorize('review', $internshipRequest);
         $this->requestId = $internshipRequest->id;
-        $this->advisorId = $internshipRequest->advisor_affiliation_id;
+        $this->advisorId = $internshipRequest->internship()->first()?->advisor_affiliation_id ?? $internshipRequest->advisor_affiliation_id;
         $this->partyId = $internshipRequest->granting_party_id;
         $this->supervisorId = $internshipRequest->supervisor_affiliation_id;
         $openCorrection = $internshipRequest->corrections()->where('status', 'open')->first();
@@ -165,7 +165,14 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
 @endphp
 <div class="w-full max-w-none space-y-6" x-on:focus.window="$wire.refreshChoices()">
     <flux:breadcrumbs><flux:breadcrumbs.item :href="route('internship-review.index')" wire:navigate>Analisar solicitações</flux:breadcrumbs.item><flux:breadcrumbs.item>Nº {{ $request->id }}</flux:breadcrumbs.item></flux:breadcrumbs>
-    <flux:heading level="1" size="xl">Solicitação nº {{ $request->id }} · {{ $request->status->label() }}</flux:heading>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <flux:heading level="1" size="xl">Solicitação nº {{ $request->id }} · {{ $request->status->label() }}</flux:heading>
+        @if ($request->internship !== null)
+            @can('view', $request->internship)
+                <flux:button icon="briefcase" :href="route('internships.show', $request->internship)" wire:navigate>Ver estágio nº {{ $request->internship->id }}</flux:button>
+            @endcan
+        @endif
+    </div>
     @if ($errors->any())<flux:callout variant="danger" heading="Confira a decisão"><ul>@foreach($errors->all() as $index => $error)<li wire:key="review-error-{{ $index }}">{{ $error }}</li>@endforeach</ul></flux:callout>@endif
     <div class="space-y-6 rounded-xl border border-zinc-200 p-6 text-base dark:border-zinc-700">@include('pages.internship-requests.partials.review')</div>
     @foreach (['granting_party' => $request->grantingPartyRegistrationRequest, 'supervisor' => $request->supervisorRegistrationRequest] as $kind => $proposal)

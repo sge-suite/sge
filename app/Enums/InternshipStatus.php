@@ -21,7 +21,7 @@ enum InternshipStatus: string
         return match ($this) {
             self::PendingFormalization => 'Em formalização',
             self::AwaitingSignatures => 'Aguardando assinaturas',
-            self::PendingCorrection => 'Com pendência documental',
+            self::PendingCorrection => 'Com pendência de correção',
             self::Released => 'Liberado',
             self::InProgress => 'Em andamento',
             self::Paused => 'Pausado',

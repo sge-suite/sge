@@ -20,6 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
 /**
  * @property Carbon|null $starts_on
  * @property Carbon|null $ends_on
+ * @property array<string, int> $weekly_hours
  */
 #[Fillable(['internship_id', 'starts_on', 'ends_on', 'weekly_hours', 'generated_document_id'])]
 class InternshipWorkSchedule extends Model

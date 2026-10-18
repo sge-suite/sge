@@ -28,11 +28,14 @@ class ReviewInternshipRequest
     use InternshipRequestValidationRules;
 
     public function __construct(private StudentInternshipContext $context, private CauserResolver $causerResolver,
-        private CopyAddress $copyAddress, private ProjectInternshipRequestEndDate $project,
+        private CopyAddress $copyAddress, private ProjectInternshipRequestEndDate $project, private ProjectInternshipEndDate $projectInternship,
         private InternshipRequestSnapshots $snapshots, private ManageStudentInternshipRequest $studentRequests,
         private NotifyInternshipRequestDecision $notify) {}
 
-    /** @param list<string> $sections */
+    /**
+     * @param  list<string>  $sections
+     * @param  array<string, mixed>  $sectionMessages
+     */
     public function handle(User $actor, InternshipRequest $target, string $operation, ?string $message = null, array $sections = [], ?int $advisorId = null, ?int $supervisorQualificationId = null, array $sectionMessages = []): InternshipRequest
     {
         abort_unless(in_array($operation, ['begin', 'return', 'reject', 'accept'], true), 404);
@@ -60,8 +63,8 @@ class ReviewInternshipRequest
                 'sectionMessages' => [$operation === 'return' ? 'required' : 'nullable', 'array'],
                 'sectionMessages.*' => ['required', 'string', 'max:5000'],
             ];
-            foreach ($sections as $section) {
-                if (is_string($section) && array_key_exists($section, self::internshipSections())) {
+            foreach (array_keys(self::internshipSections()) as $section) {
+                if (in_array($section, $sections, true)) {
                     $rules['sectionMessages.'.$section] = [$operation === 'return' ? 'required' : 'nullable', 'string', 'max:5000'];
                 }
             }
@@ -99,7 +102,7 @@ class ReviewInternshipRequest
                     $request->status = InternshipRequestStatus::Rejected;
                 } else {
                     $owner = $request->affiliation()->lockForUpdate()->firstOrFail();
-                    $request->advisor_affiliation_id = $advisorId ?? $request->advisor_affiliation_id;
+                    $request->advisor_affiliation_id = $advisorId ?? $internship->advisor_affiliation_id ?? $request->advisor_affiliation_id;
                     $this->studentRequests->assertRelations($request, $owner);
                     abort_if($request->granting_party_registration_request_id !== null || $request->supervisor_registration_request_id !== null, 422, 'Aprove e associe os cadastros pendentes antes do aceite.');
                     $advisor = Affiliation::query()->active()->where('campus_id', $campus->id)->where('type', AffiliationType::Advisor->value)->lockForUpdate()->find($request->advisor_affiliation_id);
@@ -145,10 +148,39 @@ class ReviewInternshipRequest
                             }];
                         }
                         $attributes = array_intersect_key($attributes, array_flip($fields));
+                        if (isset($attributes['internship_type_id']) && (int) $attributes['internship_type_id'] === $stage->internship_type_id) {
+                            unset($attributes['internship_type_snapshot']);
+                        }
+                        if (isset($attributes['student_snapshot'])) {
+                            $studentFields = [];
+                            if (in_array('personal_data', $corrected, true)) {
+                                $studentFields = ['name', 'cpf', 'email', 'registration_number', 'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone'];
+                            }
+                            if (in_array('internship', $corrected, true)) {
+                                $studentFields[] = 'student_year_semester';
+                            }
+                            if (in_array('legal_capacity', $corrected, true)) {
+                                $studentFields = [...$studentFields, 'legal_capacity_declaration', 'legal_guardian_name', 'legal_guardian_cpf', 'legal_guardian_kinship', 'legal_guardian_email'];
+                            }
+                            $attributes['student_snapshot'] = array_replace($stage->student_snapshot,
+                                array_intersect_key($attributes['student_snapshot'], array_flip($studentFields)));
+                            $period = $attributes['student_snapshot']['student_year_semester'] ?? null;
+                            $rules = ($attributes['internship_type_snapshot'] ?? $stage->internship_type_snapshot)['rules'] ?? [];
+                            if ($period !== ($stage->student_snapshot['student_year_semester'] ?? null)
+                                && ! in_array($period, $rules['allowed_academic_periods'] ?? [], true)) {
+                                throw ValidationException::withMessages(['student_year_semester' => 'O ano ou semestre corrigido deve ser permitido pelas regras deste estágio.']);
+                            }
+                        }
                     }
-                    $projection = clone $request;
-                    $projection->workplace_address_id = $attributes['workplace_address_id'] ?? $stage->workplace_address_id;
-                    $request->projected_end_date = $this->project->handle($projection);
+                    if ($stage->exists) {
+                        $projection = clone $stage;
+                        $projection->fill($attributes);
+                        $request->projected_end_date = $this->projectInternship->handle($projection);
+                    } else {
+                        $projection = clone $request;
+                        $projection->workplace_address_id = $attributes['workplace_address_id'];
+                        $request->projected_end_date = $this->project->handle($projection);
+                    }
                     $attributes['projected_end_date'] = $request->projected_end_date;
                     $attributes['status'] = InternshipStatus::PendingFormalization;
                     $stage->fill($attributes)->save();

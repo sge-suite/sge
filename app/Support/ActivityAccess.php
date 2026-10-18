@@ -46,7 +46,7 @@ class ActivityAccess
     {
         return match ($this->context->currentFor($user, $session)?->type) {
             AffiliationType::SystemAdministrator => ['campus' => 'Campi', 'address' => 'Endereços de campi', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos administrativos', 'holiday' => 'Feriados', 'holiday_recurrence' => 'Recorrências municipais'],
-            AffiliationType::InternshipOffice => ['internship_request' => 'Solicitações de estágio', 'internship_request_correction' => 'Correções de solicitações', 'supervisor_registration_request' => 'Pedidos de supervisor', 'granting_party_registration_request' => 'Pedidos de concedente', 'emancipation_evidence' => 'Análises de emancipação', 'campus' => 'Meu campus', 'course' => 'Cursos', 'internship_type' => 'Tipos de estágio', 'granting_party' => 'Partes concedentes', 'address' => 'Endereços de cadastros', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos no campus'],
+            AffiliationType::InternshipOffice => ['internship' => 'Estágios', 'internship_pause' => 'Pausas de estágio', 'internship_calendar_override' => 'Exceções do calendário de estágio', 'internship_request' => 'Solicitações de estágio', 'internship_request_correction' => 'Correções de solicitações', 'supervisor_registration_request' => 'Pedidos de supervisor', 'granting_party_registration_request' => 'Pedidos de concedente', 'emancipation_evidence' => 'Análises de emancipação', 'campus' => 'Meu campus', 'course' => 'Cursos', 'internship_type' => 'Tipos de estágio', 'granting_party' => 'Partes concedentes', 'address' => 'Endereços de cadastros', 'user' => 'Contas de usuários', 'affiliation' => 'Vínculos no campus'],
             default => [],
         };
     }

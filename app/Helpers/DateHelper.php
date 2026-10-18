@@ -30,6 +30,15 @@ final class DateHelper
         return self::parse($date)->isoFormat('DD/MM/YYYY');
     }
 
+    public static function formatWeekday(string|DateTimeInterface|null $date): string
+    {
+        if (is_null($date)) {
+            return '-';
+        }
+
+        return Str::ucfirst(self::parse($date)->isoFormat('dddd'));
+    }
+
     public static function formatRelative(string|DateTimeInterface|null $date): string
     {
         if (is_null($date)) {

@@ -3,15 +3,24 @@
 namespace App\Support;
 
 use App\Actions\CopyAddress;
+use App\Concerns\InternshipTypeValidationRules;
 use App\Models\Affiliation;
 use App\Models\GrantingParty;
 use App\Models\InternshipRequest;
 use App\Models\InternshipType;
 use App\Models\User;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator as LaravelValidator;
 
 class InternshipRequestSnapshots
 {
+    use InternshipTypeValidationRules;
+
+    public const TYPE_RULE_FIELDS = ['allowed_academic_periods', 'required_hours', 'supervisor_evaluation_weight', 'report_weight', 'presentation_weight',
+        'very_good_value', 'good_value', 'satisfactory_value', 'unsatisfactory_value', 'max_daily_hours', 'max_weekly_hours', 'safety_margin_days'];
+
     public function __construct(private CopyAddress $copyAddress) {}
 
     public function student(InternshipRequest $request, Affiliation $owner): void
@@ -35,11 +44,48 @@ class InternshipRequestSnapshots
     /** @return array<string, mixed> */
     public function type(InternshipType $type): array
     {
-        return ['id' => $type->id, 'name' => $type->name, 'rules' => $type->only([
-            'allowed_academic_periods', 'required_hours', 'supervisor_evaluation_weight', 'report_weight', 'presentation_weight',
-            'very_good_value', 'good_value', 'satisfactory_value', 'unsatisfactory_value',
-            'max_daily_hours', 'max_weekly_hours', 'safety_margin_days',
-        ]) + ['excellent' => $type->supervisor_evaluation_weight, 'unsatisfactory' => $type->unsatisfactory_value]];
+        return ['id' => $type->id, 'name' => $type->name, 'rules' => $type->only(self::TYPE_RULE_FIELDS)
+            + ['excellent' => $type->supervisor_evaluation_weight, 'unsatisfactory' => $type->unsatisfactory_value]];
+    }
+
+    /**
+     * @param  array<string, mixed>  $snapshot
+     * @param  array<string, mixed>  $rules
+     * @return array<string, mixed>
+     */
+    public function withTypeRules(array $snapshot, array $rules): array
+    {
+        Validator::make(['rules' => $rules], ['rules' => ['required', 'array:'.implode(',', self::TYPE_RULE_FIELDS)]])->validate();
+        $conceptFields = ['very_good_value', 'good_value', 'satisfactory_value', 'unsatisfactory_value'];
+        foreach ($conceptFields as $field) {
+            if (is_string($rules[$field] ?? null)) {
+                $rules[$field] = str_replace(',', '.', trim($rules[$field]));
+            }
+        }
+        $validator = Validator::make($rules, Arr::only($this->internshipTypeRules(false), self::TYPE_RULE_FIELDS),
+            $this->internshipTypeValidationMessages(), $this->internshipTypeValidationAttributes());
+        $validator->after(function (LaravelValidator $validator) use ($rules): void {
+            $this->validateInternshipTypeValues($validator, $rules);
+        });
+        try {
+            $values = $validator->validate();
+        } catch (ValidationException $exception) {
+            $errors = [];
+            foreach ($exception->errors() as $field => $messages) {
+                $errors['rules.'.$field] = $messages;
+            }
+            throw ValidationException::withMessages($errors);
+        }
+        foreach (array_diff(self::TYPE_RULE_FIELDS, ['allowed_academic_periods', ...$conceptFields]) as $field) {
+            $values[$field] = (int) $values[$field];
+        }
+        foreach ($conceptFields as $field) {
+            $values[$field] = number_format((float) $values[$field], 1, '.', '');
+        }
+        $snapshot['rules'] = array_replace($snapshot['rules'] ?? [], $values,
+            ['excellent' => $values['supervisor_evaluation_weight'], 'unsatisfactory' => $values['unsatisfactory_value']]);
+
+        return $snapshot;
     }
 
     /** @return array<string, mixed> */

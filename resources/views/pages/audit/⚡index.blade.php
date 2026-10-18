@@ -87,6 +87,8 @@ new #[Title('Auditoria')] class extends Component
             'supervisor_registration_request' => new \App\Models\SupervisorRegistrationRequest, 'granting_party_registration_request' => new \App\Models\GrantingPartyRegistrationRequest,
             'emancipation_evidence' => new \App\Models\EmancipationEvidence];
         $types += ['holiday' => new \App\Models\Holiday, 'holiday_recurrence' => new \App\Models\HolidayRecurrence];
+        $types += ['internship' => new \App\Models\Internship, 'internship_pause' => new \App\Models\InternshipPause,
+            'internship_calendar_override' => new \App\Models\InternshipCalendarOverride];
 
         if (isset($types[$this->entity], $this->entityOptions[$this->entity])) {
             $query->where('subject_type', $types[$this->entity]->getMorphClass());

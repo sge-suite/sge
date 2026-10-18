@@ -23,6 +23,10 @@
                     <flux:sidebar.item icon="clipboard-document-check" :href="route('internship-review.index')" :current="request()->routeIs('internship-review.*')" wire:navigate>Solicitações de estágio</flux:sidebar.item>
                 @endcan
 
+                @can('viewAny', \App\Models\Internship::class)
+                    <flux:sidebar.item icon="briefcase" :href="route('internships.index')" :current="request()->routeIs('internships.*')" wire:navigate>Estágios</flux:sidebar.item>
+                @endcan
+
                 @if (auth()->user()->can('viewAdministration', \App\Models\Campus::class)
                     || auth()->user()->can('viewOwn', \App\Models\Campus::class)
                     || auth()->user()->can('viewAny', \App\Models\User::class)
