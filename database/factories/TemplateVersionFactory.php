@@ -24,21 +24,9 @@ class TemplateVersionFactory extends Factory
             'version' => 1,
             'file_sha256' => hash('sha256', fake()->uuid()),
             'file_size' => fake()->numberBetween(1, 10_000),
-            'required_variables' => [],
-            'optional_variables' => [],
-            'detected_variables' => null,
-            'validation_report' => null,
+            'detected_variables' => [],
+            'validation_report' => ['status' => 'validated', 'errors' => [], 'warnings' => []],
             'uploaded_by_affiliation_id' => Affiliation::factory()->server(),
-            'validated_at' => null,
-            'validated_by_affiliation_id' => null,
         ];
-    }
-
-    public function validated(): static
-    {
-        return $this->state(fn (): array => [
-            'validated_at' => now(),
-            'validated_by_affiliation_id' => Affiliation::factory()->server(),
-        ]);
     }
 }

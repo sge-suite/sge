@@ -6,8 +6,10 @@ use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\Course;
+use App\Models\DocumentTemplate;
 use App\Models\GrantingParty;
 use App\Models\InternshipType;
+use App\Models\TemplateVersion;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +32,28 @@ class CampusActivityScope
                 app(InternshipRequestActivityScope::class)->apply($query, $campusId);
             })->orWhere(function (Builder $query) use ($campusId): void {
                 app(InternshipActivityScope::class)->apply($query, $campusId);
+            })->orWhere(function (Builder $query) use ($campusId): void {
+                $query->where('subject_type', (new DocumentTemplate)->getMorphClass())
+                    ->where(function (Builder $query) use ($campusId): void {
+                        $query->where('properties->campus_id', $campusId)
+                            ->orWhere(function (Builder $query) use ($campusId): void {
+                                $query->whereNull('properties->campus_id');
+                                $this->recordedFieldIn($query, new DocumentTemplate, 'campus_id', [(string) $campusId]);
+                            });
+                    });
+            })->orWhere(function (Builder $query) use ($campusId): void {
+                $query->where('subject_type', (new TemplateVersion)->getMorphClass())
+                    ->where(function (Builder $query) use ($campusId): void {
+                        $query->where('properties->campus_id', $campusId)
+                            ->orWhere(function (Builder $query) use ($campusId): void {
+                                $query->whereNull('properties->campus_id')
+                                    ->whereIn('subject_id', Activity::query()
+                                        ->where('subject_type', (new DocumentTemplate)->getMorphClass())
+                                        ->where('event', 'template_version_uploaded')
+                                        ->where('properties->campus_id', $campusId)
+                                        ->selectRaw("(properties->>'template_version_id')::bigint"));
+                            });
+                    });
             })->orWhere(function (Builder $query) use ($campusId): void {
                 $query->where('subject_type', (new Campus)->getMorphClass())->where('subject_id', $campusId);
             })->orWhere(function (Builder $query) use ($campusId): void {

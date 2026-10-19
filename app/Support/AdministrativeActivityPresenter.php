@@ -5,17 +5,20 @@ namespace App\Support;
 use App\Enums\AffiliationType;
 use App\Enums\EducationLevel;
 use App\Enums\EmancipationEvidenceStatus;
+use App\Enums\GeneratedDocumentType;
 use App\Enums\InternshipRequestCorrectionStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\InternshipStatus;
 use App\Enums\LegalCapacityDeclaration;
 use App\Enums\PartyDocumentType;
 use App\Enums\RegistrationRequestStatus;
+use App\Enums\TemplateRemuneration;
 use App\Models\Address;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\City;
 use App\Models\Course;
+use App\Models\DocumentTemplate;
 use App\Models\EmancipationEvidence;
 use App\Models\GrantingParty;
 use App\Models\GrantingPartyRegistrationRequest;
@@ -28,6 +31,7 @@ use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
 use App\Models\InternshipType;
 use App\Models\SupervisorRegistrationRequest;
+use App\Models\TemplateVersion;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -61,11 +65,13 @@ class AdministrativeActivityPresenter
             'actor' => $this->actor($activity),
             'subject' => $this->subject($activity),
             'event' => match ($activity->event) {
-                'created' => 'Criação',
+                'created' => $activity->subject_type === (new TemplateVersion)->getMorphClass() ? 'Versão de template criada' : 'Criação',
                 'updated' => 'Alteração',
-                'deleted' => 'Exclusão',
+                'deleted' => $activity->subject_type === (new TemplateVersion)->getMorphClass() ? 'Arquivo DOCX excluído' : 'Exclusão',
                 'restored' => 'Restauração',
                 'password_changed' => 'Senha alterada',
+                'template_version_uploaded' => 'Arquivo DOCX enviado',
+                'template_current_version_changed' => $activity->properties?->get('version') ? 'Versão v'.$activity->properties->get('version').' definida como vigente' : 'Vigência do template removida',
                 default => 'Evento registrado',
             },
             'occurred_at' => formatDateTime($activity->created_at),
@@ -120,6 +126,8 @@ class AdministrativeActivityPresenter
         }
 
         $label = match ($activity->subject_type) {
+            (new DocumentTemplate)->getMorphClass() => 'Template DOCX',
+            (new TemplateVersion)->getMorphClass() => 'Versão de template',
             (new Internship)->getMorphClass() => 'Estágio',
             (new InternshipPause)->getMorphClass() => 'Pausa de estágio',
             (new InternshipCalendarOverride)->getMorphClass() => 'Exceção do calendário de estágio',
@@ -162,6 +170,8 @@ class AdministrativeActivityPresenter
     private function changes(Activity $activity): array
     {
         $fields = match ($activity->subject_type) {
+            (new DocumentTemplate)->getMorphClass() => ['name' => 'Nome', 'description' => 'Descrição', 'document_type' => 'Tipo documental', 'remuneration' => 'Remuneração do modelo', 'campus_id' => 'Campus', 'deactivated_at' => 'Desativado em'],
+            (new TemplateVersion)->getMorphClass() => ['version' => 'Versão', 'file_sha256' => 'SHA-256', 'file_size' => 'Tamanho', 'detected_variables' => 'Variáveis detectadas', 'validation_report' => 'Relatório de validação', 'uploaded_by_affiliation_id' => 'Vínculo de envio', 'validated_at' => 'Validada em (histórico)', 'validated_by_affiliation_id' => 'Vínculo de validação (histórico)'],
             (new Internship)->getMorphClass() => [
                 'status' => 'Situação', 'projected_end_date' => 'Término previsto',
                 'student_year_semester' => 'Ano/semestre',
@@ -495,6 +505,14 @@ class AdministrativeActivityPresenter
 
         if ($field === 'deactivated_at') {
             return formatDateTime((string) $value);
+        }
+
+        if ($subjectType === (new DocumentTemplate)->getMorphClass() && $field === 'remuneration') {
+            return TemplateRemuneration::tryFrom((string) $value)?->label() ?? 'Classificação não reconhecida';
+        }
+
+        if ($field === 'document_type' && $subjectType === (new DocumentTemplate)->getMorphClass()) {
+            return GeneratedDocumentType::tryFrom((string) $value)?->label() ?? 'Tipo não reconhecido';
         }
 
         if ($field === 'document_type') {

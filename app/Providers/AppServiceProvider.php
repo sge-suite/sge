@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Policies\ActivityPolicy;
 use App\Policies\CampusPolicy;
 use App\Support\AuditInfrastructureModel;
+use App\Support\ProtectTemplateMedia;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\DatabaseNotification;
@@ -43,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Campus::class, CampusPolicy::class);
         DatabaseNotification::observe(AuditInfrastructureModel::class);
         Media::observe(AuditInfrastructureModel::class);
+        Media::observe(ProtectTemplateMedia::class);
         LogActivityAction::beforeLogging(function (ActivityContract $activity): void {
             if (! $activity instanceof Activity) {
                 return;

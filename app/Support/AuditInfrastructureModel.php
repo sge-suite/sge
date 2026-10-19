@@ -31,7 +31,7 @@ class AuditInfrastructureModel
     private function record(Model $model, string $event, array $attributes, array $old): void
     {
         if ($model instanceof Media
-            && $model->collection_name === 'emancipation_evidence') {
+            && in_array($model->collection_name, ['emancipation_evidence', 'template_file'], true)) {
             return;
         }
 

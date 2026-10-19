@@ -10,16 +10,26 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
+/**
+ * @property int $id
+ * @property int $document_template_id
+ * @property int $version
+ * @property int $file_size
+ * @property list<string>|null $detected_variables
+ * @property array<string, mixed>|null $validation_report
+ * @property int $uploaded_by_affiliation_id
+ */
 #[Fillable([
     'document_template_id', 'version', 'file_sha256', 'file_size',
-    'required_variables', 'optional_variables', 'detected_variables',
-    'validation_report', 'uploaded_by_affiliation_id', 'validated_at',
-    'validated_by_affiliation_id',
+    'detected_variables',
+    'validation_report', 'uploaded_by_affiliation_id',
 ])]
 class TemplateVersion extends Model implements HasMedia
 {
@@ -36,13 +46,9 @@ class TemplateVersion extends Model implements HasMedia
             'document_template_id' => 'integer',
             'version' => 'integer',
             'file_size' => 'integer',
-            'required_variables' => 'array',
-            'optional_variables' => 'array',
             'detected_variables' => 'array',
             'validation_report' => 'array',
             'uploaded_by_affiliation_id' => 'integer',
-            'validated_at' => 'datetime',
-            'validated_by_affiliation_id' => 'integer',
         ];
     }
 
@@ -64,12 +70,6 @@ class TemplateVersion extends Model implements HasMedia
         return $this->belongsTo(Affiliation::class, 'uploaded_by_affiliation_id');
     }
 
-    /** @return BelongsTo<Affiliation, $this> */
-    public function validatedByAffiliation(): BelongsTo
-    {
-        return $this->belongsTo(Affiliation::class, 'validated_by_affiliation_id');
-    }
-
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('template_file')
@@ -89,10 +89,11 @@ class TemplateVersion extends Model implements HasMedia
     protected static function booted(): void
     {
         static::saving(function (self $templateVersion): void {
+            if ($templateVersion->exists) {
+                throw ValidationException::withMessages(['version' => 'A versão é imutável. Envie outro arquivo como nova versão.']);
+            }
             Validator::make([
                 ...$templateVersion->getAttributes(),
-                'required_variables' => $templateVersion->required_variables,
-                'optional_variables' => $templateVersion->optional_variables,
                 'detected_variables' => $templateVersion->detected_variables,
                 'validation_report' => $templateVersion->validation_report,
             ], [
@@ -100,14 +101,26 @@ class TemplateVersion extends Model implements HasMedia
                 'version' => ['required', 'integer', 'min:1', Rule::unique('template_versions')->where('document_template_id', $templateVersion->document_template_id)->ignore($templateVersion->id)],
                 'file_sha256' => ['required', 'regex:/\A[a-f0-9]{64}\z/', Rule::unique('template_versions')->where('document_template_id', $templateVersion->document_template_id)->ignore($templateVersion->id)],
                 'file_size' => ['required', 'integer', 'min:1'],
-                'required_variables' => ['present', 'array'],
-                'optional_variables' => ['present', 'array'],
                 'detected_variables' => ['nullable', 'array'],
-                'validation_report' => ['nullable', 'array'],
+                'validation_report' => ['required', 'array'],
+                'validation_report.status' => ['required', Rule::in(['validated'])],
+                'validation_report.errors' => ['present', 'array', 'size:0'],
                 'uploaded_by_affiliation_id' => ['required', 'integer', Rule::exists(Affiliation::class, 'id')],
-                'validated_at' => ['nullable', 'date'],
-                'validated_by_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')],
             ])->validate();
         });
+
+        static::deleting(function (self $version): void {
+            if ($version->generatedDocuments()->exists()) {
+                throw ValidationException::withMessages(['version' => 'Versões usadas por documentos não podem ser excluídas.']);
+            }
+        });
+    }
+
+    public function beforeActivityLogged(Activity $activity, string $eventName): void
+    {
+        $activity->properties = ($activity->properties ?? collect())
+            ->put('document_template_id', $this->document_template_id)
+            ->put('version', $this->version)
+            ->put('campus_id', $this->documentTemplate()->value('campus_id'));
     }
 }

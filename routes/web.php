@@ -4,6 +4,7 @@ use App\Http\Controllers\AdministrativeAffiliationController;
 use App\Http\Controllers\AffiliationSelectionController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\DocumentTemplatePreviewController;
 use App\Http\Controllers\GrantingPartyController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\HolidayImportController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Middleware\RequireActiveAffiliation;
 use App\Models\Campus;
 use App\Models\Course;
+use App\Models\DocumentTemplate;
 use App\Models\EmailDeliveryAttempt;
 use App\Models\GrantingParty;
 use App\Models\Holiday;
@@ -34,6 +36,18 @@ Route::middleware(['auth'])->group(function () {
     Route::post('affiliations/switch', [AffiliationSelectionController::class, 'switch'])->name('affiliations.switch');
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
+        Route::middleware('can:viewAny,'.DocumentTemplate::class)->group(function (): void {
+            Route::livewire('document-templates', 'pages::document-templates.index')->name('document-templates.index');
+            Route::livewire('document-templates/guide', 'pages::document-templates.guide')->name('document-templates.guide');
+            Route::livewire('document-templates/create', 'pages::document-templates.form')
+                ->middleware('can:create,'.DocumentTemplate::class)->name('document-templates.create');
+            Route::livewire('document-templates/{documentTemplate}/edit', 'pages::document-templates.form')
+                ->middleware('can:update,documentTemplate')->name('document-templates.edit');
+            Route::get('document-templates/{documentTemplate}/versions/{templateVersion}/preview', DocumentTemplatePreviewController::class)
+                ->scopeBindings()->middleware('can:view,documentTemplate')->name('document-templates.preview');
+            Route::livewire('document-templates/{documentTemplate}', 'pages::document-templates.show')
+                ->middleware('can:view,documentTemplate')->name('document-templates.show');
+        });
         Route::livewire('internships', 'pages::internships.index')
             ->middleware('can:viewAny,'.Internship::class)->name('internships.index');
         Route::livewire('internships/{internship}', 'pages::internships.show')

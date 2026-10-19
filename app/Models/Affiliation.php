@@ -152,7 +152,7 @@ class Affiliation extends Model
                     $query->orWhere($column, $this->id);
                 }
             })->exists()
-            || TemplateVersion::query()->where('uploaded_by_affiliation_id', $this->id)->orWhere('validated_by_affiliation_id', $this->id)->exists()
+            || TemplateVersion::query()->where('uploaded_by_affiliation_id', $this->id)->exists()
             || EmailDeliveryAttempt::query()->where('requested_by_affiliation_id', $this->id)->exists()
             || $this->notifications()->exists()
             || Media::query()->where('model_type', $this->getMorphClass())->where('model_id', $this->id)->exists();

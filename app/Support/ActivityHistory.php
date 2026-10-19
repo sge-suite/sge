@@ -5,9 +5,11 @@ namespace App\Support;
 use App\Models\Address;
 use App\Models\Affiliation;
 use App\Models\Campus;
+use App\Models\DocumentTemplate;
 use App\Models\GrantingParty;
 use App\Models\Internship;
 use App\Models\InternshipRequest;
+use App\Models\TemplateVersion;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +28,25 @@ class ActivityHistory
     public function forSubject(Model $subject, Builder $query): LengthAwarePaginator
     {
         $query->where(function (Builder $query) use ($subject): void {
+            if ($subject instanceof DocumentTemplate) {
+                $query->where(function (Builder $query) use ($subject): void {
+                    $query->where('subject_type', $subject->getMorphClass())->where('subject_id', $subject->id);
+                })->orWhere(function (Builder $query) use ($subject): void {
+                    $query->where('subject_type', (new TemplateVersion)->getMorphClass())
+                        ->where(function (Builder $query) use ($subject): void {
+                            $query->where('properties->document_template_id', $subject->id)
+                                ->orWhere(function (Builder $query) use ($subject): void {
+                                    $query->whereNull('properties->document_template_id')
+                                        ->whereIn('subject_id', Activity::query()->forSubject($subject)
+                                            ->where('event', 'template_version_uploaded')
+                                            ->selectRaw("(properties->>'template_version_id')::bigint"));
+                                });
+                        });
+                });
+
+                return;
+            }
+
             if ($subject instanceof Internship) {
                 app(InternshipActivityScope::class)->apply($query, $subject->course()->firstOrFail()->campus_id, $subject->id);
 

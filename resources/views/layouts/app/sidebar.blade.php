@@ -55,6 +55,9 @@
                         @can('viewAny', \App\Models\GrantingParty::class)
                             <flux:sidebar.item icon="building-office" :href="route('granting-parties.index')" :current="request()->routeIs('granting-parties.*')" wire:navigate>Partes concedentes</flux:sidebar.item>
                         @endcan
+                        @can('viewAny', \App\Models\DocumentTemplate::class)
+                            <flux:sidebar.item icon="document-text" :href="route('document-templates.index')" :current="request()->routeIs('document-templates.*')" wire:navigate>Templates DOCX</flux:sidebar.item>
+                        @endcan
                         @can('viewAny', \App\Models\Holiday::class)
                             <flux:sidebar.item icon="tent-tree" :href="route('holidays.index')" :current="request()->routeIs('holidays.*', 'holiday-recurrences.*', 'holiday-imports.*')" wire:navigate>Feriados</flux:sidebar.item>
                         @endcan

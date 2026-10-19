@@ -14,9 +14,11 @@ return new class extends Migration
         Schema::create('document_templates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('campus_id')->nullable()->index()->constrained()->restrictOnDelete();
+            $table->unsignedBigInteger('current_version_id')->nullable();
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('document_type');
+            $table->string('remuneration')->default('any')->index();
             $table->timestamp('deactivated_at')->nullable();
             $table->timestamps();
 

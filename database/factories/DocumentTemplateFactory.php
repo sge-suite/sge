@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\GeneratedDocumentType;
+use App\Enums\TemplateRemuneration;
 use App\Models\Campus;
 use App\Models\DocumentTemplate;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -24,6 +25,7 @@ class DocumentTemplateFactory extends Factory
             'name' => fake()->words(3, true),
             'description' => null,
             'document_type' => GeneratedDocumentType::Main,
+            'remuneration' => TemplateRemuneration::Any,
             'deactivated_at' => null,
         ];
     }

@@ -89,7 +89,7 @@ class GeneratedDocument extends Model
             $isCancelled = $document->status === GeneratedDocumentStatus::Cancelled;
             $validator = Validator::make([...$document->getAttributes(), 'snapshot' => $document->snapshot], [
                 'internship_id' => ['required', 'integer', Rule::exists(Internship::class, 'id')],
-                'template_version_id' => [$isSge ? 'required' : 'prohibited', 'nullable', 'integer', Rule::exists(TemplateVersion::class, 'id')->whereNotNull('validated_at')],
+                'template_version_id' => [$isSge ? 'required' : 'prohibited', 'nullable', 'integer', Rule::exists(TemplateVersion::class, 'id')->where('validation_report->status', 'validated')],
                 'origin' => ['required', Rule::enum(GeneratedDocumentOrigin::class)],
                 'type' => ['required', Rule::enum(GeneratedDocumentType::class)],
                 'status' => ['required', Rule::enum(GeneratedDocumentStatus::class)],
