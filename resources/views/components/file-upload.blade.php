@@ -8,7 +8,10 @@
     $model = $attributes->wire('model')->value();
     $uploadId = $attributes->get('id') ?? 'upload-'.md5($model.$label);
     $selectedFiles = is_array($files) ? $files : ($files === null ? [] : [$files]);
-    $invalid = $model && ($errors->has($model) || $errors->has($model.'.*'));
+    $messages = $model
+        ? array_unique([...$errors->get($model), ...\Illuminate\Support\Arr::flatten($errors->get($model.'.*'))])
+        : [];
+    $invalid = $messages !== [];
 @endphp
 
 <flux:field {{ $attributes->only('class')->class('w-full min-w-0') }}>
@@ -43,7 +46,6 @@
                 x-bind:disabled="uploading || @js((bool) $disabled)"
                 aria-describedby="{{ $uploadId }}-description {{ $uploadId }}-error"
                 aria-invalid="{{ $invalid ? 'true' : 'false' }}"
-                x-bind:aria-invalid="Boolean(uploadError) || @js((bool) $invalid)"
                 wire:loading.attr="disabled" wire:target="_removeUpload"
                 class="absolute inset-0 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed" />
             <flux:icon.cloud-arrow-up variant="solid" class="size-7 shrink-0 text-zinc-400 dark:text-zinc-500" />
@@ -87,11 +89,11 @@
             </div>
         @endforeach
 
-        <div id="{{ $uploadId }}-error" x-cloak x-show="uploadError || @js((bool) $invalid)">
-            <p x-show="uploadError" x-text="uploadError" role="alert" class="text-sm text-red-600 dark:text-red-400"></p>
-            @if ($model)
-                <flux:error :name="$model" />
-            @endif
+        <div id="{{ $uploadId }}-error">
+            <p x-cloak x-show="uploadError" x-text="uploadError" role="alert" class="text-sm text-red-600 dark:text-red-400"></p>
+            @foreach ($messages as $index => $message)
+                <flux:error :message="$message" wire:key="{{ $uploadId }}-error-{{ $index }}" />
+            @endforeach
         </div>
     </div>
 </flux:field>
