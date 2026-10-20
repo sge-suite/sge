@@ -185,7 +185,7 @@ class AdministrativeActivityPresenter
                 'status' => 'Situação', 'projected_end_date' => 'Término previsto',
                 'student_year_semester' => 'Ano/semestre',
                 'protocol_number' => 'Protocolo', 'observations' => 'Observações',
-                'internship_type_id' => 'Tipo de estágio', 'advisor_affiliation_id' => 'Orientador',
+                'internship_type_id' => 'Tipo de estágio', 'advisor_affiliation_id' => 'Orientador', 'co_advisor_name' => 'Co-orientador',
                 'supervisor_affiliation_id' => 'Supervisor', 'granting_party_id' => 'Concedente',
                 'granting_party_snapshot' => 'Dados da concedente no estágio', 'workplace_address_id' => 'Endereço do local de estágio',
                 'activities' => 'Atividades', 'internship_sector' => 'Setor/área',
@@ -200,7 +200,7 @@ class AdministrativeActivityPresenter
             ],
             (new InternshipRequest)->getMorphClass() => [
                 'affiliation_id' => 'Vínculo discente', 'course_id' => 'Curso', 'internship_type_id' => 'Tipo de estágio',
-                'advisor_affiliation_id' => 'Orientador', 'granting_party_id' => 'Concedente',
+                'advisor_affiliation_id' => 'Orientador', 'co_advisor_name' => 'Co-orientador', 'granting_party_id' => 'Concedente',
                 'granting_party_registration_request_id' => 'Pedido de concedente', 'supervisor_affiliation_id' => 'Supervisor',
                 'supervisor_registration_request_id' => 'Pedido de supervisor', 'student_year_semester' => 'Ano/semestre',
                 'legal_capacity_declaration' => 'Capacidade civil', 'activities' => 'Atividades', 'internship_sector' => 'Setor/área',

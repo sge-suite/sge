@@ -76,6 +76,7 @@ class UpdateInternshipData
             'rules' => ['sometimes', 'required', 'array'],
             'calendar_overrides' => ['sometimes', 'array'],
             'advisor_affiliation_id' => ['required', 'integer', 'min:1'],
+            'co_advisor_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'supervisor_affiliation_id' => ['required', 'integer', 'min:1'],
             'supervisor_qualification_id' => ['nullable', 'integer', 'min:1'],
             'granting_party_id' => ['required', 'integer', 'min:1'],
@@ -199,7 +200,7 @@ class UpdateInternshipData
             $replacement->save();
             $internship->workplace_address_id = $replacement->id;
         }
-        $internship->fill(Arr::only($values, ['internship_type_id', 'advisor_affiliation_id', 'supervisor_affiliation_id', 'granting_party_id',
+        $internship->fill(Arr::only($values, ['internship_type_id', 'advisor_affiliation_id', 'co_advisor_name', 'supervisor_affiliation_id', 'granting_party_id',
             'activities', 'internship_sector', 'protocol_number', 'observations', 'planned_start_date', 'weekly_hours', 'planned_pauses',
             'is_remunerated', 'grant_value', 'transportation_allowance']));
         if (! $internship->is_remunerated) {

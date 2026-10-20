@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('course_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('internship_type_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('advisor_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();
+            $table->string('co_advisor_name')->nullable();
             $table->foreignId('granting_party_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('granting_party_registration_request_id')->nullable()->constrained('granting_party_registration_requests')->restrictOnDelete();
             $table->foreignId('supervisor_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();

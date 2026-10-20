@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('student_affiliation_id')->constrained('affiliations')->restrictOnDelete();
             $table->foreignId('advisor_affiliation_id')->constrained('affiliations')->restrictOnDelete();
+            $table->string('co_advisor_name')->nullable();
             $table->foreignId('supervisor_affiliation_id')->constrained('affiliations')->restrictOnDelete();
             $table->foreignId('student_address_id')->nullable()->constrained('addresses')->restrictOnDelete();
             $table->foreignId('course_id')->constrained()->restrictOnDelete();

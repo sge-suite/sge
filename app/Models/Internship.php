@@ -25,6 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
 /**
  * @property int $id
  * @property int $student_affiliation_id
+ * @property string|null $co_advisor_name
  * @property int $workplace_address_id
  * @property InternshipStatus $status
  * @property Carbon $planned_start_date
@@ -38,7 +39,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property array<string|int, array{starts_at: string, ends_at: string, reason: string}>|null $planned_pauses
  */
 #[Fillable([
-    'student_affiliation_id', 'advisor_affiliation_id', 'supervisor_affiliation_id',
+    'student_affiliation_id', 'advisor_affiliation_id', 'co_advisor_name', 'supervisor_affiliation_id',
     'student_address_id', 'course_id', 'internship_type_id', 'granting_party_id',
     'workplace_address_id', 'student_snapshot', 'internship_type_snapshot',
     'granting_party_snapshot', 'supervisor_snapshot', 'weekly_hours', 'planned_pauses', 'activities',
@@ -276,6 +277,7 @@ class Internship extends Model
             $validator = Validator::make($data, [
                 'student_affiliation_id' => ['required', 'integer', $studentExists],
                 'advisor_affiliation_id' => ['required', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Advisor->value)],
+                'co_advisor_name' => ['nullable', 'string', 'max:255'],
                 'supervisor_affiliation_id' => ['required', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Supervisor->value)],
                 'student_address_id' => ['nullable', 'integer', Rule::exists(Address::class, 'id')],
                 'course_id' => ['required', 'integer', Rule::exists(Course::class, 'id')],

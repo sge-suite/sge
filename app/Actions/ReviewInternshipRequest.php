@@ -114,7 +114,7 @@ class ReviewInternshipRequest
                     $request->advisor_affiliation_id = $advisor->id;
                     $party = $request->grantingParty()->with('address')->firstOrFail();
                     $supervisor = $request->supervisorAffiliation()->firstOrFail();
-                    $attributes = $request->only(['course_id', 'internship_type_id', 'advisor_affiliation_id', 'supervisor_affiliation_id', 'granting_party_id',
+                    $attributes = $request->only(['course_id', 'internship_type_id', 'advisor_affiliation_id', 'co_advisor_name', 'supervisor_affiliation_id', 'granting_party_id',
                         'student_snapshot', 'internship_type_snapshot', 'weekly_hours', 'planned_pauses', 'activities', 'internship_sector', 'planned_start_date', 'projected_end_date',
                         'is_remunerated', 'grant_value', 'transportation_allowance', 'observations']);
                     $attributes['student_affiliation_id'] = $request->affiliation_id;
@@ -142,7 +142,7 @@ class ReviewInternshipRequest
                         foreach ($corrected as $section) {
                             $fields = [...$fields, ...match ($section) {
                                 'personal_data' => ['student_snapshot', 'student_address_id'],
-                                'internship' => ['internship_type_id', 'internship_type_snapshot', 'student_snapshot'],
+                                'internship' => ['internship_type_id', 'internship_type_snapshot', 'student_snapshot', 'co_advisor_name'],
                                 'granting_party' => ['granting_party_id', 'granting_party_snapshot', 'workplace_address_id'],
                                 'supervisor' => ['supervisor_affiliation_id', 'supervisor_snapshot'],
                                 'legal_capacity' => ['student_snapshot'],

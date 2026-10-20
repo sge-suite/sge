@@ -181,6 +181,7 @@ new #[Title('Detalhes do estágio')] class extends Component
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Concedente</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $record->granting_party_snapshot['name'] ?? 'Não informada' }}</dd></div>
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Supervisor registrado</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $record->supervisor_snapshot['name'] ?? 'Não informado' }}</dd></div>
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Orientador</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $record->advisorAffiliation?->user?->name ?? 'Não informado' }}</dd></div>
+            <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Co-orientador</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $record->co_advisor_name ?? 'Não informado' }}</dd></div>
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Setor de atuação</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $record->internship_sector ?? 'Não informado' }}</dd></div>
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Início planejado</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ formatShort($record->planned_start_date) }}</dd></div>
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Término previsto</dt><dd class="mt-1 text-sm font-semibold text-zinc-900 dark:text-white">{{ formatShort($record->projected_end_date) }}</dd></div>
@@ -246,6 +247,7 @@ new #[Title('Detalhes do estágio')] class extends Component
         <section class="space-y-4 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="orientation-context-heading">
             <flux:heading id="orientation-context-heading" size="lg" level="2">Dados para o atestado de orientação</flux:heading>
             <flux:text>Orientador: {{ $record->advisorAffiliation?->user?->name ?? 'Não informado' }}</flux:text>
+            <flux:text>Co-orientador: {{ $record->co_advisor_name ?? 'Não informado' }}</flux:text>
             <flux:text>Concedente: {{ $record->granting_party_snapshot['name'] ?? 'Não informada' }}</flux:text>
             <flux:text>Período previsto: {{ formatShort($record->planned_start_date) }} a {{ formatShort($record->projected_end_date) }}</flux:text>
         </section>

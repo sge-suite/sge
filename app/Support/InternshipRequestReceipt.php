@@ -31,6 +31,7 @@ class InternshipRequestReceipt
             ['title' => 'Endereço do Discente', 'fields' => $this->address($request->studentAddress)],
             ['title' => 'Curso e estágio', 'fields' => ['Curso' => $this->value($request->course?->name),
                 'Tipo de estágio' => $this->value($type['name'] ?? null), 'Orientador' => $this->value($request->advisorAffiliation?->user->name),
+                'Co-orientador' => $this->value($request->co_advisor_name),
                 'E-mail do vínculo do orientador' => $this->value($request->advisorAffiliation?->email),
                 ...$this->fields($type['rules'] ?? [], ['required_hours' => 'Carga horária obrigatória (horas)', 'max_daily_hours' => 'Limite diário (horas)',
                     'max_weekly_hours' => 'Limite semanal (horas)', 'safety_margin_days' => 'Margem de segurança (dias)',

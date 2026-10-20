@@ -44,6 +44,7 @@
     @endif
     <x-select wire:model="values.advisor_affiliation_id" :value="$values['advisor_affiliation_id'] ?? ''" label="Orientador" placeholder="Selecione o orientador" :options="$choices['advisors']->mapWithKeys(fn ($advisor) => [$advisor->id => $advisor->user->name.' - '.$advisor->email])->all()" :error="$errors->first('advisor_affiliation_id')" searchable required />
     <flux:text size="sm">Selecione o orientador com quem combinou o estágio. O Setor conferirá a escolha durante a análise.</flux:text>
+    <flux:input wire:model="values.co_advisor_name" error:name="co_advisor_name" label="Co-orientador (opcional)" maxlength="255" />
     @if ($choices['advisors']->isEmpty())<flux:callout variant="warning">Não há orientadores ativos cadastrados no seu campus. Salve o rascunho e procure o Setor de Estágio.</flux:callout>@endif
 @elseif ($step === 2)
     <flux:text>A parte concedente é a empresa ou pessoa onde você fará o estágio. Ela pode já estar cadastrada no sistema. Selecione a cidade para conferir os cadastros disponíveis no seu campus antes de solicitar um novo.</flux:text>

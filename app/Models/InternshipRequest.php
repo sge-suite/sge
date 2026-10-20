@@ -32,6 +32,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int|null $course_id
  * @property int|null $internship_type_id
  * @property int|null $advisor_affiliation_id
+ * @property string|null $co_advisor_name
  * @property int|null $granting_party_id
  * @property int|null $granting_party_registration_request_id
  * @property int|null $supervisor_affiliation_id
@@ -53,7 +54,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property Carbon|null $terms_accepted_at
  */
 #[Fillable([
-    'affiliation_id', 'course_id', 'internship_type_id', 'advisor_affiliation_id',
+    'affiliation_id', 'course_id', 'internship_type_id', 'advisor_affiliation_id', 'co_advisor_name',
     'granting_party_id', 'granting_party_registration_request_id',
     'supervisor_affiliation_id', 'supervisor_registration_request_id',
     'student_year_semester', 'legal_capacity_declaration', 'legal_guardian_name',
@@ -248,6 +249,7 @@ class InternshipRequest extends Model
                 'course_id' => [$required, 'integer', $courseExists],
                 'internship_type_id' => [$required, 'integer', $typeExists],
                 'advisor_affiliation_id' => [$required, 'integer', $advisorExists],
+                'co_advisor_name' => ['nullable', 'string', 'max:255'],
                 'granting_party_id' => ['nullable', 'integer', $partyExists],
                 'granting_party_registration_request_id' => ['nullable', 'integer', Rule::exists(GrantingPartyRegistrationRequest::class, 'id')],
                 'supervisor_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Supervisor->value)],

@@ -79,7 +79,7 @@
         </div>
         <dl class="grid gap-5 text-base sm:grid-cols-2 2xl:grid-cols-3">
             @foreach (['Curso' => $request->course?->name, 'Tipo de estágio' => $request->internship_type_snapshot['name'] ?? $request->internshipType?->name,
-                'Ano/semestre' => $values['student_year_semester'] ?? null,
+                'Ano/semestre' => $values['student_year_semester'] ?? null, 'Co-orientador' => $values['co_advisor_name'] ?? null,
                 'Orientador' => isset($choices['advisors']) ? $choices['advisors']->firstWhere('id', (int) ($values['advisor_affiliation_id'] ?? 0))?->user?->name : $request->advisorAffiliation?->user?->name] as $label => $value)
                 <div wire:key="review-internship-{{ $loop->index }}"><dt class="text-sm text-zinc-500">{{ $label }}</dt><dd class="mt-1 break-words text-base font-medium">{{ filled($value) ? $value : 'Não informado / não se aplica' }}</dd></div>
             @endforeach

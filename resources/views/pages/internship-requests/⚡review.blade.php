@@ -155,7 +155,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
 }; ?>
 @php
     $request = $this->record;
-    $values = $request->only(['student_year_semester', 'internship_sector', 'activities', 'observations', 'weekly_hours', 'planned_pauses', 'is_remunerated', 'grant_value', 'transportation_allowance', 'legal_guardian_name', 'legal_guardian_cpf', 'legal_guardian_kinship', 'legal_guardian_email', 'internship_type_id', 'advisor_affiliation_id']);
+    $values = $request->only(['student_year_semester', 'co_advisor_name', 'internship_sector', 'activities', 'observations', 'weekly_hours', 'planned_pauses', 'is_remunerated', 'grant_value', 'transportation_allowance', 'legal_guardian_name', 'legal_guardian_cpf', 'legal_guardian_kinship', 'legal_guardian_email', 'internship_type_id', 'advisor_affiliation_id']);
     $values['legal_capacity_declaration'] = $request->legal_capacity_declaration?->value;
     $values['planned_start_date'] = $request->planned_start_date?->toDateString();
     $pendingParty = $request->granting_party_registration_request_id !== null;

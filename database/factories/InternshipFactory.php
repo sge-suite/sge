@@ -31,6 +31,7 @@ class InternshipFactory extends Factory
                 'campus_id' => Course::query()->whereKey($attributes['course_id'])->firstOrFail()->campus_id,
             ])->id,
             'advisor_affiliation_id' => Affiliation::factory()->state(['type' => AffiliationType::Advisor]),
+            'co_advisor_name' => null,
             'supervisor_affiliation_id' => Affiliation::factory()->supervisor(),
             'student_address_id' => Address::factory(),
             'internship_type_id' => fn (array $attributes): int => InternshipType::factory()->create([

@@ -28,6 +28,7 @@ class InternshipRequestFactory extends Factory
             'course_id' => null,
             'internship_type_id' => null,
             'advisor_affiliation_id' => null,
+            'co_advisor_name' => null,
             'granting_party_id' => null,
             'granting_party_registration_request_id' => null,
             'supervisor_affiliation_id' => null,

@@ -19,7 +19,7 @@ trait InternshipRequestValidationRules
     /** @return array<string, string> */
     public function internshipFieldLabels(): array
     {
-        $labels = ['internship_type_id' => 'tipo de estágio', 'student_year_semester' => 'ano ou semestre', 'advisor_affiliation_id' => 'orientador',
+        $labels = ['internship_type_id' => 'tipo de estágio', 'student_year_semester' => 'ano ou semestre', 'advisor_affiliation_id' => 'orientador', 'co_advisor_name' => 'co-orientador',
             'granting_party_change_note' => 'alterações da concedente', 'granting_party_id' => 'concedente', 'supervisor_affiliation_id' => 'supervisor',
             'granting_party_mode' => 'opção de concedente', 'supervisor_mode' => 'opção de supervisor',
             'legal_capacity_declaration' => 'capacidade civil', 'legal_guardian_name' => 'nome do responsável',
@@ -52,7 +52,7 @@ trait InternshipRequestValidationRules
     {
         return [
             'personal_data' => ['personal_data'],
-            'internship' => ['internship_type_id', 'student_year_semester', 'advisor_affiliation_id'],
+            'internship' => ['internship_type_id', 'student_year_semester', 'advisor_affiliation_id', 'co_advisor_name'],
             'granting_party' => ['granting_party_id', 'granting_party_mode', 'granting_party_proposal', 'granting_party_change_note'],
             'supervisor' => ['supervisor_affiliation_id', 'supervisor_mode', 'supervisor_proposal', 'supervisor_professional'],
             'activities' => ['activities', 'internship_sector', 'observations'],
@@ -69,6 +69,7 @@ trait InternshipRequestValidationRules
         $rules = [
             'internship_type_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'advisor_affiliation_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'co_advisor_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'student_year_semester' => ['sometimes', 'nullable', 'string', 'max:255'],
             'granting_party_mode' => ['sometimes', Rule::in(['existing', 'pending'])],
             'granting_party_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
