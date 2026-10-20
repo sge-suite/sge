@@ -9,6 +9,7 @@ use App\Support\InternshipPlannedPauses;
 use Carbon\CarbonImmutable;
 use Database\Factories\InternshipFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -61,6 +62,32 @@ class Internship extends Model
     use LogsActivity;
 
     public ?string $managementChangeReason = null;
+
+    /**
+     * @param  Builder<Internship>  $query
+     * @return Builder<Internship>
+     */
+    public function scopeVisibleToAffiliation(Builder $query, Affiliation $affiliation): Builder
+    {
+        $query->whereHas('course', fn (Builder $course) => $course->where('campus_id', $affiliation->campus_id));
+
+        if ($affiliation->type === AffiliationType::Advisor) {
+            $query->where('advisor_affiliation_id', $affiliation->id);
+        } elseif ($affiliation->type === AffiliationType::Coordinator) {
+            $query->where(fn (Builder $visible) => $visible
+                ->whereHas('course', fn (Builder $course) => $course
+                    ->where(fn (Builder $coordinated) => $coordinated->where('primary_coordinator_affiliation_id', $affiliation->id)
+                        ->orWhere('secondary_coordinator_affiliation_id', $affiliation->id)))
+                ->orWhereHas('advisorAffiliation', fn (Builder $advisor) => $advisor
+                    ->where('user_id', $affiliation->user_id)->where('campus_id', $affiliation->campus_id)));
+        } elseif ($affiliation->type === AffiliationType::Student) {
+            $query->where('student_affiliation_id', $affiliation->id);
+        } elseif (! in_array($affiliation->type, [AffiliationType::InternshipOffice, AffiliationType::TeachingDirection], true)) {
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query;
+    }
 
     /** @var array{completion_date: CarbonImmutable, projected_end_date: CarbonImmutable, credited_hours: int, calendar: list<array{date: string, scheduled_hours: int, credited_hours: int, accumulated_hours: int, kind: string, reason?: string}>}|null */
     public ?array $endDateCalculation = null;

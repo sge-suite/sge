@@ -1,6 +1,9 @@
 <?php
 
 use App\Actions\ManageInternship;
+use App\Actions\UpdateAdvisorGrades;
+use App\Support\InternshipGradeCalculator;
+use Illuminate\Validation\ValidationException;
 use App\Actions\PreviewInternshipCalendar;
 use App\Enums\InternshipStatus;
 use App\Enums\AffiliationType;
@@ -31,6 +34,8 @@ new #[Title('Detalhes do estágio')] class extends Component
     public bool $showCalendar = false;
     /** @var array<string, mixed>|null */
     #[Locked] public ?array $calendarResult = null;
+    public ?string $reportGrade = null;
+    public ?string $presentationGrade = null;
     public string $pauseStart = '';
     public string $pauseEnd = '';
     public string $pauseReason = '';
@@ -40,6 +45,10 @@ new #[Title('Detalhes do estágio')] class extends Component
         Gate::authorize('view', $internship);
         $this->internshipId = $internship->id;
         $this->affiliationId = $context->selected(Auth::user())->id;
+        if (Gate::allows('viewAdvisorGrades', $internship)) {
+            $this->reportGrade = $internship->report_grade;
+            $this->presentationGrade = $internship->presentation_grade;
+        }
     }
 
     public function hydrate(StudentInternshipContext $context): void
@@ -55,16 +64,56 @@ new #[Title('Detalhes do estágio')] class extends Component
     }
 
     #[Computed]
+    public function isStudent(): bool
+    {
+        return app(StudentInternshipContext::class)->selected(Auth::user())?->type === AffiliationType::Student;
+    }
+
+    #[Computed]
+    public function isTeachingDirection(): bool
+    {
+        return app(StudentInternshipContext::class)->selected(Auth::user())?->type === AffiliationType::TeachingDirection;
+    }
+
+    #[Computed]
     public function record(): Internship
     {
-        $relations = $this->isOffice ? ['course.campus', 'advisorAffiliation.user', 'workplaceAddress.city',
-            'internshipRequest', 'pauses' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
-            'calendarOverrides' => fn ($query) => $query->orderBy('date')->orderBy('id'),
-            'workSchedules' => fn ($query) => $query->orderBy('starts_on')] : ['course.campus', 'advisorAffiliation.user'];
+        $relations = ['course.campus', 'advisorAffiliation.user', 'workplaceAddress.city'];
+        if ($this->isOffice || $this->isStudent) {
+            $relations = [...$relations, 'internshipRequest', 'pauses' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
+                'calendarOverrides' => fn ($query) => $query->orderBy('date')->orderBy('id'),
+                'workSchedules' => fn ($query) => $query->orderBy('starts_on')];
+        } elseif (! $this->isTeachingDirection) {
+            $relations[] = 'currentSupervisorEvaluation.supervisorAffiliation.user';
+        }
         $internship = Internship::query()->with($relations)->findOrFail($this->internshipId);
         Gate::authorize('view', $internship);
 
         return $internship;
+    }
+
+    /** @return array{supervisor_evaluation_weight: int, report_weight: int, presentation_weight: int}|null */
+    #[Computed]
+    public function gradeWeights(): ?array
+    {
+        try {
+            return app(InternshipGradeCalculator::class)->weights($this->record->internship_type_snapshot['rules'] ?? []);
+        } catch (ValidationException) {
+            return null;
+        }
+    }
+
+    public function saveGrades(UpdateAdvisorGrades $update): void
+    {
+        $update->handle(Auth::user(), $this->record, $this->affiliationId, [
+            'report_grade' => $this->reportGrade,
+            'presentation_grade' => $this->presentationGrade,
+        ]);
+        unset($this->record, $this->activityHistory, $this->gradeWeights);
+        $this->reportGrade = $this->record->report_grade;
+        $this->presentationGrade = $this->record->presentation_grade;
+        $this->resetValidation();
+        Flux::toast('Notas salvas.', variant: 'success');
     }
 
     public function openPause(?int $id = null): void
@@ -148,7 +197,7 @@ new #[Title('Detalhes do estágio')] class extends Component
         <flux:callout variant="danger" icon="information-circle" heading="Não foi possível preparar o download"><flux:callout.text>{{ $errors->first('document') }}</flux:callout.text></flux:callout>
     @endif
     <flux:breadcrumbs>
-        <flux:breadcrumbs.item :href="route('internships.index')" wire:navigate>Estágios</flux:breadcrumbs.item>
+        <flux:breadcrumbs.item :href="$this->isStudent ? route('student-internships.index') : route('internships.index')" wire:navigate>{{ $this->isStudent ? 'Meus estágios' : 'Estágios' }}</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Nº {{ $record->id }}</flux:breadcrumbs.item>
     </flux:breadcrumbs>
     <div class="flex flex-wrap items-start justify-between gap-4">
@@ -160,19 +209,21 @@ new #[Title('Detalhes do estágio')] class extends Component
             <flux:text class="mt-2">{{ $record->student_snapshot['name'] ?? 'Discente' }} · {{ $record->course->name }}</flux:text>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-            <flux:button variant="outline" icon="arrow-left" :href="route('internships.index')" wire:navigate>Voltar</flux:button>
+            <flux:button variant="outline" icon="arrow-left" :href="$this->isStudent ? route('student-internships.index') : route('internships.index')" wire:navigate>Voltar</flux:button>
             @can('update', $record)
                 <flux:button icon="pencil-square" :href="route('internships.edit', $record)" wire:navigate>Editar estágio</flux:button>
             @endcan
             @if ($this->isOffice && $record->internshipRequest && auth()->user()->can('review', $record->internshipRequest))
                 <flux:button icon="clipboard-document-check" :href="route('internship-review.show', $record->internshipRequest)" wire:navigate>Consultar solicitação</flux:button>
+            @elseif ($this->isStudent && $record->internshipRequest && auth()->user()->can('view', $record->internshipRequest))
+                <flux:button icon="clipboard-document-list" :href="route('internship-requests.show', $record->internshipRequest)" wire:navigate>Consultar solicitação</flux:button>
             @endif
         </div>
     </div>
     @if ($record->course->campus->deactivated_at !== null)
         <flux:callout icon="information-circle" heading="Campus somente para leitura"><flux:callout.text>O campus está desativado. Os dados permanecem disponíveis para consulta.</flux:callout.text></flux:callout>
     @endif
-    @if ($this->isOffice)
+    @if ($this->isOffice || $this->isStudent)
     <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="internship-data-heading">
         <flux:heading id="internship-data-heading" size="lg" level="2">Dados do estágio</flux:heading>
         <dl class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -193,11 +244,13 @@ new #[Title('Detalhes do estágio')] class extends Component
         @if ($record->workplaceAddress)
             <div><flux:heading level="3">Local de estágio registrado</flux:heading><flux:text class="mt-2">{{ $record->workplaceAddress->street }}, {{ $record->workplaceAddress->number }} · {{ $record->workplaceAddress->city?->name }} / {{ $record->workplaceAddress->city?->state?->value }}</flux:text></div>
         @endif
+        @if ($this->isOffice)
         <div class="flex flex-wrap gap-3">
             <flux:button icon="calendar-days" wire:click="openCalendar" wire:loading.attr="disabled" wire:target="openCalendar">Ver calendário do estágio</flux:button>
         </div>
         <flux:error name="projected_end_date" />
         <flux:error name="city_id" />
+        @endif
     </section>
     <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="schedule-heading">
         <flux:heading id="schedule-heading" size="lg" level="2">Jornada registrada</flux:heading>
@@ -214,11 +267,13 @@ new #[Title('Detalhes do estágio')] class extends Component
             </div>
         @endforeach
     </section>
+    @if ($this->isOffice)
     <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="administrative-heading">
         <flux:heading id="administrative-heading" size="lg" level="2">Dados administrativos</flux:heading>
         <flux:text>Protocolo: {{ $record->protocol_number ?? 'Não informado' }}</flux:text>
         <flux:text class="whitespace-pre-line">{{ $record->observations ?? 'Sem observações.' }}</flux:text>
     </section>
+    @endif
     <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="pauses-heading">
         <div class="flex flex-wrap items-center justify-between gap-3"><flux:heading id="pauses-heading" size="lg" level="2">Pausas</flux:heading>@can('createPause', $record)<flux:button variant="primary" icon="plus" wire:click="openPause">Registrar pausa</flux:button>@endcan</div>
         @foreach ($record->planned_pauses ?? [] as $key => $pause)
@@ -243,19 +298,38 @@ new #[Title('Detalhes do estágio')] class extends Component
             <flux:text>Nenhuma exceção registrada.</flux:text>
         @endforelse
     </section>
+    @elseif (! $this->isTeachingDirection)
+        <x-internships.academic-details :internship="$record" :weights="$this->gradeWeights" />
+        @include('pages.internships.partials.grades', ['internship' => $record, 'weights' => $this->gradeWeights])
     @else
-        <section class="space-y-4 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="orientation-context-heading">
-            <flux:heading id="orientation-context-heading" size="lg" level="2">Dados para o atestado de orientação</flux:heading>
-            <flux:text>Orientador: {{ $record->advisorAffiliation?->user?->name ?? 'Não informado' }}</flux:text>
-            <flux:text>Co-orientador: {{ $record->co_advisor_name ?? 'Não informado' }}</flux:text>
-            <flux:text>Concedente: {{ $record->granting_party_snapshot['name'] ?? 'Não informada' }}</flux:text>
-            <flux:text>Período previsto: {{ formatShort($record->planned_start_date) }} a {{ formatShort($record->projected_end_date) }}</flux:text>
+        <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="summary-heading">
+            <flux:heading id="summary-heading" size="lg" level="2">Acompanhamento do estágio</flux:heading>
+            <dl class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                @foreach ([
+                    'Matrícula' => $record->student_snapshot['registration_number'] ?? 'Não informada',
+                    'E-mail do discente' => $record->student_snapshot['email'] ?? 'Não informado',
+                    'Ano / semestre' => $record->student_snapshot['student_year_semester'] ?? 'Não informado',
+                    'Tipo de estágio' => $record->internship_type_snapshot['name'] ?? 'Não informado',
+                    'Início previsto' => formatShort($record->planned_start_date),
+                    'Término previsto' => formatShort($record->projected_end_date),
+                    'Carga horária exigida' => ($record->internship_type_snapshot['rules']['required_hours'] ?? '—').' h',
+                    'Orientador' => $record->advisorAffiliation?->user?->name ?? 'Não informado',
+                    'Co-orientador' => $record->co_advisor_name ?? 'Não informado',
+                    'Concedente' => $record->granting_party_snapshot['name'] ?? 'Não informada',
+                    'Cidade do estágio' => $record->workplaceAddress?->city?->name ?? 'Não informada',
+                ] as $label => $value)
+                    <div wire:key="summary-{{ $loop->index }}"><dt class="text-sm text-zinc-500 dark:text-zinc-400">{{ $label }}</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $value }}</dd></div>
+                @endforeach
+            </dl>
         </section>
     @endif
-    <livewire:internships.documents :internship-id="$internshipId" :key="'internship-documents-'.$internshipId" />
+    @can('viewDocuments', $record)
+        <livewire:internships.documents :internship-id="$internshipId" :key="'internship-documents-'.$internshipId" />
+    @endcan
     @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
         <x-audit.activity-history :activities="$this->activityHistory" description="Alterações registradas neste estágio, nas pausas e nas exceções do calendário." />
     @endcan
+    @if ($this->isOffice)
     <x-internship-calendar-preview wire:model.self="showCalendar" :result="$calendarResult" />
     <flux:modal wire:model.self="showPause" class="md:w-lg">
         <form wire:submit="savePause" class="space-y-6">
@@ -272,4 +346,5 @@ new #[Title('Detalhes do estágio')] class extends Component
             <div class="flex flex-wrap justify-end gap-3"><flux:button type="button" variant="outline" wire:click="$set('showRemoval', false)">Cancelar</flux:button><flux:button type="submit" variant="danger" icon="trash" wire:loading.attr="disabled" wire:target="removePause">Remover pausa</flux:button></div>
         </form>
     </flux:modal>
+    @endif
 </div>

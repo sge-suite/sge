@@ -16,13 +16,19 @@ class GeneratedDocumentPolicy
     public function __construct(private InternshipPolicy $internships, private StudentInternshipContext $context,
         private GeneratedDocumentSnapshot $snapshots) {}
 
+    public function viewAny(User $user): bool
+    {
+        return in_array($this->context->selected($user)?->type, [AffiliationType::InternshipOffice, AffiliationType::Coordinator], true);
+    }
+
     public function view(User $user, GeneratedDocument $document): bool
     {
         $document->loadMissing('internship.course.campus');
 
-        return $this->internships->view($user, $document->internship)
+        return $this->internships->viewDocuments($user, $document->internship)
             && ($this->context->selected($user)->type === AffiliationType::InternshipOffice
-                || $document->type === GeneratedDocumentType::OrientationCertificate);
+                || ($this->context->selected($user)->type === AffiliationType::Coordinator
+                    && $document->type === GeneratedDocumentType::OrientationCertificate));
     }
 
     public function download(User $user, GeneratedDocument $document): bool

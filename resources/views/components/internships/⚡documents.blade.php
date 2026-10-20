@@ -6,6 +6,7 @@ use App\Enums\AffiliationType;
 use App\Enums\GeneratedDocumentStatus;
 use App\Enums\GeneratedDocumentType;
 use App\Models\DocumentTemplate;
+use App\Models\GeneratedDocument;
 use App\Models\Internship;
 use App\Support\PageSize;
 use App\Support\StudentInternshipContext;
@@ -39,23 +40,25 @@ new class extends Component
 
     public function mount(int $internshipId, StudentInternshipContext $context): void
     {
+        Gate::authorize('viewAny', GeneratedDocument::class);
         $this->internshipId = $internshipId;
-        Gate::authorize('view', $this->internship);
+        Gate::authorize('viewDocuments', $this->internship);
         $this->affiliationId = $context->selected(auth()->user())->id;
         $this->generationToken = (string) Str::uuid();
     }
 
     public function hydrate(StudentInternshipContext $context): void
     {
+        Gate::authorize('viewAny', GeneratedDocument::class);
         abort_unless($context->selected(auth()->user())?->id === $this->affiliationId, 403);
-        Gate::authorize('view', $this->internship);
+        Gate::authorize('viewDocuments', $this->internship);
     }
 
     #[Computed]
     public function internship(): Internship
     {
         $stage = Internship::query()->with('course.campus')->findOrFail($this->internshipId);
-        Gate::authorize('view', $stage);
+        Gate::authorize('viewDocuments', $stage);
 
         return $stage;
     }
