@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Concerns\InternshipRequestValidationRules;
 use App\Enums\AffiliationType;
 use App\Enums\GeneratedDocumentStatus;
+use App\Enums\GeneratedDocumentType;
 use App\Enums\InternshipRequestCorrectionStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\InternshipStatus;
@@ -93,8 +94,9 @@ class ReviewInternshipRequest
                     if ($internship !== null) {
                         $internship->status = InternshipStatus::PendingCorrection;
                         $internship->save();
-                        foreach ($internship->generatedDocuments()->whereIn('status', [GeneratedDocumentStatus::Generated, GeneratedDocumentStatus::AwaitingSignature])->lockForUpdate()->get() as $document) {
-                            $document->update(['status' => GeneratedDocumentStatus::Cancelled, 'cancelled_at' => now(), 'cancellation_reason' => $message]);
+                        foreach ($internship->generatedDocuments()->where('type', '!=', GeneratedDocumentType::OrientationCertificate)
+                            ->whereIn('status', [GeneratedDocumentStatus::Generated, GeneratedDocumentStatus::AwaitingSignature])->lockForUpdate()->get() as $document) {
+                            $document->update(['status' => GeneratedDocumentStatus::Cancelled, 'cancelled_at' => now(), 'cancellation_reason' => $correctionMessage]);
                         }
                     }
                 } elseif ($operation === 'reject') {

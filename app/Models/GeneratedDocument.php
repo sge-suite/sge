@@ -11,10 +11,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator as LaravelValidator;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -22,6 +24,8 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property GeneratedDocumentOrigin $origin
  * @property GeneratedDocumentType $type
  * @property GeneratedDocumentStatus $status
+ * @property array<string, mixed>|null $snapshot
+ * @property Carbon|null $generated_at
  */
 #[Fillable([
     'internship_id', 'template_version_id', 'origin', 'type', 'status',
@@ -73,7 +77,14 @@ class GeneratedDocument extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logFillable()->logOnlyDirty();
+        return LogOptions::defaults()->logOnly(['internship_id', 'template_version_id', 'origin', 'type', 'status',
+            'template_sha256', 'generated_at', 'cancelled_at', 'cancellation_reason'])->logOnlyDirty()->dontLogEmptyChanges();
+    }
+
+    public function beforeActivityLogged(Activity $activity, string $eventName): void
+    {
+        $activity->properties = ($activity->properties ?? collect())->put('internship_id', $this->internship_id)
+            ->put('campus_id', $this->internship()->firstOrFail()->course()->firstOrFail()->campus_id);
     }
 
     protected static function booted(): void
@@ -113,10 +124,18 @@ class GeneratedDocument extends Model
                     if ($version && $version->file_sha256 !== $document->template_sha256) {
                         $validator->errors()->add('template_sha256', 'O hash deve corresponder à versão do template.');
                     }
+                    if (! $document->exists && $version && $version->documentTemplate->document_type !== $document->type) {
+                        $validator->errors()->add('type', 'O tipo do documento deve corresponder ao template.');
+                    }
                 }
 
-                if ($document->type === GeneratedDocumentType::OrientationCertificate && $document->status === GeneratedDocumentStatus::AwaitingSignature) {
+                if ($document->type === GeneratedDocumentType::OrientationCertificate
+                    && in_array($document->status, [GeneratedDocumentStatus::AwaitingSignature, GeneratedDocumentStatus::Signed], true)) {
                     $validator->errors()->add('status', 'Atestados de orientação não passam por assinatura.');
+                }
+                if ($document->exists && in_array($document->getRawOriginal('status'), [GeneratedDocumentStatus::Cancelled->value, GeneratedDocumentStatus::Signed->value], true)
+                    && $document->isDirty(['status', 'cancelled_at', 'cancellation_reason'])) {
+                    $validator->errors()->add('status', 'O ciclo deste documento não pode ser reaberto ou reescrito.');
                 }
             });
 

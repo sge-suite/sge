@@ -3,6 +3,7 @@
 use App\Actions\ManageInternship;
 use App\Actions\PreviewInternshipCalendar;
 use App\Enums\InternshipStatus;
+use App\Enums\AffiliationType;
 use App\Models\Internship;
 use App\Support\ActivityAccess;
 use App\Support\ActivityHistory;
@@ -48,12 +49,19 @@ new #[Title('Detalhes do estágio')] class extends Component
     }
 
     #[Computed]
+    public function isOffice(): bool
+    {
+        return app(StudentInternshipContext::class)->selected(Auth::user())?->type === AffiliationType::InternshipOffice;
+    }
+
+    #[Computed]
     public function record(): Internship
     {
-        $internship = Internship::query()->with(['course.campus', 'advisorAffiliation.user', 'workplaceAddress.city',
+        $relations = $this->isOffice ? ['course.campus', 'advisorAffiliation.user', 'workplaceAddress.city',
             'internshipRequest', 'pauses' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
             'calendarOverrides' => fn ($query) => $query->orderBy('date')->orderBy('id'),
-            'workSchedules' => fn ($query) => $query->orderBy('starts_on')])->findOrFail($this->internshipId);
+            'workSchedules' => fn ($query) => $query->orderBy('starts_on')] : ['course.campus', 'advisorAffiliation.user'];
+        $internship = Internship::query()->with($relations)->findOrFail($this->internshipId);
         Gate::authorize('view', $internship);
 
         return $internship;
@@ -103,6 +111,7 @@ new #[Title('Detalhes do estágio')] class extends Component
 
     public function openCalendar(PreviewInternshipCalendar $preview): void
     {
+        abort_unless($this->isOffice, 403);
         $this->calendarResult = null;
         $this->resetValidation(['projected_end_date', 'city_id']);
         $this->calendarResult = $preview->handle(Auth::user(), $this->record);
@@ -135,6 +144,9 @@ new #[Title('Detalhes do estágio')] class extends Component
         <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     @php($record = $this->record)
+    @if ($errors->has('document'))
+        <flux:callout variant="danger" icon="information-circle" heading="Não foi possível preparar o download"><flux:callout.text>{{ $errors->first('document') }}</flux:callout.text></flux:callout>
+    @endif
     <flux:breadcrumbs>
         <flux:breadcrumbs.item :href="route('internships.index')" wire:navigate>Estágios</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Nº {{ $record->id }}</flux:breadcrumbs.item>
@@ -152,7 +164,7 @@ new #[Title('Detalhes do estágio')] class extends Component
             @can('update', $record)
                 <flux:button icon="pencil-square" :href="route('internships.edit', $record)" wire:navigate>Editar estágio</flux:button>
             @endcan
-            @if ($record->internshipRequest && auth()->user()->can('review', $record->internshipRequest))
+            @if ($this->isOffice && $record->internshipRequest && auth()->user()->can('review', $record->internshipRequest))
                 <flux:button icon="clipboard-document-check" :href="route('internship-review.show', $record->internshipRequest)" wire:navigate>Consultar solicitação</flux:button>
             @endif
         </div>
@@ -160,6 +172,7 @@ new #[Title('Detalhes do estágio')] class extends Component
     @if ($record->course->campus->deactivated_at !== null)
         <flux:callout icon="information-circle" heading="Campus somente para leitura"><flux:callout.text>O campus está desativado. Os dados permanecem disponíveis para consulta.</flux:callout.text></flux:callout>
     @endif
+    @if ($this->isOffice)
     <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="internship-data-heading">
         <flux:heading id="internship-data-heading" size="lg" level="2">Dados do estágio</flux:heading>
         <dl class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -229,6 +242,15 @@ new #[Title('Detalhes do estágio')] class extends Component
             <flux:text>Nenhuma exceção registrada.</flux:text>
         @endforelse
     </section>
+    @else
+        <section class="space-y-4 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="orientation-context-heading">
+            <flux:heading id="orientation-context-heading" size="lg" level="2">Dados para o atestado de orientação</flux:heading>
+            <flux:text>Orientador: {{ $record->advisorAffiliation?->user?->name ?? 'Não informado' }}</flux:text>
+            <flux:text>Concedente: {{ $record->granting_party_snapshot['name'] ?? 'Não informada' }}</flux:text>
+            <flux:text>Período previsto: {{ formatShort($record->planned_start_date) }} a {{ formatShort($record->projected_end_date) }}</flux:text>
+        </section>
+    @endif
+    <livewire:internships.documents :internship-id="$internshipId" :key="'internship-documents-'.$internshipId" />
     @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
         <x-audit.activity-history :activities="$this->activityHistory" description="Alterações registradas neste estágio, nas pausas e nas exceções do calendário." />
     @endcan

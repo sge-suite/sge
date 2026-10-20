@@ -18,7 +18,7 @@ class GeneratedDocumentFactory extends Factory
     {
         return [
             'internship_id' => Internship::factory(),
-            'template_version_id' => TemplateVersion::factory()->validated(),
+            'template_version_id' => TemplateVersion::factory(),
             'origin' => GeneratedDocumentOrigin::SGE,
             'type' => GeneratedDocumentType::Main,
             'status' => GeneratedDocumentStatus::Generated,

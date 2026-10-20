@@ -5,6 +5,8 @@ namespace App\Support;
 use App\Enums\AffiliationType;
 use App\Enums\EducationLevel;
 use App\Enums\EmancipationEvidenceStatus;
+use App\Enums\GeneratedDocumentOrigin;
+use App\Enums\GeneratedDocumentStatus;
 use App\Enums\GeneratedDocumentType;
 use App\Enums\InternshipRequestCorrectionStatus;
 use App\Enums\InternshipRequestStatus;
@@ -20,6 +22,7 @@ use App\Models\City;
 use App\Models\Course;
 use App\Models\DocumentTemplate;
 use App\Models\EmancipationEvidence;
+use App\Models\GeneratedDocument;
 use App\Models\GrantingParty;
 use App\Models\GrantingPartyRegistrationRequest;
 use App\Models\Holiday;
@@ -71,6 +74,8 @@ class AdministrativeActivityPresenter
                 'restored' => 'Restauração',
                 'password_changed' => 'Senha alterada',
                 'template_version_uploaded' => 'Arquivo DOCX enviado',
+                'document_download_transmitted' => 'Documento transmitido pelo servidor',
+                'document_download_failed' => 'Falha no download do documento',
                 'template_current_version_changed' => $activity->properties?->get('version') ? 'Versão v'.$activity->properties->get('version').' definida como vigente' : 'Vigência do template removida',
                 default => 'Evento registrado',
             },
@@ -127,6 +132,7 @@ class AdministrativeActivityPresenter
 
         $label = match ($activity->subject_type) {
             (new DocumentTemplate)->getMorphClass() => 'Template DOCX',
+            (new GeneratedDocument)->getMorphClass() => 'Documento do estágio',
             (new TemplateVersion)->getMorphClass() => 'Versão de template',
             (new Internship)->getMorphClass() => 'Estágio',
             (new InternshipPause)->getMorphClass() => 'Pausa de estágio',
@@ -170,6 +176,9 @@ class AdministrativeActivityPresenter
     private function changes(Activity $activity): array
     {
         $fields = match ($activity->subject_type) {
+            (new GeneratedDocument)->getMorphClass() => ['internship_id' => 'Estágio', 'template_version_id' => 'Versão do template',
+                'origin' => 'Origem', 'type' => 'Tipo documental', 'status' => 'Situação do documento', 'template_sha256' => 'SHA-256 do template',
+                'generated_at' => 'Gerado em', 'cancelled_at' => 'Cancelado em', 'cancellation_reason' => 'Motivo do cancelamento'],
             (new DocumentTemplate)->getMorphClass() => ['name' => 'Nome', 'description' => 'Descrição', 'document_type' => 'Tipo documental', 'remuneration' => 'Remuneração do modelo', 'campus_id' => 'Campus', 'deactivated_at' => 'Desativado em'],
             (new TemplateVersion)->getMorphClass() => ['version' => 'Versão', 'file_sha256' => 'SHA-256', 'file_size' => 'Tamanho', 'detected_variables' => 'Variáveis detectadas', 'validation_report' => 'Relatório de validação', 'uploaded_by_affiliation_id' => 'Vínculo de envio', 'validated_at' => 'Validada em (histórico)', 'validated_by_affiliation_id' => 'Vínculo de validação (histórico)'],
             (new Internship)->getMorphClass() => [
@@ -453,6 +462,7 @@ class AdministrativeActivityPresenter
 
         if ($field === 'status') {
             $status = match ($subjectType) {
+                (new GeneratedDocument)->getMorphClass() => GeneratedDocumentStatus::tryFrom((string) $value),
                 (new Internship)->getMorphClass() => InternshipStatus::tryFrom((string) $value),
                 (new InternshipRequest)->getMorphClass() => InternshipRequestStatus::tryFrom((string) $value),
                 (new InternshipRequestCorrection)->getMorphClass() => InternshipRequestCorrectionStatus::tryFrom((string) $value),
@@ -482,7 +492,7 @@ class AdministrativeActivityPresenter
             return formatShort((string) $value);
         }
 
-        if (in_array($field, ['terms_accepted_at', 'reviewed_at', 'responded_at', 'resolved_at'], true)) {
+        if (in_array($field, ['terms_accepted_at', 'reviewed_at', 'responded_at', 'resolved_at', 'generated_at', 'cancelled_at'], true)) {
             return formatDateTime((string) $value);
         }
 
@@ -517,6 +527,14 @@ class AdministrativeActivityPresenter
 
         if ($field === 'document_type') {
             return PartyDocumentType::tryFrom((string) $value)?->label() ?? 'Tipo não reconhecido';
+        }
+
+        if ($subjectType === (new GeneratedDocument)->getMorphClass() && $field === 'origin') {
+            return GeneratedDocumentOrigin::tryFrom((string) $value)?->label() ?? 'Origem não reconhecida';
+        }
+
+        if ($subjectType === (new GeneratedDocument)->getMorphClass() && $field === 'type') {
+            return GeneratedDocumentType::tryFrom((string) $value)?->label() ?? 'Tipo não reconhecido';
         }
 
         if ($field === 'type') {

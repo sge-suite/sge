@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\GeneratedDocument;
 use App\Models\Internship;
 use App\Models\InternshipCalendarOverride;
 use App\Models\InternshipPause;
@@ -25,7 +26,7 @@ class InternshipActivityScope
                 $query->where('subject_type', (new Internship)->getMorphClass())->whereIn('subject_id', clone $internshipIds);
             });
 
-            foreach ([new InternshipPause, new InternshipCalendarOverride] as $subject) {
+            foreach ([new InternshipPause, new InternshipCalendarOverride, new GeneratedDocument] as $subject) {
                 $query->orWhere(function (Builder $query) use ($subject, $internshipIds, $recordedInternshipIds): void {
                     $historicalIds = Activity::query()->where('subject_type', $subject->getMorphClass())
                         ->where(function (Builder $query) use ($recordedInternshipIds): void {

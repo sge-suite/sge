@@ -3,7 +3,9 @@
 namespace App\Policies;
 
 use App\Enums\AffiliationType;
+use App\Enums\GeneratedDocumentType;
 use App\Enums\InternshipStatus;
+use App\Models\Course;
 use App\Models\Internship;
 use App\Models\User;
 use App\Support\StudentInternshipContext;
@@ -16,19 +18,25 @@ class InternshipPolicy
     {
         $affiliation = $this->context->selected($user);
 
-        return $affiliation?->type === AffiliationType::InternshipOffice && $affiliation->campus !== null;
+        return $affiliation?->campus !== null && ($affiliation->type === AffiliationType::InternshipOffice
+            || ($affiliation->type === AffiliationType::Coordinator && Course::query()->where('campus_id', $affiliation->campus_id)
+                ->where(fn ($query) => $query->where('primary_coordinator_affiliation_id', $affiliation->id)
+                    ->orWhere('secondary_coordinator_affiliation_id', $affiliation->id))->exists()));
     }
 
     public function view(User $user, Internship $internship): bool
     {
         $affiliation = $this->context->selected($user);
 
-        return $this->viewAny($user) && $internship->course()->where('campus_id', $affiliation->campus_id)->exists();
+        return $this->viewAny($user) && $internship->course()->where('campus_id', $affiliation->campus_id)
+            ->when($affiliation->type === AffiliationType::Coordinator, fn ($query) => $query->where(fn ($query) => $query
+                ->where('primary_coordinator_affiliation_id', $affiliation->id)->orWhere('secondary_coordinator_affiliation_id', $affiliation->id)))->exists();
     }
 
     public function update(User $user, Internship $internship): bool
     {
         return $this->view($user, $internship)
+            && $this->context->selected($user)->type === AffiliationType::InternshipOffice
             && $this->context->selected($user)->campus->deactivated_at === null
             && ! in_array($internship->status, [InternshipStatus::Completed, InternshipStatus::Cancelled], true);
     }
@@ -55,5 +63,21 @@ class InternshipPolicy
         return $this->update($user, $internship)
             && in_array($internship->status, [InternshipStatus::PendingFormalization, InternshipStatus::PendingCorrection,
                 InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused], true);
+    }
+
+    public function generateDocument(User $user, Internship $internship, GeneratedDocumentType $type): bool
+    {
+        if (! $this->view($user, $internship)) {
+            return false;
+        }
+        $affiliation = $this->context->selected($user);
+        if ($affiliation->campus->deactivated_at !== null || $internship->course->deactivated_at !== null
+            || in_array($internship->status, [InternshipStatus::PendingCorrection, InternshipStatus::Cancelled], true)) {
+            return false;
+        }
+
+        return $type === GeneratedDocumentType::OrientationCertificate
+            ? $affiliation->type === AffiliationType::Coordinator
+            : $affiliation->type === AffiliationType::InternshipOffice;
     }
 }

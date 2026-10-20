@@ -5,6 +5,7 @@ use App\Http\Controllers\AffiliationSelectionController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DocumentTemplatePreviewController;
+use App\Http\Controllers\GeneratedDocumentDownloadController;
 use App\Http\Controllers\GrantingPartyController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\HolidayImportController;
@@ -50,6 +51,8 @@ Route::middleware(['auth'])->group(function () {
         });
         Route::livewire('internships', 'pages::internships.index')
             ->middleware('can:viewAny,'.Internship::class)->name('internships.index');
+        Route::get('internships/{internship}/documents/{generatedDocument}/download', GeneratedDocumentDownloadController::class)
+            ->scopeBindings()->middleware('can:download,generatedDocument')->name('internships.documents.download');
         Route::livewire('internships/{internship}', 'pages::internships.show')
             ->middleware('can:view,internship')->name('internships.show');
         Route::livewire('internships/{internship}/edit', 'pages::internships.edit')

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\InternshipStatus;
+use App\Enums\AffiliationType;
 use App\Models\Course;
 use App\Models\Internship;
 use App\Support\PageSize;
@@ -88,6 +89,8 @@ new #[Title('Estágios')] class extends Component
         $owner = app(StudentInternshipContext::class)->selected(Auth::user());
 
         return ['' => 'Todos os cursos'] + Course::query()->where('campus_id', $owner->campus_id)
+            ->when($owner->type === AffiliationType::Coordinator, fn ($query) => $query->where(fn ($query) => $query
+                ->where('primary_coordinator_affiliation_id', $owner->id)->orWhere('secondary_coordinator_affiliation_id', $owner->id)))
             ->orderBy('name')->orderBy('id')->pluck('name', 'id')->all();
     }
 
@@ -100,14 +103,18 @@ new #[Title('Estágios')] class extends Component
         $search = mb_substr(trim($this->search), 0, 255);
 
         return Internship::query()->whereHas('course', fn (Builder $query) => $query->where('campus_id', $owner->campus_id))
+            ->when($owner->type === AffiliationType::Coordinator, fn ($query) => $query->whereHas('course', fn ($query) => $query
+                ->where(fn ($query) => $query->where('primary_coordinator_affiliation_id', $owner->id)->orWhere('secondary_coordinator_affiliation_id', $owner->id))))
             ->when($this->status !== 'all', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->courseId !== '', fn (Builder $query) => $query->where('course_id', $this->courseId))
-            ->when($search !== '', function (Builder $query) use ($search): void {
+            ->when($search !== '', function (Builder $query) use ($search, $owner): void {
                 $term = '%'.addcslashes($search, '%_').'%';
-                $query->where(function (Builder $query) use ($term, $search): void {
+                $query->where(function (Builder $query) use ($term, $search, $owner): void {
                     $query->whereLike('student_snapshot->name', $term, caseSensitive: false)
-                        ->orWhereLike('student_snapshot->registration_number', $term, caseSensitive: false)
-                        ->orWhereLike('protocol_number', $term, caseSensitive: false);
+                        ->orWhereLike('student_snapshot->registration_number', $term, caseSensitive: false);
+                    if ($owner->type === AffiliationType::InternshipOffice) {
+                        $query->orWhereLike('protocol_number', $term, caseSensitive: false);
+                    }
                     if (ctype_digit($search) && strlen($search) <= 18) {
                         $query->orWhere('id', (int) $search);
                     }
@@ -149,7 +156,7 @@ new #[Title('Estágios')] class extends Component
                             <flux:table.cell class="whitespace-normal">
                                 <a data-internship-link href="{{ route('internships.show', $internship) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">Nº {{ $internship->id }} · {{ $internship->student_snapshot['name'] ?? 'Discente' }}</a>
                                 <flux:text size="sm">Matrícula: {{ $internship->student_snapshot['registration_number'] ?? 'Não informada' }}</flux:text>
-                                @if ($internship->protocol_number)<flux:text size="sm">Protocolo: {{ $internship->protocol_number }}</flux:text>@endif
+                                @if ($internship->protocol_number && app(StudentInternshipContext::class)->selected(auth()->user())->type === AffiliationType::InternshipOffice)<flux:text size="sm">Protocolo: {{ $internship->protocol_number }}</flux:text>@endif
                             </flux:table.cell>
                             <flux:table.cell class="hidden whitespace-normal md:table-cell">{{ $internship->course?->name }}<flux:text size="sm">{{ $internship->internship_type_snapshot['name'] ?? 'Não informado' }}</flux:text></flux:table.cell>
                             <flux:table.cell><flux:badge size="sm" :color="match ($internship->status) { InternshipStatus::Released, InternshipStatus::InProgress => 'green', InternshipStatus::AwaitingSignatures, InternshipStatus::Paused => 'amber', InternshipStatus::PendingCorrection => 'orange', InternshipStatus::Completed => 'blue', InternshipStatus::Cancelled => 'red', default => 'zinc' }">{{ $internship->status->label() }}</flux:badge></flux:table.cell>

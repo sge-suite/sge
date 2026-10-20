@@ -21,10 +21,19 @@ services:
             - '.:/var/www/html'
         networks:
             - sail
+            - documents
         depends_on:
             - pgsql
             - meilisearch
             - mailpit
+            - gotenberg
+    gotenberg:
+        image: 'gotenberg/gotenberg:8.38.1-libreoffice'
+        environment:
+            API_TIMEOUT: 90s
+            API_BODY_LIMIT: 25MB
+        networks:
+            - documents
     pgsql:
         image: 'postgres:18-alpine'
         ports:
@@ -78,6 +87,8 @@ services:
         networks:
             - sail
 networks:
+    documents:
+        internal: true
     sail:
         driver: bridge
 volumes:
