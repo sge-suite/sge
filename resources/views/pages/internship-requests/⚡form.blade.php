@@ -657,6 +657,7 @@ new #[Title('Solicitação de estágio')] class extends Component
     $canEdit = in_array($currentSection, $this->editableSections, true) || ($currentSection === 'schedule' && in_array('planned_start_date', $this->editableSections, true));
     $pendingParty = ($values['granting_party_mode'] ?? '') === 'pending';
     $pendingSupervisor = ($values['supervisor_mode'] ?? '') === 'pending';
+    $canUpdateRequest = auth()->user()->can('update', $request);
 @endphp
 
 <div class="w-full space-y-8">
@@ -666,7 +667,10 @@ new #[Title('Solicitação de estágio')] class extends Component
         <flux:breadcrumbs.item>Solicitação nº {{ $request->id }}</flux:breadcrumbs.item>
     </flux:breadcrumbs>
     <div class="flex flex-wrap items-start justify-between gap-4">
-        <div><flux:heading level="1" size="xl">Vamos preparar seu estágio</flux:heading><flux:text class="mt-2">Preencha por etapas. Você pode salvar e continuar depois.</flux:text></div>
+        <div class="flex min-w-0 items-start gap-3">
+            <flux:avatar icon="clipboard-document-list" icon-variant="outline" class="shrink-0 bg-brand/10 text-brand [&>svg]:opacity-100" />
+            <div><flux:heading level="1" size="xl">{{ $canUpdateRequest ? 'Vamos preparar seu estágio' : 'Minha solicitação de estágio' }}</flux:heading><flux:text class="mt-2">{{ $canUpdateRequest ? 'Preencha por etapas. Você pode salvar e continuar depois.' : 'Confira os dados enviados e acompanhe a situação da solicitação.' }}</flux:text></div>
+        </div>
         <div class="flex flex-wrap items-center gap-3">
             <flux:badge>{{ $request->status->label() }}</flux:badge>
             <flux:button variant="outline" icon="arrow-left" :href="route('internship-requests.index')" wire:navigate>Voltar</flux:button>
@@ -709,7 +713,7 @@ new #[Title('Solicitação de estágio')] class extends Component
                 @endforeach
             </div>
         </flux:callout>
-    @elseif (! auth()->user()->can('update', $request))
+    @elseif (! $canUpdateRequest)
         <flux:callout heading="{{ match ($request->status->value) { 'accepted' => 'Solicitação aceita: aguarde a documentação e a liberação para começar.', 'rejected' => 'Solicitação recusada pelo Setor.', 'withdrawn' => 'Desistência registrada.', default => 'Solicitação enviada: aguarde a análise do Setor.' } }}">
             <flux:callout.text>Os dados enviados estão disponíveis para consulta.</flux:callout.text>
         </flux:callout>

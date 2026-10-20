@@ -16,7 +16,11 @@
                 </flux:sidebar.item>
 
                 @can('viewAny', \App\Models\InternshipRequest::class)
-                    <flux:sidebar.item :href="route('internship-requests.index')" :current="request()->routeIs('internship-requests.*')" wire:navigate>Minhas solicitações</flux:sidebar.item>
+                    <flux:sidebar.item icon="clipboard-document-list" :href="route('internship-requests.index')" :current="request()->routeIs('internship-requests.*')" wire:navigate>Minhas solicitações</flux:sidebar.item>
+                @endcan
+
+                @can('viewOwnAny', \App\Models\Internship::class)
+                    <flux:sidebar.item icon="briefcase" :href="route('student-internships.index')" :current="request()->routeIs('student-internships.*', 'internships.show')" wire:navigate>Meus estágios</flux:sidebar.item>
                 @endcan
 
                 @can('viewReviewList', \App\Models\InternshipRequest::class)

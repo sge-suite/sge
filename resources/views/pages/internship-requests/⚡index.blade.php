@@ -51,40 +51,35 @@ new #[Title('Minhas solicitações de estágio')] class extends Component
 
 <div class="w-full space-y-8">
     @if (session('status'))<div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>@endif
+    @php($requests = $this->requests)
+    @php($canEditRequests = auth()->user()->can('create', InternshipRequest::class))
+    <flux:breadcrumbs>
+        <flux:breadcrumbs.item :href="route('dashboard')" wire:navigate>Painel</flux:breadcrumbs.item>
+        <flux:breadcrumbs.item>Minhas solicitações</flux:breadcrumbs.item>
+    </flux:breadcrumbs>
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <flux:heading level="1" size="xl">Minhas solicitações de estágio</flux:heading>
             <flux:text class="mt-2">Comece seu estágio, continue um rascunho ou acompanhe a análise pelo Setor.</flux:text>
         </div>
-        @can('create', InternshipRequest::class)
-            <flux:button variant="primary" wire:click="start" wire:loading.attr="disabled">Iniciar ou continuar solicitação</flux:button>
-        @endcan
+        @if ($canEditRequests)
+            <flux:button variant="primary" icon="plus" wire:click="start" wire:loading.attr="disabled" wire:target="start">Iniciar ou continuar solicitação</flux:button>
+        @endif
     </div>
-    <div class="space-y-4">
-        @forelse ($this->requests as $request)
-            <article wire:key="request-{{ $request->id }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <flux:heading level="2" size="lg">Solicitação nº {{ $request->id }}</flux:heading>
-                    <flux:badge>{{ $request->status->label() }}</flux:badge>
-                </div>
-                <flux:text>{{ $request->internshipType?->name ?? 'Tipo de estágio ainda não escolhido' }} · {{ $request->grantingParty?->name ?? 'Concedente em preenchimento ou cadastro pendente' }}</flux:text>
-                <flux:text size="sm">Atualizada em {{ formatDateTime($request->updated_at) }}</flux:text>
-                <flux:text>{{ match ($request->status->value) {
-                    'draft' => 'Continue o preenchimento e envie quando estiver tudo pronto.',
-                    'pending_correction' => 'Há uma correção solicitada. Confira o motivo e as seções liberadas.',
-                    'submitted', 'under_review' => 'Aguarde a análise do Setor de Estágio.',
-                    'accepted' => 'Solicitação aceita. Aguarde as orientações sobre a documentação e a liberação do início.',
-                    'rejected' => 'Consulte a orientação do Setor para entender a recusa.',
-                    default => 'Esta solicitação foi encerrada por desistência.',
-                } }}</flux:text>
-                <flux:button :href="route('internship-requests.show', $request)" wire:navigate>{{ in_array($request->status->value, ['draft', 'pending_correction'], true) ? 'Continuar preenchimento' : 'Ver solicitação' }}</flux:button>
-            </article>
-        @empty
-            <div class="rounded-xl border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-600">
-                <flux:heading level="2" size="lg">Seu próximo estágio começa aqui</flux:heading>
-                <flux:text class="mt-2">Você poderá preencher por etapas, salvar e voltar depois. O envio só acontece após sua confirmação.</flux:text>
+    <x-loading-overlay target="start,gotoPage,nextPage,previousPage" label="Atualizando solicitações…" :dim-while-loading="true">
+        @if ($requests->isNotEmpty())
+            <div class="mb-4 flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                <flux:icon.clipboard-document-list class="size-5" />
+                <flux:text size="sm">{{ $requests->total() }} {{ $requests->total() === 1 ? 'solicitação registrada' : 'solicitações registradas' }}</flux:text>
             </div>
-        @endforelse
-    </div>
-    {{ $this->requests->links() }}
+            <x-student-requests-table :$requests :can-edit="$canEditRequests" :paginated="true" />
+        @else
+            <flux:card class="flex flex-col items-center gap-3 border-dashed px-6 py-12 text-center">
+                <flux:avatar icon="clipboard-document-list" icon-variant="outline" size="lg" class="bg-brand/10 text-brand [&>svg]:opacity-100" />
+                <flux:heading level="2" size="lg">Seu próximo estágio começa aqui</flux:heading>
+                <flux:text class="max-w-lg">Preencha sua solicitação por etapas, salve o rascunho e volte quando precisar. O envio para análise só acontece após sua confirmação.</flux:text>
+            </flux:card>
+        @endif
+        @if ($requests->isEmpty())<div class="mt-6">{{ $requests->links() }}</div>@endif
+    </x-loading-overlay>
 </div>
