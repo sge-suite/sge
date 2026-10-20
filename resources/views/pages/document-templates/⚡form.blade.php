@@ -100,12 +100,7 @@ new #[Title('Cadastro de template DOCX')] class extends Component
     #[Computed]
     public function documentTypeOptions(): array
     {
-        $options = GeneratedDocumentType::options();
-        if ($this->otherOrientationCertificateExists) {
-            unset($options[GeneratedDocumentType::OrientationCertificate->value]);
-        }
-
-        return $options;
+        return GeneratedDocumentType::options();
     }
 
     #[Computed]
@@ -143,7 +138,12 @@ new #[Title('Cadastro de template DOCX')] class extends Component
             </div>
             <x-select label="Remuneração do modelo" wire:model.live="remuneration" :value="$remuneration" :options="TemplateRemuneration::options()" :disabled="$typeLocked || $document_type === GeneratedDocumentType::OrientationCertificate->value" :error="$errors->first('remuneration')" required />
             <flux:text>Use cadastros distintos para modelos com e sem remuneração. O texto da cláusula fica no DOCX; somente os valores usam variáveis. O atestado é independente da remuneração.</flux:text>
-            @if ($this->otherOrientationCertificateExists)
+            @if ($document_type === GeneratedDocumentType::OrientationCertificate->value)
+                <flux:callout icon="information-circle" heading="Emissão exclusiva da coordenação do curso">
+                    <flux:callout.text>O Setor mantém o template, mas somente o coordenador titular ou substituto do curso pode emitir o atestado. Mantenha a identificação da coordenação no DOCX e use a variável COORDENADOR_NOME para o nome do coordenador emitente. Cada emissão preservará seus dados e a versão usada.</flux:callout.text>
+                </flux:callout>
+            @endif
+            @if ($document_type === GeneratedDocumentType::OrientationCertificate->value && $this->otherOrientationCertificateExists)
                 <flux:callout icon="information-circle" heading="Atestado de orientação já cadastrado">
                     <flux:callout.text>O sistema permite um único cadastro de atestado de orientação, inclusive quando desativado. Para mantê-lo, edite ou reative o existente com um vínculo autorizado.</flux:callout.text>
                     @if ($this->certificateEditUrl)
@@ -153,6 +153,7 @@ new #[Title('Cadastro de template DOCX')] class extends Component
             @endif
             <flux:textarea label="Descrição" wire:model="description" maxlength="10000" rows="3" />
             <flux:text>Após o primeiro upload, o tipo documental e a classificação de remuneração ficam preservados.</flux:text>
+            <flux:text>Após a primeira emissão, o template e a versão utilizada não poderão ser excluídos. Correções no arquivo devem ser enviadas como nova versão.</flux:text>
         </section>
         @if ($templateId === null)
             <section class="space-y-6 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="template-file-heading">

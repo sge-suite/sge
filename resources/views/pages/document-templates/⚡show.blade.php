@@ -3,6 +3,7 @@
 use App\Actions\ManageDocumentTemplate;
 use App\Actions\ManageTemplateVersion;
 use App\Models\DocumentTemplate;
+use App\Models\GeneratedDocument;
 use App\Models\TemplateVersion;
 use App\Support\ActivityAccess;
 use App\Support\ActivityHistory;
@@ -89,6 +90,13 @@ new #[Title('Versões do template DOCX')] class extends Component
     {
         return $this->template->templateVersions()->with(['uploadedByAffiliation.user'])
             ->withCount('generatedDocuments')->orderByDesc('version')->paginate(PageSize::PER_PAGE);
+    }
+
+    #[Computed]
+    public function generatedDocumentsCount(): int
+    {
+        return GeneratedDocument::query()
+            ->whereIn('template_version_id', $this->template->templateVersions()->select('id'))->count();
     }
 
     public function uploadVersion(ManageTemplateVersion $action): void
@@ -292,8 +300,10 @@ new #[Title('Versões do template DOCX')] class extends Component
         <dl class="mt-5 grid gap-6 md:grid-cols-2">
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Descrição</dt><dd class="mt-1 whitespace-pre-line text-sm">{{ $template->description ?: 'Não informada' }}</dd></div>
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Versão vigente</dt><dd class="mt-1 text-sm">{{ $template->currentVersion ? 'Versão '.$template->currentVersion->version : 'Nenhuma versão disponível' }}</dd></div>
+            <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Documentos gerados com este template</dt><dd class="mt-1 text-sm">{{ $this->generatedDocumentsCount }}</dd></div>
         </dl>
-        <flux:text class="mt-5">A validação ocorre no upload. Um arquivo recusado preserva a versão vigente. Você pode tornar outra versão vigente sem excluir arquivos. Esta área armazena templates originais; a geração de documentos será uma etapa posterior.</flux:text>
+        <flux:text class="mt-5">A contagem inclui as emissões de todas as versões, inclusive as canceladas. Baixar novamente não cria uma nova emissão.</flux:text>
+        <flux:text class="mt-5">A validação ocorre no upload. Um arquivo recusado preserva a versão vigente. Você pode tornar outra versão vigente sem excluir arquivos. As emissões são feitas na tela do estágio. Templates e versões utilizados não podem ser excluídos; cada emissão pode ser reproduzida com seus dados originais.</flux:text>
     </section>
     @can('upload', $template)
         <section class="space-y-6 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="template-upload-heading">
@@ -319,6 +329,7 @@ new #[Title('Versões do template DOCX')] class extends Component
                 <flux:table :paginate="$versions">
                     <flux:table.columns>
                         <flux:table.column>Versão</flux:table.column>
+                        <flux:table.column>Documentos gerados</flux:table.column>
                         <flux:table.column>Validação</flux:table.column>
                         <flux:table.column class="hidden md:table-cell">Enviada em</flux:table.column>
                         <flux:table.column class="hidden lg:table-cell">Responsável</flux:table.column>
@@ -332,6 +343,7 @@ new #[Title('Versões do template DOCX')] class extends Component
                                     @if ($template->currentVersion?->id === $version->id)<flux:badge size="sm" color="blue">Vigente</flux:badge>@endif
                                     @if ($version->generated_documents_count > 0)<flux:badge size="sm">Utilizada</flux:badge>@endif
                                 </flux:table.cell>
+                                <flux:table.cell>{{ $version->generated_documents_count }}</flux:table.cell>
                                 <flux:table.cell><flux:badge size="sm" :color="($version->validation_report['errors'] ?? []) !== [] ? 'red' : 'green'">{{ ($version->validation_report['errors'] ?? []) !== [] ? 'Com erros' : 'Validado no envio' }}</flux:badge></flux:table.cell>
                                 <flux:table.cell class="hidden md:table-cell">{{ formatDateTime($version->created_at) }}</flux:table.cell>
                                 <flux:table.cell class="hidden whitespace-normal lg:table-cell">{{ $version->uploadedByAffiliation?->user?->name ?? 'Vínculo #'.$version->uploaded_by_affiliation_id }}</flux:table.cell>
