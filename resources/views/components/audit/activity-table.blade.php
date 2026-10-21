@@ -1,4 +1,6 @@
-@props(['activities'])
+@props(['activities', 'returnTo' => null])
+
+@php($origin = $returnTo ?? (\Livewire\Livewire::isLivewireRequest() ? \Livewire\Livewire::originalUrl() : request()->fullUrl()))
 
 <flux:table :paginate="$activities">
     <flux:table.columns>
@@ -19,7 +21,7 @@
                 x-on:keydown.space.prevent="$el.querySelector('[data-audit-link]').click()"
             >
                 <flux:table.cell class="whitespace-normal">
-                    <a data-audit-link tabindex="-1" href="{{ route('audit.show', $activity['id']) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">{{ $activity['subject'] }}</a>
+                    <a data-audit-link tabindex="-1" href="{{ route('audit.show', ['activity' => $activity['id'], 'return_to' => $origin]) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">{{ $activity['subject'] }}</a>
                 </flux:table.cell>
                 <flux:table.cell><flux:badge size="sm" color="zinc">{{ $activity['event'] }}</flux:badge></flux:table.cell>
                 <flux:table.cell class="whitespace-normal">{{ $activity['actor'] }}</flux:table.cell>

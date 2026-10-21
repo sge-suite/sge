@@ -43,7 +43,8 @@ use Spatie\Activitylog\Models\Activity;
 
 class AdministrativeActivityPresenter
 {
-    public function __construct(private ActiveAffiliationContext $context, private AddressActivityContext $addresses) {}
+    public function __construct(private ActiveAffiliationContext $context, private AddressActivityContext $addresses,
+        private ActivityNavigation $navigation) {}
 
     /** @param Collection<int, Activity> $activities */
     public function prepare(Collection $activities): void
@@ -51,14 +52,76 @@ class AdministrativeActivityPresenter
         $this->addresses->prepare($activities);
     }
 
-    /** @return array{actor: string, subject: string, event: string, occurred_at: string, is_creation: bool, changes: list<array{field: string, before: string, after: string}>} */
+    /** @return array{actor: string, subject: string, event: string, occurred_at: string, is_creation: bool, is_download: bool, subject_url: ?string, actor_url: ?string, details: array<string, array{value: string, url: ?string}>, changes: list<array{field: string, before: string, after: string, before_url?: ?string, after_url?: ?string}>} */
     public function present(Activity $activity): array
     {
         return [
             ...$this->summary($activity),
             'is_creation' => $activity->event === 'created',
+            'is_download' => in_array($activity->event, ['document_download_transmitted', 'document_download_failed'], true),
+            'subject_url' => $this->navigation->forModel($activity->subject),
+            'actor_url' => $this->navigation->forModel($activity->causer)
+                ?? $this->navigation->forReference('user_id', $activity->properties?->get('user_id')),
+            'details' => $this->details($activity),
             'changes' => $this->changes($activity),
         ];
+    }
+
+    /** @return array<string, string> */
+    public static function eventOptions(): array
+    {
+        return ['created' => 'Criação', 'updated' => 'Alteração', 'deleted' => 'Exclusão', 'restored' => 'Restauração',
+            'password_changed' => 'Senha alterada', 'template_version_uploaded' => 'Arquivo DOCX enviado',
+            'template_current_version_changed' => 'Versão vigente do template alterada',
+            'document_download_transmitted' => 'Documento enviado para download', 'document_download_failed' => 'Falha no download'];
+    }
+
+    /** @return array<string, array{value: string, url: ?string}> */
+    private function details(Activity $activity): array
+    {
+        $details = [];
+        foreach ($this->downloadDetails($activity) as $label => $value) {
+            $details[$label] = ['value' => $value, 'url' => null];
+        }
+        if (isset($details['Registro do documento'])) {
+            $details['Registro do documento']['url'] = $this->navigation->forModel($activity->subject);
+        }
+        $fields = ['internship_id' => 'Estágio', 'internship_request_id' => 'Solicitação de estágio',
+            'campus_id' => 'Campus', 'course_id' => 'Curso', 'internship_type_id' => 'Tipo de estágio',
+            'granting_party_id' => 'Concedente', 'user_id' => 'Conta vinculada',
+            'student_affiliation_id' => 'Vínculo discente', 'affiliation_id' => 'Vínculo responsável',
+            'supervisor_affiliation_id' => 'Vínculo supervisor', 'advisor_affiliation_id' => 'Vínculo orientador',
+            'document_template_id' => 'Modelo do documento', 'template_version_id' => 'Versão do modelo',
+            'previous_version_id' => 'Versão anterior do modelo', 'current_version_id' => 'Versão vigente do modelo',
+            'uploaded_by_affiliation_id' => 'Versão enviada por', 'released_by_affiliation_id' => 'Estágio liberado por'];
+        $recorded = $activity->attribute_changes?->get('attributes', []) ?? [];
+        $subject = $activity->subject;
+        foreach ($fields as $field => $label) {
+            $property = in_array($field, ['user_id', 'affiliation_id'], true) ? null : $activity->properties?->get($field);
+            $isRecorded = array_key_exists($field, $recorded) || $property !== null;
+            $value = array_key_exists($field, $recorded) ? $recorded[$field]
+                : ($property ?? $subject?->getAttribute($field));
+            if ($field === 'document_template_id' && $value === null && $subject instanceof GeneratedDocument) {
+                $value = data_get($subject->snapshot, 'template_id');
+            }
+            if ($this->referenceId($value) === null) {
+                continue;
+            }
+            $url = $this->navigation->forReference($field, $value);
+            $details[$label] = ['value' => $details[$label]['value'] ?? '#'.$value.($isRecorded ? '' : ' (referência atual)'), 'url' => $url];
+            if ($field === 'document_template_id' && isset($details['Nome do modelo'])) {
+                $details['Nome do modelo']['url'] = $url;
+            }
+        }
+        $reason = $activity->properties?->get('reason');
+        if ($activity->event === 'template_current_version_changed' && is_string($reason)) {
+            $details['Motivo da mudança de versão'] = ['value' => match ($reason) {
+                'selection' => 'Seleção manual', 'upload' => 'Envio de nova versão', 'deletion' => 'Exclusão de versão',
+                default => 'Alteração registrada',
+            }, 'url' => null];
+        }
+
+        return $details;
     }
 
     /** @return array{actor: string, subject: string, event: string, occurred_at: string} */
@@ -74,12 +137,56 @@ class AdministrativeActivityPresenter
                 'restored' => 'Restauração',
                 'password_changed' => 'Senha alterada',
                 'template_version_uploaded' => 'Arquivo DOCX enviado',
-                'document_download_transmitted' => 'Documento transmitido pelo servidor',
-                'document_download_failed' => 'Falha no download do documento',
+                'document_download_transmitted' => 'Documento enviado para download'.$this->downloadFormatLabel($activity),
+                'document_download_failed' => 'Falha no download do documento'.$this->downloadFormatLabel($activity),
                 'template_current_version_changed' => $activity->properties?->get('version') ? 'Versão v'.$activity->properties->get('version').' definida como vigente' : 'Vigência do template removida',
                 default => 'Evento registrado',
             },
             'occurred_at' => formatDateTime($activity->created_at),
+        ];
+    }
+
+    private function downloadFormatLabel(Activity $activity): string
+    {
+        return match ($activity->properties?->get('format')) {
+            'docx' => ' (DOCX)',
+            'pdf' => ' (PDF)',
+            default => '',
+        };
+    }
+
+    /** @return array<string, string> */
+    private function downloadDetails(Activity $activity): array
+    {
+        if ($activity->subject_type !== (new GeneratedDocument)->getMorphClass()
+            || ! in_array($activity->event, ['document_download_transmitted', 'document_download_failed'], true)) {
+            return [];
+        }
+
+        $document = $activity->subject;
+        $properties = $activity->properties;
+        $type = $properties?->get('document_type') ?? ($document instanceof GeneratedDocument ? $document->type->value : null);
+        $name = $properties?->get('document_name') ?? ($document instanceof GeneratedDocument ? data_get($document->snapshot, 'template_name') : null);
+        $internshipId = $properties?->get('internship_id') ?? ($document instanceof GeneratedDocument ? $document->internship_id : null);
+        $versionId = $properties?->get('template_version_id') ?? ($document instanceof GeneratedDocument ? $document->template_version_id : null);
+        $generatedAt = $properties?->get('generated_at') ?? ($document instanceof GeneratedDocument ? $document->generated_at : null);
+        $format = $properties?->get('format');
+        $filename = $properties?->get('output_filename');
+        if ($filename === null && $document instanceof GeneratedDocument && $document->output_filename !== null && in_array($format, ['docx', 'pdf'], true)) {
+            $filename = app(GeneratedDocumentFilename::class)->forDocument($document, $format);
+        }
+
+        return [
+            'Documento' => is_string($type) ? (GeneratedDocumentType::tryFrom($type)?->label() ?? 'Tipo não registrado') : 'Tipo não registrado',
+            'Nome do modelo' => is_string($name) && $name !== '' ? $name : 'Não registrado',
+            'Registro do documento' => '#'.$activity->subject_id,
+            'Estágio' => is_numeric($internshipId) ? '#'.$internshipId : 'Não registrado',
+            'Formato solicitado' => match ($format) {
+                'docx' => 'DOCX', 'pdf' => 'PDF', default => 'Não registrado'
+            },
+            'Nome do arquivo' => is_string($filename) && $filename !== '' ? $filename : 'Não registrado',
+            'Versão do modelo' => is_numeric($versionId) ? 'Registro #'.$versionId : 'Não registrada',
+            'Documento gerado em' => $generatedAt === null ? 'Não registrado' : formatDateTime($generatedAt),
         ];
     }
 
@@ -116,6 +223,14 @@ class AdministrativeActivityPresenter
 
     private function subject(Activity $activity): string
     {
+        if ($activity->subject_type === (new GeneratedDocument)->getMorphClass()
+            && in_array($activity->event, ['document_download_transmitted', 'document_download_failed'], true)) {
+            $details = $this->downloadDetails($activity);
+
+            return $details['Documento'].' #'.$activity->subject_id
+                .($details['Nome do modelo'] === 'Não registrado' ? '' : ' · '.$details['Nome do modelo'])
+                .($details['Estágio'] === 'Não registrado' ? '' : ' · Estágio '.$details['Estágio']);
+        }
         if ($activity->subject_type === (new Address)->getMorphClass()) {
             $owners = collect($this->addresses->forActivity($activity))->map(function (array $owner): string {
                 $label = match ($owner['type']) {
@@ -172,7 +287,7 @@ class AdministrativeActivityPresenter
         return $label.' #'.$activity->subject_id.($subject === null ? ' (indisponível)' : '');
     }
 
-    /** @return list<array{field: string, before: string, after: string}> */
+    /** @return list<array{field: string, before: string, after: string, before_url?: ?string, after_url?: ?string}> */
     private function changes(Activity $activity): array
     {
         $fields = match ($activity->subject_type) {
@@ -293,6 +408,8 @@ class AdministrativeActivityPresenter
                 'field' => $label,
                 'before' => array_key_exists($field, $old) ? $this->value($field, $old[$field], $references, $activity->subject_type) : 'Não registrado',
                 'after' => array_key_exists($field, $new) ? $this->value($field, $new[$field], $references, $activity->subject_type) : 'Não registrado',
+                'before_url' => $this->navigation->forReference($field, $old[$field] ?? null),
+                'after_url' => $this->navigation->forReference($field, $new[$field] ?? null),
             ];
         }
 

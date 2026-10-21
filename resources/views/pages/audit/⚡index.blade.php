@@ -65,7 +65,7 @@ new #[Title('Auditoria')] class extends Component
             $this->entity = 'all';
         }
 
-        if (! in_array($this->event, ['all', 'created', 'updated', 'deleted', 'restored', 'password_changed'], true)) {
+        if ($this->event !== 'all' && ! array_key_exists($this->event, AdministrativeActivityPresenter::eventOptions())) {
             $this->event = 'all';
         }
     }
@@ -96,7 +96,7 @@ new #[Title('Auditoria')] class extends Component
             $query->where('subject_type', $types[$this->entity]->getMorphClass());
         }
 
-        if (in_array($this->event, ['created', 'updated', 'deleted', 'restored', 'password_changed'], true)) {
+        if (array_key_exists($this->event, AdministrativeActivityPresenter::eventOptions())) {
             $query->where('event', $this->event);
         }
 
@@ -128,11 +128,7 @@ new #[Title('Auditoria')] class extends Component
         <div class="w-full sm:max-w-xs">
             <x-select wire:model.live="event" label="Ação" :value="$event" :options="[
                 'all' => 'Todas as ações',
-                'created' => 'Criação',
-                'updated' => 'Alteração',
-                'deleted' => 'Exclusão',
-                'restored' => 'Restauração',
-                'password_changed' => 'Senha alterada',
+                ...AdministrativeActivityPresenter::eventOptions(),
             ]" />
         </div>
         @if ($entity !== 'all' || $event !== 'all')
@@ -142,7 +138,7 @@ new #[Title('Auditoria')] class extends Component
 
     @php($activities = $this->activities)
     <x-loading-overlay target="entity,event,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando histórico…">
-        <x-audit.activity-table :activities="$activities" />
+        <x-audit.activity-table :activities="$activities" :return-to="route('audit.index', ['entity' => $entity === 'all' ? null : $entity, 'event' => $event === 'all' ? null : $event, 'page' => $this->getPage() > 1 ? $this->getPage() : null])" />
         @if ($activities->isEmpty())
             <flux:text>Nenhum registro de auditoria encontrado nesta página.</flux:text>
         @endif
