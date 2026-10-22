@@ -386,6 +386,7 @@ class AdministrativeActivityPresenter
             (new HolidayRecurrence)->getMorphClass() => ['name' => 'Nome', 'city_id' => 'Cidade', 'month' => 'Mês', 'day' => 'Dia', 'starts_year' => 'Ano inicial', 'ends_year' => 'Ano final', 'notes' => 'Referência / observação'],
             (new Campus)->getMorphClass() => [
                 'name' => 'Nome', 'cnpj' => 'CNPJ', 'phone' => 'Telefone', 'address_id' => 'Endereço',
+                'internship_office_email' => 'E-mail institucional do Setor de Estágio',
                 'legal_representative_name' => 'Representante legal', 'legal_representative_position' => 'Cargo do representante',
                 'insurance_company_name' => 'Seguradora', 'insurance_policy_number' => 'Apólice de seguro',
                 'deactivated_at' => 'Desativação',
@@ -412,6 +413,7 @@ class AdministrativeActivityPresenter
             (new User)->getMorphClass() => ['name' => 'Nome', 'cpf' => 'CPF', 'email' => 'E-mail de login'],
             (new Course)->getMorphClass() => [
                 'campus_id' => 'Campus', 'name' => 'Nome',
+                'coordination_email' => 'E-mail institucional da Coordenação',
                 'primary_coordinator_affiliation_id' => 'Coordenador titular',
                 'secondary_coordinator_affiliation_id' => 'Coordenador substituto',
                 'deactivated_at' => 'Desativação',

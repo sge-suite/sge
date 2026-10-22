@@ -167,6 +167,10 @@ new #[Title('Detalhes do curso')] class extends Component
     <section class="border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="course-coordinators-heading">
         <flux:heading id="course-coordinators-heading" size="lg" level="2">Coordenação</flux:heading>
         <dl class="mt-5 grid gap-6 md:grid-cols-2">
+            <div class="md:col-span-2">
+                <dt class="text-sm text-zinc-500 dark:text-zinc-400">E-mail institucional da Coordenação</dt>
+                <dd class="mt-1 wrap-break-word text-sm text-zinc-900 dark:text-white">{{ $course->coordination_email }}</dd>
+            </div>
             <div>
                 <dt class="text-sm text-zinc-500 dark:text-zinc-400">Coordenador principal</dt>
                 <dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $course->primaryCoordinator?->user?->name ?? 'Não informado' }}</dd>

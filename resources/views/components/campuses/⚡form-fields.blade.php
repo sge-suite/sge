@@ -53,7 +53,7 @@ new class extends Component
         $this->campusId = $campus?->id;
         Gate::authorize($campus === null ? 'create' : 'update', $campus ?? Campus::class);
 
-        foreach (['name', 'cnpj', 'phone', 'legal_representative_name', 'legal_representative_position', 'insurance_company_name', 'insurance_policy_number'] as $field) {
+        foreach (['name', 'cnpj', 'phone', 'internship_office_email', 'legal_representative_name', 'legal_representative_position', 'insurance_company_name', 'insurance_policy_number'] as $field) {
             $this->values[$field] = old($field, $campus?->{$field}) ?? '';
         }
         foreach (['street', 'number', 'neighborhood', 'zip_code'] as $field) {
@@ -221,7 +221,7 @@ new class extends Component
     <div class="grid gap-8 xl:grid-cols-2 xl:items-start xl:gap-x-12">
         <section class="min-w-0 xl:col-start-1 xl:row-start-1" aria-labelledby="campus-registration-heading">
             <flux:heading id="campus-registration-heading" size="lg" level="2">Dados do campus</flux:heading>
-            <flux:text class="mt-1">Informe a identificação e o telefone institucional.</flux:text>
+            <flux:text class="mt-1">Informe a identificação e os contatos institucionais.</flux:text>
             <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
                 <div class="sm:col-span-2">
                     <flux:input name="name" error:name="name" label="Nome do campus" wire:model="values.name" :value="$values['name']" maxlength="255" required autocomplete="organization" />
@@ -235,6 +235,9 @@ new class extends Component
                         <flux:input label="CNPJ" :name="null" :value="$values['cnpj']" readonly />
                     @endif
                     <flux:input name="phone" error:name="phone" label="Telefone" wire:model="values.phone" :value="$values['phone']" maxlength="15" type="tel" autocomplete="tel" placeholder="(00) 00000-0000" required />
+                    <div class="sm:col-span-2">
+                        <flux:input name="internship_office_email" error:name="internship_office_email" label="E-mail institucional do Setor de Estágio" wire:model="values.internship_office_email" :value="$values['internship_office_email']" maxlength="254" type="email" required />
+                    </div>
                     @if ($canEditCnpj)
                     <div class="sm:col-span-2 flex flex-col items-start gap-2">
                         <flux:text size="sm">Busque na BrasilAPI para preencher o nome, o telefone e o endereço do campus. Confira os dados antes de salvar.</flux:text>

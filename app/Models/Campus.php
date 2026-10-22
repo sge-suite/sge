@@ -27,6 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property string $name
  * @property string $cnpj
  * @property string $phone
+ * @property string $internship_office_email
  * @property int $address_id
  * @property string $legal_representative_name
  * @property string $legal_representative_position
@@ -43,6 +44,7 @@ use Spatie\Activitylog\Support\LogOptions;
     'name',
     'cnpj',
     'phone',
+    'internship_office_email',
     'address_id',
     'legal_representative_name',
     'legal_representative_position',
@@ -70,6 +72,7 @@ class Campus extends Model
             'name' => 'string',
             'cnpj' => CnpjCast::class,
             'phone' => PhoneCast::class,
+            'internship_office_email' => 'string',
             'address_id' => 'integer',
             'legal_representative_name' => 'string',
             'legal_representative_position' => 'string',

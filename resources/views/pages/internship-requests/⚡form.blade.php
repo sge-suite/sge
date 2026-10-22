@@ -652,6 +652,7 @@ new #[Title('Solicitação de estágio')] class extends Component
 @php
     $request = $this->record;
     $personal = $this->personal;
+    $officeEmail = $personal['owner']->campus->internship_office_email;
     $choices = $this->choices;
     $currentSection = self::STEPS[$step]['section'];
     $canEdit = in_array($currentSection, $this->editableSections, true) || ($currentSection === 'schedule' && in_array('planned_start_date', $this->editableSections, true));
@@ -679,6 +680,14 @@ new #[Title('Solicitação de estágio')] class extends Component
             @endcan
         </div>
     </div>
+    @if (filled($officeEmail))
+        <flux:callout icon="information-circle" heading="Dúvidas sobre a solicitação?">
+            <flux:callout.text>
+                Se tiver dúvidas ou problemas no preenchimento, entre em contato com o Setor de Estágio pelo e-mail:
+                <x-copy-email :email="$officeEmail" />
+            </flux:callout.text>
+        </flux:callout>
+    @endif
     @if ($request->status === InternshipRequestStatus::PendingCorrection)
         @php($correction = $request->corrections->firstWhere('status', InternshipRequestCorrectionStatus::Open))
         <flux:callout variant="danger" icon="exclamation-triangle" heading="O Setor solicitou correções nesta solicitação">

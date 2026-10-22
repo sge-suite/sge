@@ -28,6 +28,7 @@ class StoreCampusRequest extends CampusFormRequest
             'name' => ['required', 'string', 'max:255'],
             'cnpj' => ['required', 'string', 'size:14', new Cnpj, Rule::unique(Campus::class, 'cnpj')],
             'phone' => ['required', 'string', 'max:255', $this->phoneRule(), Rule::unique(Campus::class, 'phone')],
+            'internship_office_email' => ['required', 'string', 'email', 'max:254'],
             'legal_representative_name' => ['required', 'string', 'max:255'],
             'legal_representative_position' => ['required', 'string', 'max:255'],
             'insurance_company_name' => ['required', 'string', 'max:255'],
@@ -44,7 +45,7 @@ class StoreCampusRequest extends CampusFormRequest
     {
         return [function (Validator $validator): void {
             $this->rejectUnexpectedKeys($validator, [
-                'name', 'cnpj', 'phone', 'legal_representative_name',
+                'name', 'cnpj', 'phone', 'internship_office_email', 'legal_representative_name',
                 'legal_representative_position', 'insurance_company_name',
                 'insurance_policy_number', 'address',
             ]);

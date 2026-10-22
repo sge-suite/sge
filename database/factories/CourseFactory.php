@@ -21,6 +21,7 @@ class CourseFactory extends Factory
         return [
             'campus_id' => Campus::factory(),
             'name' => fake()->unique()->words(3, true),
+            'coordination_email' => fake()->safeEmail(),
             'primary_coordinator_affiliation_id' => null,
             'secondary_coordinator_affiliation_id' => null,
             'deactivated_at' => null,

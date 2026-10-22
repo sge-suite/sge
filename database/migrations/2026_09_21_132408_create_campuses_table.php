@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->char('cnpj', 14);
             $table->string('phone');
+            $table->string('internship_office_email', 254);
             $table->foreignId('address_id')->index()->constrained()->restrictOnDelete();
             $table->string('legal_representative_name');
             $table->string('legal_representative_position');

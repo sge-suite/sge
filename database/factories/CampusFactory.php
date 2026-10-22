@@ -22,6 +22,7 @@ class CampusFactory extends Factory
             'name' => fake()->company().' - '.fake()->city(),
             'cnpj' => '04.252.011/0001-10',
             'phone' => '(55) 99999-9999',
+            'internship_office_email' => fake()->safeEmail(),
             'address_id' => Address::factory(),
             'legal_representative_name' => fake()->name(),
             'legal_representative_position' => 'Diretor(a) Geral',

@@ -30,6 +30,12 @@ abstract class CampusFormRequest extends FormRequest
             }
         }
 
+        $email = $this->input('internship_office_email');
+
+        if (is_string($email)) {
+            $normalized['internship_office_email'] = mb_strtolower(trim($email));
+        }
+
         $address = $this->input('address');
         if (is_array($address) && array_key_exists('zip_code', $address)) {
             $address['zip_code'] = BrazilianAddressHelper::cepForValidation($address['zip_code']);
@@ -52,6 +58,9 @@ abstract class CampusFormRequest extends FormRequest
             'cnpj.unique' => 'Este CNPJ já está cadastrado em outro campus.',
             'phone.required' => 'Informe o telefone do campus.',
             'phone.unique' => 'Este telefone já está cadastrado em outro campus.',
+            'internship_office_email.required' => 'Informe o e-mail institucional do Setor de Estágio.',
+            'internship_office_email.email' => 'Informe um e-mail válido para o Setor de Estágio.',
+            'internship_office_email.max' => 'O e-mail do Setor de Estágio não pode ultrapassar :max caracteres.',
             'legal_representative_name.required' => 'Informe o nome do representante legal.',
             'legal_representative_position.required' => 'Informe o cargo do representante legal.',
             'insurance_company_name.required' => 'Informe a seguradora.',
@@ -78,6 +87,7 @@ abstract class CampusFormRequest extends FormRequest
             'name' => 'nome do campus',
             'cnpj' => 'CNPJ',
             'phone' => 'telefone',
+            'internship_office_email' => 'e-mail institucional do Setor de Estágio',
             'legal_representative_name' => 'nome do representante legal',
             'legal_representative_position' => 'cargo do representante legal',
             'insurance_company_name' => 'seguradora',

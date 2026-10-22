@@ -20,13 +20,14 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $id
  * @property int $campus_id
  * @property string $name
+ * @property string $coordination_email
  * @property int|null $primary_coordinator_affiliation_id
  * @property int|null $secondary_coordinator_affiliation_id
  * @property Carbon|null $deactivated_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['campus_id', 'name', 'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id', 'deactivated_at'])]
+#[Fillable(['campus_id', 'name', 'coordination_email', 'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id', 'deactivated_at'])]
 class Course extends Model
 {
     /** @use HasFactory<CourseFactory> */
@@ -38,6 +39,7 @@ class Course extends Model
     {
         return [
             'campus_id' => 'integer',
+            'coordination_email' => 'string',
             'primary_coordinator_affiliation_id' => 'integer',
             'secondary_coordinator_affiliation_id' => 'integer',
             'deactivated_at' => 'datetime',
@@ -138,6 +140,7 @@ class Course extends Model
         return [
             'campus_id' => ['bail', 'required', 'integer', $campusExists],
             'name' => ['required', 'string', 'max:255'],
+            'coordination_email' => ['required', 'string', 'email', 'max:254'],
             'primary_coordinator_affiliation_id' => $coordinatorRules('primary_coordinator_affiliation_id'),
             'secondary_coordinator_affiliation_id' => [
                 ...$coordinatorRules('secondary_coordinator_affiliation_id'),
@@ -150,6 +153,10 @@ class Course extends Model
     protected static function booted(): void
     {
         static::saving(function (self $course): void {
+            if (is_string($course->coordination_email)) {
+                $course->coordination_email = mb_strtolower(trim($course->coordination_email));
+            }
+
             foreach (['primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id', 'deactivated_at'] as $attribute) {
                 if (blank($course->getAttributes()[$attribute] ?? null)) {
                     $course->{$attribute} = null;

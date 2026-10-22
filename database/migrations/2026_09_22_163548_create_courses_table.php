@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('campus_id')->constrained()->restrictOnDelete();
             $table->string('name');
+            $table->string('coordination_email', 254);
             $table->foreignId('primary_coordinator_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();
             $table->foreignId('secondary_coordinator_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();
             $table->timestamp('deactivated_at')->nullable();

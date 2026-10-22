@@ -304,6 +304,7 @@ new class extends Component
     @php
         $evaluation = $this->record;
         $internship = $evaluation->internship;
+        $officeEmail = $internship->course->campus->internship_office_email;
         $editable = auth()->user()->can('update', $evaluation);
         $officeView = app(StudentInternshipContext::class)->selected(Auth::user())?->type === AffiliationType::InternshipOffice;
         $rules = $internship->internship_type_snapshot['rules'] ?? [];
@@ -332,6 +333,14 @@ new class extends Component
         <flux:text>{{ $internship->granting_party_snapshot['name'] ?? 'Concedente' }} · {{ $internship->internship_type_snapshot['name'] ?? 'Estágio' }}</flux:text>
         <flux:text size="sm">Solicitada em {{ formatDateTime($internship->evaluation_released_at) }} · Período previsto: {{ formatShort($internship->planned_start_date) }} a {{ formatShort($internship->projected_end_date) }}</flux:text>
     </div>
+    @if (filled($officeEmail))
+        <flux:callout icon="information-circle" heading="Dúvidas sobre a avaliação?">
+            <flux:callout.text>
+                Se tiver dúvidas sobre o formulário ou o formato da avaliação, entre em contato com o Setor de Estágio pelo e-mail:
+                <x-copy-email :email="$officeEmail" />
+            </flux:callout.text>
+        </flux:callout>
+    @endif
     @endunless
     @if ($evaluation->review_notes)
         <flux:callout :variant="$editable ? 'warning' : 'secondary'" icon="information-circle" heading="Orientação do Setor de Estágio"><flux:callout.text class="whitespace-pre-line">{{ $evaluation->review_notes }}</flux:callout.text></flux:callout>

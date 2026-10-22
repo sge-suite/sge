@@ -17,7 +17,7 @@ class ManageCourse
 {
     public function __construct(private ActiveAffiliationContext $context, private CauserResolver $causerResolver) {}
 
-    /** @param array{name?: string, primary_coordinator_affiliation_id?: int|string|null, secondary_coordinator_affiliation_id?: int|string|null, current_password?: string} $data */
+    /** @param array{name?: string, coordination_email?: string, primary_coordinator_affiliation_id?: int|string|null, secondary_coordinator_affiliation_id?: int|string|null, current_password?: string} $data */
     public function handle(User $actor, ?Course $target, string $operation, array $data = []): Course
     {
         abort_unless(in_array($operation, ['create', 'update', 'deactivate', 'reactivate', 'delete'], true), 404);

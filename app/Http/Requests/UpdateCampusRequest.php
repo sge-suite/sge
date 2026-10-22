@@ -31,6 +31,7 @@ class UpdateCampusRequest extends CampusFormRequest
             'address' => ['sometimes', 'array:city_id,street,number,neighborhood,zip_code', 'min:1'],
             ...$this->addressRules(partial: true),
             'phone' => ['sometimes', 'required', 'string', 'max:255', $this->phoneRule(), ...$this->uniqueCampusValueWhenChanged('phone', $campus)],
+            'internship_office_email' => ['sometimes', 'required', 'string', 'email', 'max:254'],
             'legal_representative_name' => ['sometimes', 'required', 'string', 'max:255'],
             'legal_representative_position' => ['sometimes', 'required', 'string', 'max:255'],
             'insurance_company_name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -54,7 +55,7 @@ class UpdateCampusRequest extends CampusFormRequest
     {
         /** @var Campus $campus */
         $campus = $this->route('campus');
-        $allowedKeys = ['name', 'address', 'phone', 'legal_representative_name', 'legal_representative_position', 'insurance_company_name', 'insurance_policy_number'];
+        $allowedKeys = ['name', 'address', 'phone', 'internship_office_email', 'legal_representative_name', 'legal_representative_position', 'insurance_company_name', 'insurance_policy_number'];
 
         if ($this->user()?->can('updateCnpj', $campus)) {
             $allowedKeys = [

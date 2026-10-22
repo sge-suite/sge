@@ -13,16 +13,25 @@ abstract class CourseFormRequest extends FormRequest
     /** @return array<string, array<int, mixed>> */
     abstract public function rules(): array;
 
+    protected function prepareForValidation(): void
+    {
+        $email = $this->input('coordination_email');
+
+        if (is_string($email)) {
+            $this->merge(['coordination_email' => mb_strtolower(trim($email))]);
+        }
+    }
+
     /** @return array<string, array<int, mixed>> */
     protected function courseRules(): array
     {
         $course = $this->route('course');
         $course = $course instanceof Course ? clone $course : new Course;
         $affiliation = app(ActiveAffiliationContext::class)->currentFor($this->user(), app('session.store'));
-        $course->fill($this->only(['name', 'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id']));
+        $course->fill($this->only(['name', 'coordination_email', 'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id']));
         $course->campus_id = $affiliation?->campus_id;
 
-        return Arr::only($course->validationRules(), ['name', 'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id']);
+        return Arr::only($course->validationRules(), ['name', 'coordination_email', 'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id']);
     }
 
     /** @return list<callable(Validator): void> */
@@ -41,6 +50,9 @@ abstract class CourseFormRequest extends FormRequest
         return [
             'name.required' => 'Informe o nome do curso.',
             'name.max' => 'O nome do curso não pode ultrapassar :max caracteres.',
+            'coordination_email.required' => 'Informe o e-mail institucional da Coordenação.',
+            'coordination_email.email' => 'Informe um e-mail válido para a Coordenação.',
+            'coordination_email.max' => 'O e-mail da Coordenação não pode ultrapassar :max caracteres.',
             'primary_coordinator_affiliation_id.exists' => 'Selecione um vínculo ativo de Coordenador deste campus.',
             'secondary_coordinator_affiliation_id.exists' => 'Selecione um vínculo ativo de Coordenador deste campus.',
             'secondary_coordinator_affiliation_id.different' => 'Os coordenadores principal e secundário devem ser distintos.',
@@ -52,6 +64,7 @@ abstract class CourseFormRequest extends FormRequest
     {
         return [
             'name' => 'nome do curso',
+            'coordination_email' => 'e-mail institucional da Coordenação',
             'primary_coordinator_affiliation_id' => 'coordenador principal',
             'secondary_coordinator_affiliation_id' => 'coordenador secundário',
         ];

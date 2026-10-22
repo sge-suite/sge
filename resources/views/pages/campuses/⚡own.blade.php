@@ -81,6 +81,7 @@ new #[Title('Meu campus')] class extends Component
             <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">CNPJ</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ BrazilianDocumentHelper::formatCnpj($campus->cnpj) }}</dd></div>
                 <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Telefone</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ BrazilianContactHelper::formatPhone($campus->phone) }}</dd></div>
+                <div class="sm:col-span-2"><dt class="text-sm text-zinc-500 dark:text-zinc-400">E-mail institucional do Setor de Estágio</dt><dd class="mt-1 wrap-break-word text-sm text-zinc-900 dark:text-white">{{ $campus->internship_office_email }}</dd></div>
             </dl>
         </section>
         <section aria-labelledby="campus-address-heading" class="border-t border-zinc-200 pt-6 dark:border-zinc-700">

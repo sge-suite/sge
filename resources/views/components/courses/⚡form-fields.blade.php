@@ -33,7 +33,7 @@ new class extends Component
         $this->courseId = $course?->id;
         Gate::authorize($course === null ? 'create' : 'update', $course ?? Course::class);
         $this->campusId = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'))->campus_id;
-        foreach (['name', 'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id'] as $field) {
+        foreach (['name', 'coordination_email', 'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id'] as $field) {
             $value = old($field, $course?->{$field});
             $this->values[$field] = is_string($value) || is_int($value) ? $value : '';
         }
@@ -76,6 +76,7 @@ new class extends Component
 <div class="space-y-6 border-t border-zinc-200 pt-6 dark:border-zinc-700">
     <flux:heading size="lg" level="2">Dados do curso</flux:heading>
     <flux:input name="name" :value="$values['name']" wire:model="values.name" label="Nome" required maxlength="255" :invalid="$errors->has('name')" />
+    <flux:input name="coordination_email" error:name="coordination_email" :value="$values['coordination_email']" wire:model="values.coordination_email" label="E-mail institucional da Coordenação" type="email" required maxlength="254" />
     <div class="grid items-start gap-6 md:grid-cols-2">
         <x-select name="primary_coordinator_affiliation_id" wire:model="values.primary_coordinator_affiliation_id" label="Coordenador principal (opcional)"
             :value="$values['primary_coordinator_affiliation_id']" :options="$this->coordinatorOptions" :searchable="true"
