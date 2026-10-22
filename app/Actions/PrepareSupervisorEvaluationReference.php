@@ -26,6 +26,8 @@ class PrepareSupervisorEvaluationReference
         abort_unless($affiliation !== null && $affiliation->id === $expectedAffiliationId, 403);
         $internship = Internship::query()->findOrFail($internshipId);
         abort_unless($internship->supervisor_affiliation_id === $affiliation->id, 403);
+        $evaluation = $internship->supervisorEvaluations()->where('supervisor_affiliation_id', $affiliation->id)->firstOrFail();
+        Gate::forUser($actor)->authorize('update', $evaluation);
         $reference = $internship->supervisor_snapshot ?? [];
         $experience = collect([$reference['experience_area'] ?? null, $reference['experience_time'] ?? null])->filter()->implode(' · ');
         $matches = ($reference['has_academic_background'] ?? null) === $hasAcademicBackground;

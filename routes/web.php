@@ -25,6 +25,7 @@ use App\Models\HolidaySource;
 use App\Models\Internship;
 use App\Models\InternshipRequest;
 use App\Models\InternshipType;
+use App\Models\SupervisorEvaluation;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Spatie\Activitylog\Models\Activity;
@@ -37,6 +38,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('affiliations/switch', [AffiliationSelectionController::class, 'switch'])->name('affiliations.switch');
 
     Route::middleware(RequireActiveAffiliation::class)->group(function (): void {
+        Route::livewire('supervisor-evaluations', 'pages::supervisor-evaluations.index')
+            ->middleware('can:viewAny,'.SupervisorEvaluation::class)->name('supervisor-evaluations.index');
+        Route::livewire('supervisor-evaluations/{supervisorEvaluation}', 'pages::supervisor-evaluations.show')
+            ->middleware('can:view,supervisorEvaluation')->name('supervisor-evaluations.show');
         Route::middleware('can:viewAny,'.DocumentTemplate::class)->group(function (): void {
             Route::livewire('document-templates', 'pages::document-templates.index')->name('document-templates.index');
             Route::livewire('document-templates/guide', 'pages::document-templates.guide')->name('document-templates.guide');

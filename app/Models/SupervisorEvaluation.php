@@ -47,6 +47,22 @@ class SupervisorEvaluation extends Model
         'responsibility',
     ];
 
+    /** @return array<string, string> */
+    public static function criteria(): array
+    {
+        return array_combine(self::CRITERIA, [
+            'Desempenho', 'Compreensão', 'Conhecimento técnico', 'Organização',
+            'Iniciativa', 'Assiduidade', 'Disciplina', 'Sociabilidade', 'Cooperação', 'Responsabilidade',
+        ]);
+    }
+
+    /** @return array<string, string> */
+    public static function comments(): array
+    {
+        return ['considerations' => 'Considerações', 'suggestions_to_institution' => 'Sugestões à instituição',
+            'performance_issues' => 'Aspectos que prejudicaram o desempenho', 'other_observations' => 'Outras observações'];
+    }
+
     private const array ANSWER_FIELDS = [
         'internship_id', 'supervisor_affiliation_id', 'has_academic_background',
         'training_course', 'education_level', 'job_role', 'experience_time',
@@ -100,6 +116,9 @@ class SupervisorEvaluation extends Model
         static::saving(function (self $evaluation): void {
             $status = $evaluation->status;
             $isDraft = $status === EvaluationStatus::Draft;
+            $isPartial = in_array($status, [EvaluationStatus::Draft, EvaluationStatus::Returned, EvaluationStatus::Cancelled], true);
+            $hasCompletedHours = $evaluation->hours_requirement_met === true;
+            $internship = Internship::find($evaluation->internship_id);
             $needsReview = in_array($status, [EvaluationStatus::Returned, EvaluationStatus::Approved], true);
 
             foreach ([
@@ -112,15 +131,15 @@ class SupervisorEvaluation extends Model
                 }
             }
 
-            $required = $isDraft ? 'nullable' : 'required';
+            $required = $isPartial ? 'nullable' : 'required';
             $rules = [
                 'internship_id' => ['required', 'integer', Rule::exists(Internship::class, 'id')],
                 'supervisor_affiliation_id' => ['required', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Supervisor->value)],
                 'status' => ['required', Rule::enum(EvaluationStatus::class)],
-                ...$evaluation->supervisorQualificationRules($isDraft, $evaluation->has_academic_background),
+                ...$evaluation->supervisorQualificationRules($isPartial || ! $hasCompletedHours, $evaluation->has_academic_background),
                 'hours_requirement_met' => [$required, 'boolean'],
-                'estimated_hours_remaining' => [Rule::requiredIf(! $isDraft && $evaluation->hours_requirement_met === false), 'nullable', 'integer', 'min:1', 'max:65535'],
-                'submitted_at' => [$required, 'date'],
+                'estimated_hours_remaining' => [Rule::requiredIf(! $isPartial && $evaluation->hours_requirement_met === false), Rule::prohibitedIf($hasCompletedHours), 'nullable', 'integer', 'min:1', 'max:'.min(65535, (int) ($internship?->internship_type_snapshot['rules']['required_hours'] ?? 0))],
+                'submitted_at' => [$isDraft || ($status === EvaluationStatus::Cancelled && $evaluation->submitted_at === null) ? 'nullable' : 'required', 'date'],
                 'reviewed_at' => [$needsReview ? 'required' : 'nullable', 'date'],
                 'review_notes' => [$status === EvaluationStatus::Returned ? 'required' : 'nullable', 'string'],
                 'cancelled_at' => [$status === EvaluationStatus::Cancelled ? 'required' : 'nullable', 'date'],
@@ -128,11 +147,17 @@ class SupervisorEvaluation extends Model
             ];
 
             foreach (self::CRITERIA as $criterion) {
-                $rules[$criterion] = [$required, Rule::in(EvaluationConcept::values())];
+                $rules[$criterion] = [$hasCompletedHours ? $required : 'prohibited', 'nullable', Rule::in(EvaluationConcept::values())];
             }
 
             foreach (['considerations', 'suggestions_to_institution', 'performance_issues', 'other_observations'] as $comment) {
-                $rules[$comment] = ['nullable', 'string'];
+                $rules[$comment] = [$hasCompletedHours ? 'nullable' : 'prohibited', 'nullable', 'string', 'max:5000'];
+            }
+
+            if (! $hasCompletedHours) {
+                foreach (['has_academic_background', 'job_role', 'training_course', 'education_level', 'experience_time'] as $field) {
+                    $rules[$field] = ['prohibited'];
+                }
             }
 
             $validator = Validator::make($evaluation->getAttributes(), $rules);
@@ -154,7 +179,7 @@ class SupervisorEvaluation extends Model
 
                 $previousStatus = EvaluationStatus::tryFrom($evaluation->getRawOriginal('status'));
                 $transitions = [
-                    'draft' => [EvaluationStatus::Submitted],
+                    'draft' => [EvaluationStatus::Submitted, EvaluationStatus::Cancelled],
                     'submitted' => [EvaluationStatus::Returned, EvaluationStatus::Approved, EvaluationStatus::Cancelled],
                     'returned' => [EvaluationStatus::Submitted, EvaluationStatus::Cancelled],
                     'approved' => [],
