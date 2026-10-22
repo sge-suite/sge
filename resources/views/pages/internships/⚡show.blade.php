@@ -1,6 +1,8 @@
 <?php
 
 use App\Actions\ManageInternship;
+use App\Actions\ManageSupervisorEvaluation;
+use App\Models\SupervisorEvaluation;
 use App\Actions\UpdateAdvisorGrades;
 use App\Support\InternshipGradeCalculator;
 use Illuminate\Validation\ValidationException;
@@ -78,12 +80,15 @@ new #[Title('Detalhes do estágio')] class extends Component
     #[Computed]
     public function record(): Internship
     {
-        $relations = ['course.campus', 'advisorAffiliation.user', 'workplaceAddress.city'];
+        $relations = ['course.campus', 'advisorAffiliation.user', 'supervisorAffiliation', 'workplaceAddress.city'];
         if ($this->isOffice || $this->isStudent) {
             $relations = [...$relations, 'internshipRequest', 'pauses' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
                 'calendarOverrides' => fn ($query) => $query->orderBy('date')->orderBy('id'),
                 'workSchedules' => fn ($query) => $query->orderBy('starts_on')];
-        } elseif (! $this->isTeachingDirection) {
+        }
+        if ($this->isOffice) {
+            $relations['supervisorEvaluations'] = fn ($query) => $query->with('supervisorAffiliation.user')->latest('id');
+        } elseif (! $this->isStudent && ! $this->isTeachingDirection) {
             $relations[] = 'currentSupervisorEvaluation.supervisorAffiliation.user';
         }
         $internship = Internship::query()->with($relations)->findOrFail($this->internshipId);
@@ -114,6 +119,13 @@ new #[Title('Detalhes do estágio')] class extends Component
         $this->presentationGrade = $this->record->presentation_grade;
         $this->resetValidation();
         Flux::toast('Notas salvas.', variant: 'success');
+    }
+
+    public function releaseEvaluation(ManageSupervisorEvaluation $manage): void
+    {
+        $manage->handle(Auth::user(), $this->record, $this->affiliationId, 'release');
+        unset($this->record);
+        Flux::toast('Avaliação solicitada. O aviso ao supervisor foi enfileirado para envio por e-mail.', variant: 'success');
     }
 
     public function openPause(?int $id = null): void
@@ -209,6 +221,9 @@ new #[Title('Detalhes do estágio')] class extends Component
             <flux:text class="mt-2">{{ $record->student_snapshot['name'] ?? 'Discente' }} · {{ $record->course->name }}</flux:text>
         </div>
         <div class="flex flex-wrap items-center gap-3">
+            @can('release', [SupervisorEvaluation::class, $record])
+                <flux:button variant="primary" wire:click="releaseEvaluation" wire:loading.attr="disabled" wire:target="releaseEvaluation">Solicitar avaliação do supervisor</flux:button>
+            @endcan
             <flux:button variant="outline" icon="arrow-left" :href="$this->isStudent ? route('student-internships.index') : route('internships.index')" wire:navigate>Voltar</flux:button>
             @can('update', $record)
                 <flux:button icon="pencil-square" :href="route('internships.edit', $record)" wire:navigate>Editar estágio</flux:button>
@@ -224,6 +239,7 @@ new #[Title('Detalhes do estágio')] class extends Component
         <flux:callout icon="information-circle" heading="Campus somente para leitura"><flux:callout.text>O campus está desativado. Os dados permanecem disponíveis para consulta.</flux:callout.text></flux:callout>
     @endif
     @if ($this->isOffice || $this->isStudent)
+    <livewire:internships.lifecycle :internship-id="$internshipId" :key="'internship-lifecycle-'.$internshipId.'-'.$record->status->value" @internship-updated="$refresh" />
     <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="internship-data-heading">
         <flux:heading id="internship-data-heading" size="lg" level="2">Dados do estágio</flux:heading>
         <dl class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -270,7 +286,6 @@ new #[Title('Detalhes do estágio')] class extends Component
     @if ($this->isOffice)
     <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="administrative-heading">
         <flux:heading id="administrative-heading" size="lg" level="2">Dados administrativos</flux:heading>
-        <flux:text>Protocolo: {{ $record->protocol_number ?? 'Não informado' }}</flux:text>
         <flux:text class="whitespace-pre-line">{{ $record->observations ?? 'Sem observações.' }}</flux:text>
     </section>
     @endif
@@ -324,8 +339,32 @@ new #[Title('Detalhes do estágio')] class extends Component
         </section>
     @endif
     @can('viewDocuments', $record)
-        <livewire:internships.documents :internship-id="$internshipId" :key="'internship-documents-'.$internshipId" />
+        <livewire:internships.documents :internship-id="$internshipId" :key="'internship-documents-'.$internshipId.'-'.$record->status->value" @internship-updated="$refresh" />
     @endcan
+    @if ($this->isOffice)
+        <section class="space-y-6 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="evaluations-heading">
+            <flux:heading id="evaluations-heading" size="lg" level="2">Avaliações do supervisor</flux:heading>
+            @forelse ($record->supervisorEvaluations as $evaluation)
+                <div wire:key="internship-evaluation-{{ $evaluation->id }}" class="space-y-5 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+                    <x-internships.supervisor-evaluation :internship="$record" :evaluation="$evaluation" :weights="$this->gradeWeights" />
+                    @can('view', $evaluation)
+                        <flux:button :href="route('supervisor-evaluations.show', $evaluation)" wire:navigate>Consultar avaliação</flux:button>
+                    @endcan
+                </div>
+            @empty
+                <flux:text>Nenhuma avaliação solicitada para este estágio.</flux:text>
+            @endforelse
+        </section>
+    @else
+        @can('viewSupervisorEvaluation', $record)
+            @if ($record->currentSupervisorEvaluation?->status === \App\Enums\EvaluationStatus::Approved && $record->currentSupervisorEvaluation->internship_id === $record->id)
+                <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="evaluations-heading">
+                    <flux:heading id="evaluations-heading" size="lg" level="2">Avaliação do supervisor</flux:heading>
+                    <x-internships.supervisor-evaluation :internship="$record" :evaluation="$record->currentSupervisorEvaluation" :weights="$this->gradeWeights" />
+                </section>
+            @endif
+        @endcan
+    @endif
     @can('viewAny', \Spatie\Activitylog\Models\Activity::class)
         <x-audit.activity-history :activities="$this->activityHistory" description="Alterações registradas neste estágio, nas pausas e nas exceções do calendário." />
     @endcan

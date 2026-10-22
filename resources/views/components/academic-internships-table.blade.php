@@ -17,10 +17,11 @@
                     <a data-internship-link href="{{ route('internships.show', $internship) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">Nº {{ $internship->id }} · {{ $internship->student_snapshot['name'] ?? 'Discente' }}</a>
                     <flux:text size="sm">Matrícula: {{ $internship->student_snapshot['registration_number'] ?? 'Não informada' }}</flux:text>
                     <flux:text size="sm">{{ $internship->student_snapshot['email'] ?? 'E-mail não informado' }}</flux:text>
-                    @if ($internship->protocol_number && $isOffice)<flux:text size="sm">Protocolo: {{ $internship->protocol_number }}</flux:text>@endif
                 </flux:table.cell>
                 <flux:table.cell class="hidden whitespace-normal md:table-cell">{{ $internship->course?->name }}<flux:text size="sm">{{ $internship->advisorAffiliation?->user?->name ?? 'Não informado' }}</flux:text></flux:table.cell>
-                <flux:table.cell><flux:badge size="sm" :color="match ($internship->status) { \App\Enums\InternshipStatus::Released, \App\Enums\InternshipStatus::InProgress => 'green', \App\Enums\InternshipStatus::AwaitingSignatures, \App\Enums\InternshipStatus::Paused => 'amber', \App\Enums\InternshipStatus::PendingCorrection => 'orange', \App\Enums\InternshipStatus::Completed => 'blue', \App\Enums\InternshipStatus::Cancelled => 'red', default => 'zinc' }">{{ $internship->status->label() }}</flux:badge></flux:table.cell>
+                <flux:table.cell><flux:badge size="sm" :color="match ($internship->status) { \App\Enums\InternshipStatus::Released, \App\Enums\InternshipStatus::InProgress => 'green', \App\Enums\InternshipStatus::AwaitingSignatures, \App\Enums\InternshipStatus::Paused => 'amber', \App\Enums\InternshipStatus::PendingCorrection => 'orange', \App\Enums\InternshipStatus::Completed => 'blue', \App\Enums\InternshipStatus::Cancelled => 'red', default => 'zinc' }">{{ $internship->status->label() }}</flux:badge>
+                    @if ($isOffice && ($internship->pending_cancellations_count ?? 0) > 0)<flux:text size="sm" class="mt-2">Pedido de cancelamento pendente</flux:text>@endif
+                </flux:table.cell>
                 <flux:table.cell class="hidden lg:table-cell">{{ formatShort($internship->planned_start_date) }}<flux:text size="sm">{{ formatShort($internship->projected_end_date) }}</flux:text></flux:table.cell>
                 @if ($showGrades)
                     <flux:table.cell class="hidden whitespace-normal xl:table-cell">

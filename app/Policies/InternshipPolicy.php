@@ -68,6 +68,28 @@ class InternshipPolicy
             && $internship->advisorAffiliation->campus_id === $affiliation->campus_id;
     }
 
+    public function viewSupervisorEvaluation(User $user, Internship $internship): bool
+    {
+        return $this->view($user, $internship)
+            && in_array($this->context->selected($user)->type, [
+                AffiliationType::InternshipOffice, AffiliationType::Coordinator, AffiliationType::Advisor,
+            ], true);
+    }
+
+    public function viewSupervisorEvaluationCriteria(User $user, Internship $internship): bool
+    {
+        return $this->viewSupervisorEvaluation($user, $internship)
+            && in_array($this->context->selected($user)->type, [
+                AffiliationType::InternshipOffice, AffiliationType::Coordinator,
+            ], true);
+    }
+
+    public function viewSupervisorEvaluationInternalObservations(User $user, Internship $internship): bool
+    {
+        return $this->viewSupervisorEvaluation($user, $internship)
+            && $this->context->selected($user)->type === AffiliationType::InternshipOffice;
+    }
+
     public function updateAdvisorGrades(User $user, Internship $internship): bool
     {
         $affiliation = $this->context->selected($user);
@@ -85,6 +107,46 @@ class InternshipPolicy
     {
         return $this->update($user, $internship)
             && in_array($internship->status, [InternshipStatus::InProgress, InternshipStatus::Paused], true);
+    }
+
+    public function release(User $user, Internship $internship): bool
+    {
+        return $this->update($user, $internship) && $internship->course->deactivated_at === null
+            && $internship->released_at === null
+            && in_array($internship->status, [InternshipStatus::PendingFormalization, InternshipStatus::AwaitingSignatures], true);
+    }
+
+    public function viewLifecycle(User $user, Internship $internship): bool
+    {
+        return $this->view($user, $internship)
+            && in_array($this->context->selected($user)->type, [AffiliationType::Student, AffiliationType::InternshipOffice], true);
+    }
+
+    public function complete(User $user, Internship $internship): bool
+    {
+        return $this->update($user, $internship) && $internship->course->deactivated_at === null
+            && in_array($internship->status, [InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused], true);
+    }
+
+    public function cancel(User $user, Internship $internship): bool
+    {
+        return $this->update($user, $internship) && $internship->course->deactivated_at === null;
+    }
+
+    public function requestCancellation(User $user, Internship $internship): bool
+    {
+        return $this->view($user, $internship) && $this->context->student($user, writable: true) !== null
+            && ! in_array($internship->status, [InternshipStatus::Completed, InternshipStatus::Cancelled], true);
+    }
+
+    public function withdrawCancellation(User $user, Internship $internship): bool
+    {
+        return $this->requestCancellation($user, $internship);
+    }
+
+    public function reviewCancellation(User $user, Internship $internship): bool
+    {
+        return $this->cancel($user, $internship);
     }
 
     public function updateAgreement(User $user, Internship $internship): bool

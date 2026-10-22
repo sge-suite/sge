@@ -64,14 +64,33 @@ class InternshipCancellationRequest extends Model
             $rejected = $request->status === InternshipCancellationRequestStatus::Rejected;
             $validator = Validator::make($request->getAttributes(), [
                 'internship_id' => ['required', 'integer', Rule::exists(Internship::class, 'id')],
-                'reason' => ['required', 'string'],
+                'reason' => ['required', 'string', 'max:5000'],
                 'status' => ['required', Rule::enum(InternshipCancellationRequestStatus::class)],
                 'reviewed_at' => [$approved || $rejected ? 'required' : 'nullable', 'date'],
-                'decision_reason' => [$rejected ? 'required' : 'nullable', 'string'],
-                'effective_date' => [$approved ? 'required' : 'prohibited', 'nullable', 'date'],
+                'decision_reason' => [$rejected ? 'required' : 'nullable', 'string', 'max:5000'],
+                'effective_date' => [$approved ? 'required' : 'prohibited', 'nullable', 'date', 'before_or_equal:today'],
             ]);
 
             $validator->after(function (LaravelValidator $validator) use ($request): void {
+                if ($request->exists) {
+                    if ($request->isDirty(['internship_id', 'reason'])) {
+                        $validator->errors()->add('reason', 'O pedido original não pode ser reescrito.');
+                    }
+                    $original = $request->getRawOriginal('status');
+                    if (in_array($original, ['approved', 'rejected', 'withdrawn'], true) && $request->isDirty()) {
+                        $validator->errors()->add('status', 'Um pedido encerrado não pode ser alterado.');
+                    }
+                    if ($request->isDirty('status')) {
+                        $allowed = match ($original) {
+                            'submitted' => [InternshipCancellationRequestStatus::UnderReview, InternshipCancellationRequestStatus::Approved, InternshipCancellationRequestStatus::Rejected, InternshipCancellationRequestStatus::Withdrawn],
+                            'under_review' => [InternshipCancellationRequestStatus::Approved, InternshipCancellationRequestStatus::Rejected, InternshipCancellationRequestStatus::Withdrawn],
+                            default => [],
+                        };
+                        if (! in_array($request->status, $allowed, true)) {
+                            $validator->errors()->add('status', 'Transição de cancelamento inválida.');
+                        }
+                    }
+                }
                 $internship = Internship::find($request->internship_id);
                 if ($internship && ! $request->exists && in_array($internship->status, [InternshipStatus::Completed, InternshipStatus::Cancelled], true)) {
                     $validator->errors()->add('internship_id', 'Este estágio não aceita pedido de cancelamento.');

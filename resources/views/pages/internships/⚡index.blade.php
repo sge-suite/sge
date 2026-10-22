@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\InternshipStatus;
+use App\Enums\InternshipCancellationRequestStatus;
 use App\Enums\AffiliationType;
 use App\Models\Course;
 use App\Models\Affiliation;
@@ -27,6 +28,7 @@ new #[Title('Estágios')] class extends Component
     #[Url(except: 'all')] public string $status = 'all';
     #[Url(except: '', as: 'course')] public string $courseId = '';
     #[Url(except: '', as: 'advisor')] public string $advisorId = '';
+    #[Url(except: false, as: 'pending_cancellations')] public bool $pendingCancellations = false;
 
     public function boot(): void
     {
@@ -42,6 +44,11 @@ new #[Title('Estágios')] class extends Component
     public function hydrate(StudentInternshipContext $context): void
     {
         abort_unless($context->selected(Auth::user())?->id === $this->affiliationId, 403);
+    }
+
+    public function updatedPendingCancellations(): void
+    {
+        $this->resetPage();
     }
 
     public function updatedSearch(): void
@@ -93,7 +100,7 @@ new #[Title('Estágios')] class extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'status', 'courseId', 'advisorId');
+        $this->reset('search', 'status', 'courseId', 'advisorId', 'pendingCancellations');
         $this->resetPage();
     }
 
@@ -137,6 +144,13 @@ new #[Title('Estágios')] class extends Component
         $search = mb_substr(trim($this->search), 0, 255);
 
         return Internship::query()->visibleToAffiliation($owner)
+            ->when($owner->type === AffiliationType::InternshipOffice, function (Builder $query): void {
+                $pending = fn (Builder $requests) => $requests->whereIn('status', [InternshipCancellationRequestStatus::Submitted, InternshipCancellationRequestStatus::UnderReview]);
+                $query->withCount(['cancellationRequests as pending_cancellations_count' => $pending]);
+                if ($this->pendingCancellations) {
+                    $query->whereHas('cancellationRequests', $pending);
+                }
+            })
             ->when($this->status !== 'all', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->advisorId !== '', fn (Builder $query) => $query->where('advisor_affiliation_id', $this->advisorId))
             ->when($this->courseId !== '', fn (Builder $query) => $query->where('course_id', $this->courseId))
@@ -146,7 +160,7 @@ new #[Title('Estágios')] class extends Component
                     $query->whereLike('student_snapshot->name', $term, caseSensitive: false)
                         ->orWhereLike('student_snapshot->registration_number', $term, caseSensitive: false);
                     if ($owner->type === AffiliationType::InternshipOffice) {
-                        $query->orWhereLike('protocol_number', $term, caseSensitive: false);
+                        $query->orWhereHas('generatedDocuments', fn (Builder $documents) => $documents->whereLike('protocol_number', $term, caseSensitive: false));
                     }
                     if (ctype_digit($search) && strlen($search) <= 18) {
                         $query->orWhere('id', (int) $search);
@@ -162,20 +176,23 @@ new #[Title('Estágios')] class extends Component
         <flux:text class="mt-2">{{ $this->accessDescription }}</flux:text>
     </div>
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_14rem_14rem] xl:items-end">
-        <flux:input wire:model.live.debounce.300ms="search" :label="app(StudentInternshipContext::class)->selected(auth()->user())->type === AffiliationType::InternshipOffice ? 'Buscar por discente, matrícula, protocolo ou número' : 'Buscar por discente, matrícula ou número'" icon="magnifying-glass" maxlength="255" type="search" />
+        <flux:input wire:model.live.debounce.300ms="search" :label="app(StudentInternshipContext::class)->selected(auth()->user())->type === AffiliationType::InternshipOffice ? 'Buscar por discente, matrícula, protocolo do documento ou número' : 'Buscar por discente, matrícula ou número'" icon="magnifying-glass" maxlength="255" type="search" />
         <div class="min-w-0"><x-select wire:model.live="courseId" label="Curso" :value="$courseId" :options="$this->courseOptions" searchable /></div>
         <div class="min-w-0"><x-select wire:model.live="status" label="Situação" :value="$status" :options="$this->statusOptions" /></div>
         <div class="min-w-0"><x-select wire:model.live="advisorId" label="Orientador" :value="$advisorId" :options="$this->advisorOptions" searchable /></div>
         <div>
-            @if ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '')
+            @if ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '' || $pendingCancellations)
                 <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
             @else
                 <div aria-hidden="true" class="h-10"></div>
             @endif
         </div>
     </div>
+    @if (app(StudentInternshipContext::class)->selected(auth()->user())->type === AffiliationType::InternshipOffice)
+        <flux:checkbox wire:model.live="pendingCancellations" label="Somente com pedido de cancelamento pendente" />
+    @endif
     @php($internships = $this->internships)
-    <x-loading-overlay target="search,courseId,advisorId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+    <x-loading-overlay target="search,courseId,advisorId,status,pendingCancellations,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($internships->isNotEmpty())
             <x-academic-internships-table :internships="$internships" :paginated="true" :is-office="app(StudentInternshipContext::class)->selected(auth()->user())->type === AffiliationType::InternshipOffice" />
         @else
@@ -184,7 +201,7 @@ new #[Title('Estágios')] class extends Component
                 @if ($internships->total() > 0)
                     <flux:heading size="lg">Nenhum estágio nesta página</flux:heading>
                     <flux:button class="mt-5" variant="ghost" wire:click="resetPage">Ir para a primeira página</flux:button>
-                @elseif ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '')
+                @elseif ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '' || $pendingCancellations)
                     <flux:heading size="lg">Nenhum estágio encontrado</flux:heading>
                     <flux:text class="mt-2">Ajuste a busca ou os filtros para encontrar um estágio.</flux:text>
                     <flux:button class="mt-5" variant="ghost" wire:click="clearFilters">Limpar filtros</flux:button>
