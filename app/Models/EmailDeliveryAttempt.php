@@ -110,6 +110,7 @@ class EmailDeliveryAttempt extends Model
             if (! $attempt->exists) {
                 $requiresMessage = in_array($attempt->purpose, [
                     EmailMessagePurpose::Notification,
+                    EmailMessagePurpose::DocumentSignature,
                     EmailMessagePurpose::InternshipRequestSubmitted,
                     EmailMessagePurpose::NewAffiliation,
                     EmailMessagePurpose::AccountEmailChanged,

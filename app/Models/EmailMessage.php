@@ -68,7 +68,7 @@ class EmailMessage extends Model
                 'idempotency_key' => ['required', 'uuid'],
             ])->validate();
 
-            if (! in_array($message->purpose, [EmailMessagePurpose::Notification, EmailMessagePurpose::InternshipRequestSubmitted, EmailMessagePurpose::AccountCreated, EmailMessagePurpose::NewAffiliation, EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange], true) ||
+            if (! in_array($message->purpose, [EmailMessagePurpose::Notification, EmailMessagePurpose::DocumentSignature, EmailMessagePurpose::InternshipRequestSubmitted, EmailMessagePurpose::AccountCreated, EmailMessagePurpose::NewAffiliation, EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange], true) ||
                 (in_array($message->purpose, [EmailMessagePurpose::InternshipRequestSubmitted, EmailMessagePurpose::AccountCreated, EmailMessagePurpose::NewAffiliation, EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange], true) && $message->notification_id !== null) ||
                 ($message->notification_id !== null && ! DatabaseNotification::find($message->notification_id))) {
                 throw ValidationException::withMessages(['purpose' => 'A finalidade não permite armazenar este conteúdo.']);

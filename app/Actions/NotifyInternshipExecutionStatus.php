@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Enums\AffiliationType;
 use App\Enums\InternshipStatus;
 use App\Models\Internship;
+use App\Support\EmailDeliveryContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Mail\Markdown;
 use Illuminate\Support\Str;
@@ -54,6 +55,6 @@ class NotifyInternshipExecutionStatus
         $contentHtml = (string) $this->markdown->render('emails.notification', [
             'messageSubject' => $subject, 'body' => $text, 'dashboardUrl' => $url,
         ]);
-        $this->delivery->notification($notification, $subject, $text, $contentHtml, $noticeId);
+        $this->delivery->notification($notification, $subject, $text, $contentHtml, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
     }
 }

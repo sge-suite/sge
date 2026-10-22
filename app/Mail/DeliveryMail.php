@@ -15,7 +15,7 @@ class DeliveryMail extends Mailable
     public function build(): static
     {
         return match ($this->attempt->purpose) {
-            EmailMessagePurpose::Notification, EmailMessagePurpose::InternshipRequestSubmitted => $this->notificationContent(),
+            EmailMessagePurpose::Notification, EmailMessagePurpose::DocumentSignature, EmailMessagePurpose::InternshipRequestSubmitted => $this->notificationContent(),
             EmailMessagePurpose::AccountCreated => $this->accountCreatedContent(),
             EmailMessagePurpose::NewAffiliation => $this->affiliationCreatedContent(),
             EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange => $this->accountEmailChangedContent(),

@@ -4,11 +4,13 @@ namespace App\Actions;
 
 use App\Enums\EmailDeliveryAttemptStatus;
 use App\Enums\EmailMessagePurpose;
+use App\Enums\GeneratedDocumentStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Jobs\SendEmailDelivery;
 use App\Models\Affiliation;
 use App\Models\EmailDeliveryAttempt;
 use App\Models\EmailMessage;
+use App\Models\GeneratedDocument;
 use App\Models\InternshipRequest;
 use App\Models\User;
 use App\Support\EmailDeliveryContext;
@@ -23,6 +25,67 @@ use Spatie\Activitylog\Support\CauserResolver;
 
 class RequestEmailDelivery
 {
+    /** @param array{name: string, email: string, role: string, affiliation: Affiliation|null} $recipient */
+    public function documentSignature(GeneratedDocument $document, array $recipient, string $documentName, string $location, string $personalMessage, string $deliveryKey): EmailDeliveryAttempt
+    {
+        $this->validateKey($deliveryKey);
+        Validator::make($recipient, ['email' => ['required', 'email'], 'name' => ['required', 'string'], 'role' => ['required', 'string']])->validate();
+        abort_unless($document->status === GeneratedDocumentStatus::AwaitingSignature, 409);
+        $internship = $document->internship;
+        $internship->loadMissing('course.campus');
+        $studentName = data_get($document->snapshot, 'values.DISCENTE_NOME') ?? data_get($internship->student_snapshot, 'name', 'Discente não informado');
+        $subject = 'Documento disponível para assinatura — '.$studentName;
+        $documentName = trim($documentName);
+        Validator::make(['document_name' => $documentName], ['document_name' => ['required', 'string', 'max:255']])->validate();
+        $internshipDetails = array_filter([
+            'Discente' => $studentName,
+            'Matrícula' => data_get($document->snapshot, 'values.DISCENTE_MATRICULA') ?? data_get($internship->student_snapshot, 'registration_number'),
+            'Curso' => data_get($document->snapshot, 'values.CURSO_NOME') ?? $internship->course->name,
+            'Campus' => $internship->course->campus->name,
+            'Parte concedente' => data_get($document->snapshot, 'values.CONCEDENTE_NOME') ?? data_get($internship->granting_party_snapshot, 'name', 'Concedente não informada'),
+            'Tipo de estágio' => data_get($document->snapshot, 'values.ESTAGIO_TIPO') ?? data_get($internship->internship_type_snapshot, 'name'),
+            'Início previsto' => data_get($document->snapshot, 'values.ESTAGIO_DATA_INICIO') ?? formatShort($internship->planned_start_date),
+            'Término previsto' => data_get($document->snapshot, 'values.ESTAGIO_DATA_TERMINO_PREVISTA') ?? formatShort($internship->projected_end_date),
+        ], fn (mixed $value): bool => is_string($value) && trim($value) !== '');
+        $protocolNumber = $document->protocol_number;
+        $lines = ['Olá, '.$recipient['name'].'.', 'Como '.$recipient['role'].', solicitamos sua assinatura no documento '.$documentName.'.'];
+        foreach ($internshipDetails as $label => $value) {
+            $lines[] = $label.': '.$value;
+        }
+        if ($protocolNumber !== null) {
+            $lines[] = 'Número de protocolo: '.$protocolNumber;
+        }
+        $lines[] = 'Local de disponibilização: '.$location;
+        if ($personalMessage !== '') {
+            $lines[] = 'Orientação do Setor de Estágio: '.$personalMessage;
+        }
+        $text = implode("\n\n", $lines);
+        $data = [...$this->signatureData(), 'recipientName' => $recipient['name'], 'recipientRole' => $recipient['role'],
+            'messageSubject' => $subject, 'documentName' => $documentName, 'internshipDetails' => $internshipDetails,
+            'protocolNumber' => $protocolNumber, 'location' => $location, 'personalMessage' => $personalMessage,
+            'dashboardUrl' => $recipient['affiliation'] === null ? null : route('dashboard')];
+        $html = (string) app(Markdown::class)->render('emails.document-signature', $data);
+
+        return DB::transaction(function () use ($recipient, $subject, $text, $html, $deliveryKey, $document): EmailDeliveryAttempt {
+            $notification = $recipient['affiliation']?->notifications()->firstOrCreate(['id' => $deliveryKey], [
+                'type' => self::class, 'data' => ['title' => $subject, 'message' => $text, 'route' => 'dashboard',
+                    'internship_id' => $document->internship_id, 'generated_document_id' => $document->id],
+            ]);
+            $message = EmailMessage::query()->firstOrCreate(['idempotency_key' => $deliveryKey], [
+                'purpose' => EmailMessagePurpose::DocumentSignature, 'notification_id' => $notification?->id,
+                'subject' => $subject, 'content_text' => $text, 'content_html' => $html,
+                'template_key' => 'document.signature-available', 'template_version' => '3',
+            ]);
+            if ($message->purpose !== EmailMessagePurpose::DocumentSignature || $message->notification_id !== $notification?->id
+                || $message->subject !== $subject || $message->content_text !== $text || $message->content_html !== $html) {
+                throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
+            }
+
+            return $this->reserve($deliveryKey, EmailMessagePurpose::DocumentSignature, $recipient['email'], $message,
+                scopeContext: app(EmailDeliveryContext::class)->forInternship($document->internship));
+        });
+    }
+
     public function internshipRequestSubmitted(InternshipRequest $request, string $deliveryKey, bool $resubmission = false): EmailDeliveryAttempt
     {
         $this->validateKey($deliveryKey);
@@ -49,7 +112,7 @@ class RequestEmailDelivery
         $lines[] = 'Acompanhe a solicitação: '.$url;
         $contentText = implode("\n\n", $lines);
 
-        return DB::transaction(function () use ($deliveryKey, $recipientEmail, $subject, $contentHtml, $contentText): EmailDeliveryAttempt {
+        return DB::transaction(function () use ($deliveryKey, $recipientEmail, $subject, $contentHtml, $contentText, $request): EmailDeliveryAttempt {
             $purpose = EmailMessagePurpose::InternshipRequestSubmitted;
             $message = EmailMessage::query()->firstOrCreate(['idempotency_key' => $deliveryKey], [
                 'purpose' => $purpose, 'subject' => $subject, 'content_text' => $contentText, 'content_html' => $contentHtml,
@@ -59,11 +122,13 @@ class RequestEmailDelivery
                 throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
             }
 
-            return $this->reserve($deliveryKey, $purpose, $recipientEmail, $message);
+            return $this->reserve($deliveryKey, $purpose, $recipientEmail, $message,
+                scopeContext: app(EmailDeliveryContext::class)->forInternshipRequest($request));
         });
     }
 
-    public function notification(DatabaseNotification $notification, string $subject, string $contentText, ?string $contentHtml, string $deliveryKey): EmailDeliveryAttempt
+    /** @param array{campus_ids: list<int>}|null $scopeContext */
+    public function notification(DatabaseNotification $notification, string $subject, string $contentText, ?string $contentHtml, string $deliveryKey, ?array $scopeContext = null): EmailDeliveryAttempt
     {
         $this->validateKey($deliveryKey);
         $recipient = $notification->notifiable;
@@ -72,7 +137,7 @@ class RequestEmailDelivery
             throw ValidationException::withMessages(['notification' => 'A notificação deve pertencer a uma conta ou vínculo.']);
         }
 
-        return DB::transaction(function () use ($notification, $recipient, $subject, $contentText, $contentHtml, $deliveryKey): EmailDeliveryAttempt {
+        return DB::transaction(function () use ($notification, $recipient, $subject, $contentText, $contentHtml, $deliveryKey, $scopeContext): EmailDeliveryAttempt {
             $message = EmailMessage::query()->firstOrCreate(
                 ['idempotency_key' => $deliveryKey],
                 [
@@ -89,7 +154,7 @@ class RequestEmailDelivery
                 throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
             }
 
-            return $this->reserve($deliveryKey, EmailMessagePurpose::Notification, $recipient->email, $message);
+            return $this->reserve($deliveryKey, EmailMessagePurpose::Notification, $recipient->email, $message, scopeContext: $scopeContext);
         });
     }
 
@@ -292,6 +357,11 @@ class RequestEmailDelivery
                 'scope_context' => $scopeContext,
             ],
         );
+
+        if (! $attempt->wasRecentlyCreated && $attempt->scope_context === null
+            && in_array($purpose, [EmailMessagePurpose::Notification, EmailMessagePurpose::DocumentSignature, EmailMessagePurpose::InternshipRequestSubmitted], true)) {
+            $scopeContext = null;
+        }
 
         if ($attempt->purpose !== $purpose || $attempt->recipient_email !== $recipientEmail ||
             $attempt->email_message_id !== $message?->id || $attempt->scope_context != $scopeContext) {

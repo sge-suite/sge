@@ -5,9 +5,12 @@ namespace App\Support;
 use App\Enums\AffiliationType;
 use App\Enums\EducationLevel;
 use App\Enums\EmancipationEvidenceStatus;
+use App\Enums\EvaluationConcept;
+use App\Enums\EvaluationStatus;
 use App\Enums\GeneratedDocumentOrigin;
 use App\Enums\GeneratedDocumentStatus;
 use App\Enums\GeneratedDocumentType;
+use App\Enums\InternshipCancellationRequestStatus;
 use App\Enums\InternshipRequestCorrectionStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\InternshipStatus;
@@ -29,10 +32,12 @@ use App\Models\Holiday;
 use App\Models\HolidayRecurrence;
 use App\Models\Internship;
 use App\Models\InternshipCalendarOverride;
+use App\Models\InternshipCancellationRequest;
 use App\Models\InternshipPause;
 use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
 use App\Models\InternshipType;
+use App\Models\SupervisorEvaluation;
 use App\Models\SupervisorRegistrationRequest;
 use App\Models\TemplateVersion;
 use App\Models\User;
@@ -71,7 +76,7 @@ class AdministrativeActivityPresenter
     public static function eventOptions(): array
     {
         return ['created' => 'Criação', 'updated' => 'Alteração', 'deleted' => 'Exclusão', 'restored' => 'Restauração',
-            'password_changed' => 'Senha alterada', 'template_version_uploaded' => 'Arquivo DOCX enviado',
+            'signature_notice_requested' => 'Avisos de assinatura solicitados', 'password_changed' => 'Senha alterada', 'template_version_uploaded' => 'Arquivo DOCX enviado',
             'template_current_version_changed' => 'Versão vigente do template alterada',
             'document_download_transmitted' => 'Documento enviado para download', 'document_download_failed' => 'Falha no download'];
     }
@@ -93,6 +98,8 @@ class AdministrativeActivityPresenter
             'supervisor_affiliation_id' => 'Vínculo supervisor', 'advisor_affiliation_id' => 'Vínculo orientador',
             'document_template_id' => 'Modelo do documento', 'template_version_id' => 'Versão do modelo',
             'previous_version_id' => 'Versão anterior do modelo', 'current_version_id' => 'Versão vigente do modelo',
+            'current_supervisor_evaluation_id' => 'Avaliação vigente',
+            'evaluation_released_by_affiliation_id' => 'Avaliação solicitada por',
             'uploaded_by_affiliation_id' => 'Versão enviada por', 'released_by_affiliation_id' => 'Estágio liberado por'];
         $recorded = $activity->attribute_changes?->get('attributes', []) ?? [];
         $subject = $activity->subject;
@@ -112,6 +119,19 @@ class AdministrativeActivityPresenter
             if ($field === 'document_template_id' && isset($details['Nome do modelo'])) {
                 $details['Nome do modelo']['url'] = $url;
             }
+        }
+        if ($activity->event === 'signature_notice_requested') {
+            $details['Local para assinatura'] = ['value' => (string) $activity->properties?->get('signature_availability_location'), 'url' => null];
+        }
+        $protocol = $activity->properties?->get('protocol_number');
+        if (is_string($protocol) && $protocol !== '') {
+            $details['Número de protocolo'] = ['value' => $protocol, 'url' => null];
+        }
+        $categories = $activity->properties?->get('signature_recipient_categories');
+        if (is_array($categories)) {
+            $labels = ['student' => 'Discente', 'advisor' => 'Orientador', 'supervisor' => 'Supervisor', 'granting_party' => 'Concedente'];
+            $details['Avisos de assinatura'] = ['value' => collect($categories)->map(fn ($category): string => $labels[$category] ?? 'Destinatário')->implode(', '), 'url' => null];
+            $details['Quantidade de avisos'] = ['value' => (string) count($categories), 'url' => null];
         }
         $reason = $activity->properties?->get('reason');
         if ($activity->event === 'template_current_version_changed' && is_string($reason)) {
@@ -135,7 +155,7 @@ class AdministrativeActivityPresenter
                 'updated' => 'Alteração',
                 'deleted' => $activity->subject_type === (new TemplateVersion)->getMorphClass() ? 'Arquivo DOCX excluído' : 'Exclusão',
                 'restored' => 'Restauração',
-                'password_changed' => 'Senha alterada',
+                'signature_notice_requested' => 'Avisos de assinatura solicitados', 'password_changed' => 'Senha alterada',
                 'template_version_uploaded' => 'Arquivo DOCX enviado',
                 'document_download_transmitted' => 'Documento enviado para download'.$this->downloadFormatLabel($activity),
                 'document_download_failed' => 'Falha no download do documento'.$this->downloadFormatLabel($activity),
@@ -250,6 +270,8 @@ class AdministrativeActivityPresenter
             (new GeneratedDocument)->getMorphClass() => 'Documento do estágio',
             (new TemplateVersion)->getMorphClass() => 'Versão de template',
             (new Internship)->getMorphClass() => 'Estágio',
+            (new SupervisorEvaluation)->getMorphClass() => 'Avaliação do supervisor',
+            (new InternshipCancellationRequest)->getMorphClass() => 'Pedido de cancelamento',
             (new InternshipPause)->getMorphClass() => 'Pausa de estágio',
             (new InternshipCalendarOverride)->getMorphClass() => 'Exceção do calendário de estágio',
             (new InternshipRequest)->getMorphClass() => 'Solicitação de estágio',
@@ -291,21 +313,33 @@ class AdministrativeActivityPresenter
     private function changes(Activity $activity): array
     {
         $fields = match ($activity->subject_type) {
+            (new SupervisorEvaluation)->getMorphClass() => [
+                'internship_id' => 'Estágio', 'supervisor_affiliation_id' => 'Supervisor', 'status' => 'Situação',
+                'hours_requirement_met' => 'Carga horária cumprida', 'estimated_hours_remaining' => 'Horas faltantes',
+                'has_academic_background' => 'Formação na área', 'job_role' => 'Cargo / função',
+                'training_course' => 'Curso de formação', 'education_level' => 'Nível de formação', 'experience_time' => 'Experiência profissional',
+                ...SupervisorEvaluation::criteria(), ...SupervisorEvaluation::comments(), 'submitted_at' => 'Enviada em',
+                'reviewed_at' => 'Revisada em', 'review_notes' => 'Justificativa da revisão',
+                'cancelled_at' => 'Cancelada em', 'cancellation_reason' => 'Motivo do cancelamento',
+            ],
+            (new InternshipCancellationRequest)->getMorphClass() => ['internship_id' => 'Estágio', 'reason' => 'Motivo do pedido', 'status' => 'Situação do pedido', 'reviewed_at' => 'Decidido em', 'decision_reason' => 'Justificativa da decisão', 'effective_date' => 'Data efetiva do cancelamento'],
             (new GeneratedDocument)->getMorphClass() => ['internship_id' => 'Estágio', 'template_version_id' => 'Versão do template',
                 'origin' => 'Origem', 'type' => 'Tipo documental', 'status' => 'Situação do documento', 'template_sha256' => 'SHA-256 do template',
-                'generated_at' => 'Gerado em', 'cancelled_at' => 'Cancelado em', 'cancellation_reason' => 'Motivo do cancelamento'],
+                'signature_availability_location' => 'Local para assinatura', 'protocol_number' => 'Número de protocolo', 'generated_at' => 'Gerado em', 'cancelled_at' => 'Cancelado em', 'cancellation_reason' => 'Motivo do cancelamento'],
             (new DocumentTemplate)->getMorphClass() => ['name' => 'Nome', 'description' => 'Descrição', 'document_type' => 'Tipo documental', 'remuneration' => 'Remuneração do modelo', 'campus_id' => 'Campus', 'deactivated_at' => 'Desativado em'],
             (new TemplateVersion)->getMorphClass() => ['version' => 'Versão', 'file_sha256' => 'SHA-256', 'file_size' => 'Tamanho', 'detected_variables' => 'Variáveis detectadas', 'validation_report' => 'Relatório de validação', 'uploaded_by_affiliation_id' => 'Vínculo de envio', 'validated_at' => 'Validada em (histórico)', 'validated_by_affiliation_id' => 'Vínculo de validação (histórico)'],
             (new Internship)->getMorphClass() => [
-                'status' => 'Situação', 'projected_end_date' => 'Término previsto',
+                'status' => 'Situação', 'released_at' => 'Liberado em', 'released_by_affiliation_id' => 'Liberado por', 'projected_end_date' => 'Término previsto',
                 'student_year_semester' => 'Ano/semestre',
-                'protocol_number' => 'Protocolo', 'observations' => 'Observações',
+                'protocol_number' => 'Protocolo do estágio (histórico)', 'observations' => 'Observações',
                 'internship_type_id' => 'Tipo de estágio', 'advisor_affiliation_id' => 'Orientador', 'co_advisor_name' => 'Co-orientador',
                 'supervisor_affiliation_id' => 'Supervisor', 'granting_party_id' => 'Concedente',
                 'granting_party_snapshot' => 'Dados da concedente no estágio', 'workplace_address_id' => 'Endereço do local de estágio',
                 'activities' => 'Atividades', 'internship_sector' => 'Setor/área',
                 'planned_start_date' => 'Início planejado', 'weekly_hours' => 'Jornada semanal', 'planned_pauses' => 'Pausas previstas',
                 'is_remunerated' => 'Remunerado', 'grant_value' => 'Bolsa', 'transportation_allowance' => 'Auxílio-transporte',
+                'evaluation_released_at' => 'Avaliação solicitada em', 'evaluation_released_by_affiliation_id' => 'Vínculo solicitante da avaliação',
+                'current_supervisor_evaluation_id' => 'Avaliação vigente', 'supervisor_grade' => 'Nota do supervisor', 'consolidated_grade' => 'Nota consolidada',
             ],
             (new InternshipPause)->getMorphClass() => [
                 'internship_id' => 'Estágio', 'starts_at' => 'Início da pausa', 'ends_at' => 'Fim da pausa', 'reason' => 'Motivo',
@@ -433,7 +467,7 @@ class AdministrativeActivityPresenter
             }
             $reason = $activity->properties?->get('management_change_reason');
             if (is_string($reason) && $reason !== '') {
-                $changes[] = ['field' => 'Motivo da substituição', 'before' => 'Não registrado', 'after' => $reason];
+                $changes[] = ['field' => 'Motivo da operação', 'before' => 'Não registrado', 'after' => $reason];
             }
             if (in_array('supervisor', $activity->properties?->get('changed_sections', []) ?? [], true)) {
                 $changes[] = ['field' => 'Dados do supervisor', 'before' => 'Não registrado', 'after' => 'Atualização registrada'];
@@ -579,6 +613,8 @@ class AdministrativeActivityPresenter
 
         if ($field === 'status') {
             $status = match ($subjectType) {
+                (new SupervisorEvaluation)->getMorphClass() => EvaluationStatus::tryFrom((string) $value),
+                (new InternshipCancellationRequest)->getMorphClass() => InternshipCancellationRequestStatus::tryFrom((string) $value),
                 (new GeneratedDocument)->getMorphClass() => GeneratedDocumentStatus::tryFrom((string) $value),
                 (new Internship)->getMorphClass() => InternshipStatus::tryFrom((string) $value),
                 (new InternshipRequest)->getMorphClass() => InternshipRequestStatus::tryFrom((string) $value),
@@ -595,6 +631,10 @@ class AdministrativeActivityPresenter
             return EducationLevel::tryFrom((string) $value)?->label() ?? 'Nível não reconhecido';
         }
 
+        if ($subjectType === (new SupervisorEvaluation)->getMorphClass() && array_key_exists($field, SupervisorEvaluation::criteria())) {
+            return EvaluationConcept::tryFrom((string) $value)?->label() ?? 'Conceito não reconhecido';
+        }
+
         if ($field === 'legal_capacity_declaration') {
             return LegalCapacityDeclaration::tryFrom((string) $value)?->label() ?? 'Declaração não reconhecida';
         }
@@ -603,13 +643,13 @@ class AdministrativeActivityPresenter
             return is_numeric($value) ? formatCurrency((float) $value) : 'Valor não exibido';
         }
 
-        if (in_array($field, ['planned_start_date', 'projected_end_date'], true)
+        if (in_array($field, ['planned_start_date', 'projected_end_date', 'effective_date'], true)
             || ($subjectType === (new InternshipPause)->getMorphClass() && in_array($field, ['starts_at', 'ends_at'], true))
             || ($subjectType === (new InternshipCalendarOverride)->getMorphClass() && $field === 'date')) {
             return formatShort((string) $value);
         }
 
-        if (in_array($field, ['terms_accepted_at', 'reviewed_at', 'responded_at', 'resolved_at', 'generated_at', 'cancelled_at'], true)) {
+        if (in_array($field, ['terms_accepted_at', 'reviewed_at', 'responded_at', 'resolved_at', 'generated_at', 'cancelled_at', 'submitted_at', 'evaluation_released_at', 'released_at'], true)) {
             return formatDateTime((string) $value);
         }
 

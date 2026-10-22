@@ -12,10 +12,12 @@ use App\Models\GeneratedDocument;
 use App\Models\GrantingParty;
 use App\Models\Internship;
 use App\Models\InternshipCalendarOverride;
+use App\Models\InternshipCancellationRequest;
 use App\Models\InternshipPause;
 use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
 use App\Models\InternshipType;
+use App\Models\SupervisorEvaluation;
 use App\Models\TemplateVersion;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -59,7 +61,7 @@ class ActivityNavigation
 
             return $url === null ? null : $url.'#documents-heading';
         }
-        if ($model instanceof InternshipPause || $model instanceof InternshipCalendarOverride) {
+        if ($model instanceof InternshipPause || $model instanceof InternshipCalendarOverride || $model instanceof InternshipCancellationRequest) {
             return $this->forModel($model->internship);
         }
         if ($model instanceof InternshipRequestCorrection || $model instanceof EmancipationEvidence) {
@@ -82,6 +84,7 @@ class ActivityNavigation
             $model instanceof DocumentTemplate => route('document-templates.show', $model),
             $model instanceof Internship => route('internships.show', $model),
             $model instanceof InternshipRequest => route('internship-requests.show', $model),
+            $model instanceof SupervisorEvaluation => route('supervisor-evaluations.show', $model),
             default => null,
         };
     }
@@ -102,9 +105,10 @@ class ActivityNavigation
             'granting_party_id' => GrantingParty::class,
             'document_template_id' => DocumentTemplate::class,
             'template_version_id', 'previous_version_id', 'current_version_id' => TemplateVersion::class,
+            'current_supervisor_evaluation_id' => SupervisorEvaluation::class,
             'affiliation_id', 'student_affiliation_id', 'advisor_affiliation_id', 'supervisor_affiliation_id',
             'primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id',
-            'released_by_affiliation_id', 'uploaded_by_affiliation_id',
+            'evaluation_released_by_affiliation_id', 'released_by_affiliation_id', 'uploaded_by_affiliation_id',
             'report_graded_by_affiliation_id', 'presentation_graded_by_affiliation_id' => Affiliation::class,
             default => null,
         };
@@ -149,6 +153,7 @@ class ActivityNavigation
             'document-templates.show' => $this->forReference('document_template_id', $route->parameter('documentTemplate')),
             'internships.show' => $this->forReference('internship_id', $route->parameter('internship')),
             'internship-review.show', 'internship-requests.show' => $this->forReference('internship_request_id', $route->parameter('internshipRequest')),
+            'supervisor-evaluations.show' => $this->forReference('current_supervisor_evaluation_id', $route->parameter('supervisorEvaluation')),
             default => null,
         };
         if ($destination === null || parse_url($destination, PHP_URL_PATH) !== ($parts['path'] ?? '/')) {

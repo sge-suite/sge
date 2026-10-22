@@ -90,6 +90,8 @@ new #[Title('Auditoria')] class extends Component
         $types += ['document_template' => new \App\Models\DocumentTemplate, 'template_version' => new \App\Models\TemplateVersion,
             'generated_document' => new \App\Models\GeneratedDocument];
         $types += ['internship' => new \App\Models\Internship, 'internship_pause' => new \App\Models\InternshipPause,
+            'supervisor_evaluation' => new \App\Models\SupervisorEvaluation,
+            'internship_cancellation_request' => new \App\Models\InternshipCancellationRequest,
             'internship_calendar_override' => new \App\Models\InternshipCalendarOverride];
 
         if (isset($types[$this->entity], $this->entityOptions[$this->entity])) {

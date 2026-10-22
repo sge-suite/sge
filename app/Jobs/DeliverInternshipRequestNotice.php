@@ -6,6 +6,7 @@ use App\Actions\RequestEmailDelivery;
 use App\Models\Affiliation;
 use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
+use App\Support\EmailDeliveryContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Mail\Markdown;
@@ -49,7 +50,7 @@ class DeliverInternshipRequestNotice implements ShouldQueue
                 'body' => $isPendingCorrection ? $this->correctionEmailMarkdown($request->id) : $text,
                 'dashboardUrl' => route('internship-requests.show', $request),
             ]);
-            $delivery->notification($notification, $title, $text, $contentHtml, $this->noticeId);
+            $delivery->notification($notification, $title, $text, $contentHtml, $this->noticeId, app(EmailDeliveryContext::class)->forInternshipRequest($request));
         });
     }
 

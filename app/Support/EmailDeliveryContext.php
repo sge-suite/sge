@@ -3,10 +3,24 @@
 namespace App\Support;
 
 use App\Models\Affiliation;
+use App\Models\Internship;
+use App\Models\InternshipRequest;
 use App\Models\User;
 
 class EmailDeliveryContext
 {
+    /** @return array{campus_ids: list<int>} */
+    public function forInternship(Internship $internship): array
+    {
+        return ['campus_ids' => [$internship->course->campus_id]];
+    }
+
+    /** @return array{campus_ids: list<int>} */
+    public function forInternshipRequest(InternshipRequest $request): array
+    {
+        return ['campus_ids' => [$request->affiliation->campus_id]];
+    }
+
     /** @return array{user_id: int, affiliation_ids: list<int>, affiliation_types: list<string>, campus_ids: list<int>} */
     public function forAffiliation(Affiliation $affiliation): array
     {
