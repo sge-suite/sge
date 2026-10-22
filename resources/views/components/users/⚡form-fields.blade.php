@@ -36,7 +36,6 @@ new class extends Component
     public string $type = '';
     public string $campusId = '';
     public string $registrationNumber = '';
-    public string $registrationSourceId = '';
     public string $courseId = '';
     public string $jobRole = '';
     public string $phone = '';
@@ -127,7 +126,6 @@ new class extends Component
         $this->consultedCpf = '';
         $this->name = '';
         $this->email = '';
-        $this->registrationSourceId = '';
         $this->registrationNumber = '';
         $this->jobRole = '';
         $this->phone = '';
@@ -145,7 +143,6 @@ new class extends Component
             $this->jobRole = $this->account?->personalData?->job_role ?? '';
             $this->phone = filled($this->account?->personalData?->phone) ? \App\Helpers\BrazilianContactHelper::formatPhone($this->account->personalData->phone) : '';
             $this->registrationNumber = '';
-            $this->registrationSourceId = '';
         } else {
             $this->jobRole = '';
             $this->phone = '';
@@ -195,33 +192,14 @@ new class extends Component
         return $affiliation;
     }
 
-    public function updatedRegistrationSourceId(): void
-    {
-        Gate::authorize($this->campusRegistration ? 'createOnCampus' : 'create', User::class);
-        if ($this->registrationSourceId === '') {
-            return;
-        }
-        $affiliation = $this->account?->affiliations()->whereNotNull('registration_number')
-            ->when($this->campusRegistration, fn ($query) => $query->where('campus_id', $this->activeAffiliation->campus_id))
-            ->find($this->registrationSourceId);
-        if ($affiliation === null) {
-            $this->addError('registrationSourceId', 'Selecione um vínculo desta conta.');
-            $this->registrationSourceId = '';
-
-            return;
-        }
-        $this->registrationNumber = $affiliation->registration_number;
-        $this->resetValidation('registrationSourceId');
-    }
-
-    /** @return array<int, string> */
+    /** @return array<int|string, string> */
     #[Computed]
     public function registrationOptions(): array
     {
         return $this->account?->affiliations()->with('campus')->whereNotNull('registration_number')
             ->when($this->campusRegistration, fn ($query) => $query->where('campus_id', $this->activeAffiliation->campus_id))
             ->orderBy('id')->get()
-            ->mapWithKeys(fn (Affiliation $affiliation): array => [$affiliation->id => "{$affiliation->registration_number} · {$affiliation->type->label()} · ".($affiliation->campus?->name ?? 'Todos os campi')])->all() ?? [];
+            ->mapWithKeys(fn (Affiliation $affiliation): array => [$affiliation->registration_number => "{$affiliation->registration_number} · {$affiliation->type->label()} · ".($affiliation->campus?->name ?? 'Todos os campi')])->all() ?? [];
     }
 
     /** @return array<int, string> */
@@ -316,14 +294,13 @@ new class extends Component
                     <x-select name="campus_id" required label="Campus ativo" wire:model="campusId" :value="$campusId" :options="$this->campusOptions" :error="$errors->first('campus_id')" searchable />
                 @endif
             @endif
-            @if ($type !== AffiliationType::Supervisor->value && $affiliation === null && $account !== null && $this->registrationOptions !== [])
-                <div class="space-y-2">
-                    <x-select label="Copiar matrícula de outro vínculo" wire:model.live="registrationSourceId" :value="$registrationSourceId" :options="$this->registrationOptions" :error="$errors->first('registrationSourceId')" placeholder="Escolha um vínculo para copiar" />
-                    <flux:text size="sm">A matrícula copiada pode ser ajustada antes de salvar.</flux:text>
-                </div>
-            @endif
             @if ($type !== AffiliationType::Supervisor->value)
-                <flux:input name="registration_number" required label="Matrícula" wire:model="registrationNumber" :value="$registrationNumber" maxlength="255" error:name="registration_number" />
+                @if ($affiliation === null && $account !== null)
+                    <x-select-create name="registration_number" required label="Matrícula" wire:model="registrationNumber" :value="$registrationNumber" :options="$this->registrationOptions" :error="$errors->first('registration_number')" :max-length="255" placeholder="Escolha uma matrícula existente ou digite uma nova" />
+                    <flux:text size="sm">Escolha uma matrícula de outro vínculo desta conta ou use uma nova. A gravação ocorre ao salvar o vínculo.</flux:text>
+                @else
+                    <flux:input name="registration_number" required label="Matrícula" wire:model="registrationNumber" :value="$registrationNumber" maxlength="255" error:name="registration_number" />
+                @endif
             @elseif ($this->campusRegistration)
                 <flux:text size="sm">Supervisor não possui matrícula. Os dados profissionais são opcionais e poderão ser preenchidos ou confirmados posteriormente.</flux:text>
                 <flux:input name="phone" wire:model="phone" :value="$phone" label="Telefone com DDD" placeholder="(00) 00000-0000" maxlength="20" error:name="phone" />

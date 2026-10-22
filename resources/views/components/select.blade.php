@@ -3,7 +3,7 @@
     'placeholder' => 'Selecione uma opção', 'searchable' => false,
     'disabled' => false, 'required' => false, 'invalid' => false, 'error' => '', 'openOnMount' => false,
     'empty' => 'Nenhuma opção encontrada.',
-    'icon' => null, 'optionIcons' => [],
+    'icon' => null, 'optionIcons' => [], 'creatable' => false, 'maxLength' => 5000,
 ])
 
 @php($selectId = $attributes->get('id') ?? 'select-'.md5($name.$label.$attributes->wire('model')->value()))
@@ -102,7 +102,14 @@
         options() {
             this.optionsRevision;
             return Array.from(this.listElement()?.querySelectorAll('[data-select-option]') ?? [])
-                .filter(option => !option.disabled && this.matches(option.dataset.label));
+                .filter(option => !option.disabled && (!option.hasAttribute('data-select-create') || this.canCreate()) && this.matches(option.dataset.label));
+        },
+
+        canCreate() {
+            if (!@js($creatable) || !this.query.trim()) return false;
+            const query = this.normalize(this.query.trim());
+            return !Array.from(this.listElement()?.querySelectorAll('[data-select-option]:not([data-select-create])') ?? [])
+                .some(option => this.normalize(option.dataset.value) === query || this.normalize(option.dataset.label) === query);
         },
 
         label() {
@@ -111,6 +118,7 @@
                 .find(option => option.dataset.value === String(this.value));
 
             if (option) return option.dataset.label;
+            if (@js($creatable) && this.value) return String(this.value);
             if (this.value && String(this.value) === this.$root.dataset.selectedValue) {
                 return this.$root.dataset.selectedLabel;
             }
@@ -207,6 +215,9 @@
         x-on:keydown.enter="if (open) { $event.preventDefault(); $event.stopPropagation(); chooseActive(); }"
         x-on:keydown.tab="tab($event)"
     >
+        @if ($creatable)
+            <input type="hidden" name="{{ $name }}" x-bind:value="value" @disabled($disabled) />
+        @else
         <select name="{{ $name }}" x-model="value" tabindex="-1" aria-hidden="true" class="sr-only" @required($required) @disabled($disabled)
             x-on:invalid.prevent="missing = true; show()">
             <option value=""></option>
@@ -217,6 +228,7 @@
                 <option wire:key="{{ $selectId }}-native-{{ $optionValue }}" value="{{ $optionValue }}" @selected((string) $value === (string) $optionValue)>{{ $optionLabel }}</option>
             @endforeach
         </select>
+        @endif
         <button type="button" id="{{ $selectId }}" x-ref="trigger" data-flux-control
             {{ $attributes->whereStartsWith('wire:')->except(['wire:key'])->whereDoesntStartWith('wire:model') }}
             @disabled($disabled) aria-haspopup="listbox" aria-expanded="false" x-bind:aria-expanded="open"
@@ -266,7 +278,7 @@
                             <flux:input x-model="query" wire:model.live.debounce.400ms="{{ $searchModel }}" wire:ignore.self size="sm" icon="magnifying-glass" placeholder="Buscar opção…" aria-label="Buscar {{ mb_strtolower($label) }}"
                                 role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
                         @else
-                            <flux:input x-model="query" wire:ignore.self size="sm" icon="magnifying-glass" placeholder="Buscar opção…" aria-label="Buscar {{ mb_strtolower($label) }}"
+                            <flux:input x-model="query" wire:ignore.self size="sm" icon="magnifying-glass" :maxlength="$creatable ? $maxLength : null" :placeholder="$creatable ? 'Buscar ou digitar uma nova opção…' : 'Buscar opção…'" aria-label="Buscar {{ mb_strtolower($label) }}"
                                 role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
                         @endif
                     @endisset
@@ -295,6 +307,16 @@
                         </span>
                     </button>
                 @endforeach
+                @if ($creatable)
+                    <button type="button" role="option" tabindex="-1" id="{{ $selectId }}-create" data-select-option data-select-create
+                        x-cloak x-show="canCreate()" x-bind:data-value="query.trim()" x-bind:data-label="query.trim()"
+                        x-bind:aria-selected="String(value) === query.trim()"
+                        x-bind:class="{ 'bg-zinc-200 dark:bg-white/15': activeValue === query.trim() }"
+                        x-on:focus="activeValue = query.trim()" x-on:mouseenter="activeValue = query.trim()" x-on:click="choose($el)"
+                        class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-start text-sm text-zinc-800 hover:bg-zinc-200 dark:text-zinc-100 dark:hover:bg-white/15">
+                        <flux:icon.plus variant="micro" class="shrink-0" /><span class="min-w-0 wrap-break-word">Usar “<span x-text="query.trim()"></span>”</span>
+                    </button>
+                @endif
                 <p x-cloak x-show="options().length === 0" class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
             </div>
         </div>

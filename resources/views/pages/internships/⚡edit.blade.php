@@ -55,7 +55,7 @@ new #[Title('Editar estágio')] class extends Component
         $address = $internship->workplaceAddress()->firstOrFail();
         $this->selectedCityId = $address->city_id;
         $this->values = $internship->only(['internship_type_id', 'advisor_affiliation_id', 'co_advisor_name', 'supervisor_affiliation_id', 'granting_party_id',
-            'activities', 'internship_sector', 'protocol_number', 'observations', 'is_remunerated', 'grant_value', 'transportation_allowance', 'weekly_hours']);
+            'activities', 'internship_sector', 'observations', 'is_remunerated', 'grant_value', 'transportation_allowance', 'weekly_hours']);
         $this->values += ['rules' => Arr::only($internship->internship_type_snapshot['rules'] ?? [], InternshipRequestSnapshots::TYPE_RULE_FIELDS),
             'planned_start_date' => $internship->planned_start_date->toDateString(), 'planned_pauses' => $internship->planned_pauses ?? [],
             'student_year_semester' => $internship->student_snapshot['student_year_semester'] ?? '',
@@ -393,7 +393,6 @@ new #[Title('Editar estágio')] class extends Component
                 <x-select wire:model.live="values.internship_type_id" :value="$values['internship_type_id']" label="Tipo de estágio" :options="$choices['types']" :error="$errors->first('internship_type_id')" :disabled="! $canEditAgreement" searchable required />
                 <flux:input label="Situação" :value="$record->status->label()" readonly />
                 <x-select wire:model.live="values.advisor_affiliation_id" :value="$values['advisor_affiliation_id']" label="Orientador" :options="$choices['advisors']" :error="$errors->first('advisor_affiliation_id')" searchable required />
-                <flux:input wire:model="values.protocol_number" error:name="protocol_number" label="Número do protocolo" maxlength="255" />
                 <flux:input wire:model="values.co_advisor_name" error:name="co_advisor_name" label="Co-orientador (opcional)" maxlength="255" />
                 <flux:input wire:model="values.internship_sector" error:name="internship_sector" label="Setor ou área de atuação" maxlength="255" />
                 <flux:input wire:model="values.planned_start_date" error:name="planned_start_date" label="Início planejado" type="date" :readonly="! $canEditAgreement" required />
