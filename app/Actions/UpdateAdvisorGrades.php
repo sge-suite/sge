@@ -15,7 +15,8 @@ use Spatie\Activitylog\Support\CauserResolver;
 
 class UpdateAdvisorGrades
 {
-    public function __construct(private StudentInternshipContext $context, private InternshipGradeCalculator $calculator, private CauserResolver $causerResolver) {}
+    public function __construct(private StudentInternshipContext $context, private InternshipGradeCalculator $calculator,
+        private CauserResolver $causerResolver, private NotifyInternshipEvaluationResults $results) {}
 
     /** @param array{report_grade: ?string, presentation_grade: ?string} $data */
     public function handle(User $actor, Internship $target, int $expectedAffiliationId, array $data): Internship
@@ -51,7 +52,10 @@ class UpdateAdvisorGrades
             $internship->fill($this->calculator->calculate($internship,
                 $internship->report_grade === null ? null : (float) $internship->report_grade,
                 $internship->presentation_grade === null ? null : (float) $internship->presentation_grade));
-            $this->causerResolver->withCauser($affiliation, fn () => $internship->save());
+            $this->causerResolver->withCauser($affiliation, function () use ($internship): void {
+                $internship->save();
+                $this->results->finalGradeAvailable($internship);
+            });
 
             return $internship;
         }, attempts: 3);

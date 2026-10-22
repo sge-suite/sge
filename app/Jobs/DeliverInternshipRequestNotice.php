@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Actions\RequestEmailDelivery;
 use App\Models\Affiliation;
+use App\Models\EmailMessage;
 use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
 use App\Support\EmailDeliveryContext;
@@ -36,6 +37,9 @@ class DeliverInternshipRequestNotice implements ShouldQueue
         DB::transaction(function () use ($delivery): void {
             $request = InternshipRequest::query()->findOrFail($this->requestId);
             $owner = Affiliation::query()->lockForUpdate()->findOrFail($request->affiliation_id);
+            if (EmailMessage::query()->where('idempotency_key', $this->noticeId)->exists()) {
+                return;
+            }
             $isPendingCorrection = $this->affectedSections !== [];
             $title = $isPendingCorrection ? 'Sua solicitação de estágio precisa de correções' : 'Sua solicitação de estágio foi atualizada';
             $text = $isPendingCorrection
@@ -49,8 +53,11 @@ class DeliverInternshipRequestNotice implements ShouldQueue
                 'messageSubject' => $title,
                 'body' => $isPendingCorrection ? $this->correctionEmailMarkdown($request->id) : $text,
                 'dashboardUrl' => route('internship-requests.show', $request),
+                'internshipDetails' => ['Solicitação' => 'nº '.$request->id,
+                    'Tipo de estágio' => $request->internship_type_snapshot['name'] ?? 'Não informado'],
             ]);
-            $delivery->notification($notification, $title, $text, $contentHtml, $this->noticeId, app(EmailDeliveryContext::class)->forInternshipRequest($request));
+            $emailText = $text."\n\n".'Tipo de estágio: '.($request->internship_type_snapshot['name'] ?? 'Não informado');
+            $delivery->notification($notification, $title, $emailText, $contentHtml, $this->noticeId, app(EmailDeliveryContext::class)->forInternshipRequest($request));
         });
     }
 

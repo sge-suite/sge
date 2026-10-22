@@ -5,10 +5,8 @@ Olá, {{ $recipientName }}.
 
 Como **{{ $recipientRole }}**, solicitamos sua assinatura no documento **{{ $documentName }}**.
 
-@foreach ($internshipDetails as $label => $value)
-**{{ $label }}:** {{ $value }}
+@include('emails.partials.internship-details', ['details' => $internshipDetails])
 
-@endforeach
 @if ($protocolNumber !== null)
 **Número de protocolo:** {{ $protocolNumber }}
 

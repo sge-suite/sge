@@ -74,7 +74,8 @@ class ManageInternshipLifecycle
                             $internship->managementChangeReason = 'Carga horária integral confirmada manualmente pelo Setor de Estágio.';
                         }
                         $internship->update(['status' => InternshipStatus::Completed]);
-                        $this->notify->handle($internship, 'Estágio concluído', 'O cumprimento integral da carga horária foi confirmado e o estágio foi concluído.');
+                        $this->notify->handle($internship, 'Estágio concluído', 'O cumprimento integral da carga horária foi confirmado e o estágio foi concluído.',
+                            supervisorEvaluationApproved: $operation === 'complete_from_evaluation');
                     }
 
                     return $internship;

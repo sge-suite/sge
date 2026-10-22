@@ -3,6 +3,10 @@
 
 {{ $body }}
 
+@if (! empty($internshipDetails))
+@include('emails.partials.internship-details', ['details' => $internshipDetails])
+
+@endif
 <x-mail::button :url="$dashboardUrl">
 Acessar o sistema
 </x-mail::button>

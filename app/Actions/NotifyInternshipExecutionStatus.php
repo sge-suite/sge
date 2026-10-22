@@ -6,6 +6,7 @@ use App\Enums\AffiliationType;
 use App\Enums\InternshipStatus;
 use App\Models\Internship;
 use App\Support\EmailDeliveryContext;
+use App\Support\InternshipEmailDetails;
 use Carbon\CarbonImmutable;
 use Illuminate\Mail\Markdown;
 use Illuminate\Support\Str;
@@ -13,7 +14,7 @@ use InvalidArgumentException;
 
 class NotifyInternshipExecutionStatus
 {
-    public function __construct(private RequestEmailDelivery $delivery, private Markdown $markdown) {}
+    public function __construct(private RequestEmailDelivery $delivery, private Markdown $markdown, private InternshipEmailDetails $details) {}
 
     /** O chamador mantém o campus e o estágio bloqueados na mesma transação. */
     public function handle(Internship $internship, InternshipStatus $previous, CarbonImmutable $referenceDate): void
@@ -52,9 +53,11 @@ class NotifyInternshipExecutionStatus
                 'internship_id' => $internship->id, 'internship_request_id' => $request?->id, 'event' => $event,
                 'previous_status' => $previous->value, 'status' => $internship->status->value, 'reference_date' => $referenceDate->toDateString()],
         ]);
+        $details = $this->details->forInternship($internship);
         $contentHtml = (string) $this->markdown->render('emails.notification', [
             'messageSubject' => $subject, 'body' => $text, 'dashboardUrl' => $url,
+            'internshipDetails' => $details,
         ]);
-        $this->delivery->notification($notification, $subject, $text, $contentHtml, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
+        $this->delivery->notification($notification, $subject, $text."\n\n".$this->details->text($details), $contentHtml, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
     }
 }

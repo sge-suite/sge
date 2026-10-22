@@ -25,7 +25,8 @@ use Spatie\Activitylog\Support\CauserResolver;
 class ManageSupervisorEvaluation
 {
     public function __construct(private StudentInternshipContext $context, private CauserResolver $causerResolver,
-        private InternshipGradeCalculator $calculator, private ManageInternshipLifecycle $lifecycle) {}
+        private InternshipGradeCalculator $calculator, private ManageInternshipLifecycle $lifecycle,
+        private NotifyInternshipEvaluationResults $results) {}
 
     /** @param array<string, mixed> $data */
     public function handle(User $actor, Internship $target, int $expectedAffiliationId, string $operation, array $data = [], ?int $evaluationId = null): SupervisorEvaluation
@@ -86,7 +87,8 @@ class ManageSupervisorEvaluation
                         $internship->report_grade === null ? null : (float) $internship->report_grade,
                         $internship->presentation_grade === null ? null : (float) $internship->presentation_grade));
                     $internship->save();
-                    $this->lifecycle->handle($actor, $internship, $selected->id, 'complete_from_evaluation');
+                    $completed = $this->lifecycle->handle($actor, $internship, $selected->id, 'complete_from_evaluation');
+                    $this->results->finalGradeAvailable($completed);
                 }
                 if (in_array($operation, ['return', 'approve'], true)) {
                     $this->notify($evaluation, $evaluation->supervisorAffiliation()->firstOrFail(), 'Avaliação de estágio '.$evaluation->status->label(),
