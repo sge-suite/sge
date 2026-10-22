@@ -196,10 +196,14 @@ new class extends Component
     #[Computed]
     public function registrationOptions(): array
     {
-        return $this->account?->affiliations()->with('campus')->whereNotNull('registration_number')
+        return $this->account?->affiliations()->whereNotNull('registration_number')
             ->when($this->campusRegistration, fn ($query) => $query->where('campus_id', $this->activeAffiliation->campus_id))
-            ->orderBy('id')->get()
-            ->mapWithKeys(fn (Affiliation $affiliation): array => [$affiliation->registration_number => "{$affiliation->registration_number} · {$affiliation->type->label()} · ".($affiliation->campus?->name ?? 'Todos os campi')])->all() ?? [];
+            ->orderBy('registration_number')->pluck('registration_number')
+            ->map(fn (string $registrationNumber): string => trim($registrationNumber))
+            ->filter(fn (string $registrationNumber): bool => $registrationNumber !== '')
+            ->unique()->values()
+            ->mapWithKeys(fn (string $registrationNumber): array => [$registrationNumber => $registrationNumber])
+            ->all() ?? [];
     }
 
     /** @return array<int, string> */
