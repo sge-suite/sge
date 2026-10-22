@@ -58,7 +58,6 @@ class InternshipFactory extends Factory
             'is_remunerated' => false,
             'grant_value' => null,
             'transportation_allowance' => null,
-            'protocol_number' => null,
             'observations' => null,
             'supervisor_grade' => null,
             'report_grade' => null,

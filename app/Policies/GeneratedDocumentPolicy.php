@@ -6,6 +6,7 @@ use App\Enums\AffiliationType;
 use App\Enums\GeneratedDocumentOrigin;
 use App\Enums\GeneratedDocumentStatus;
 use App\Enums\GeneratedDocumentType;
+use App\Enums\InternshipStatus;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Support\GeneratedDocumentSnapshot;
@@ -49,9 +50,42 @@ class GeneratedDocumentPolicy
 
     public function cancel(User $user, GeneratedDocument $document): bool
     {
+        return $this->manage($user, $document)
+            && in_array($document->status, [GeneratedDocumentStatus::Generated, GeneratedDocumentStatus::AwaitingSignature], true);
+    }
+
+    public function updateProtocol(User $user, GeneratedDocument $document): bool
+    {
         return $this->view($user, $document)
             && $this->context->selected($user)->type === AffiliationType::InternshipOffice
-            && $this->context->selected($user)->campus->deactivated_at === null
+            && $document->internship->course->campus->deactivated_at === null
+            && $document->internship->course->deactivated_at === null
+            && $document->status !== GeneratedDocumentStatus::Cancelled;
+    }
+
+    public function requestSignature(User $user, GeneratedDocument $document): bool
+    {
+        return $this->manage($user, $document) && $document->type !== GeneratedDocumentType::OrientationCertificate
             && $document->status === GeneratedDocumentStatus::Generated;
+    }
+
+    public function notifySignature(User $user, GeneratedDocument $document): bool
+    {
+        return $this->confirmSignature($user, $document);
+    }
+
+    public function confirmSignature(User $user, GeneratedDocument $document): bool
+    {
+        return $this->manage($user, $document) && $document->type !== GeneratedDocumentType::OrientationCertificate
+            && $document->status === GeneratedDocumentStatus::AwaitingSignature;
+    }
+
+    private function manage(User $user, GeneratedDocument $document): bool
+    {
+        return $this->view($user, $document)
+            && $this->context->selected($user)->type === AffiliationType::InternshipOffice
+            && $document->internship->course->campus->deactivated_at === null
+            && $document->internship->course->deactivated_at === null
+            && ! in_array($document->internship->status, [InternshipStatus::Completed, InternshipStatus::Cancelled, InternshipStatus::PendingCorrection], true);
     }
 }

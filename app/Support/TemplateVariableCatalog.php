@@ -7,7 +7,7 @@ namespace App\Support;
  */
 class TemplateVariableCatalog
 {
-    public const REVISION = 7;
+    public const REVISION = 8;
 
     /** @return array<string, TemplateVariable> */
     public function all(): array
@@ -1172,16 +1172,16 @@ class TemplateVariableCatalog
             ],
             [
                 'name' => 'ESTAGIO_PROTOCOLO_SIGAA',
-                'description' => 'Protocolo do SIGAA',
-                'origin' => 'internships.protocol_number',
+                'description' => 'Marcador antigo de protocolo do estágio (indisponível)',
+                'origin' => 'Número de protocolo pertence a generated_documents.protocol_number, após o cadastro externo',
                 'format' => 'texto',
                 'example' => 'PROTOCOLO-EXEMPLO',
                 'type' => 'string',
                 'sensitivity' => 'acadêmico',
-                'condition' => 'Usar vigência correspondente ao documento; remuneração somente quando aplicável. Previsão não equivale a término efetivo.',
-                'available' => true,
-                'snapshot' => 'Preservar internship_type_snapshot; congelar valores operacionais e vigência usada na geração futura. Dinheiro decimal, nunca float.',
-                'empty' => 'Valor ausente será tratado pela resolução futura, sem exigir presença do marcador e sem presumir zero.',
+                'condition' => 'Não utilizar em novas emissões: o protocolo é informado por documento após sua geração.',
+                'available' => false,
+                'snapshot' => 'Preservar valores e substituições de emissões históricas; não reescrever documentos já gerados.',
+                'empty' => 'Protocolo opcional no registro do documento; não existe protocolo do estágio.',
             ],
             [
                 'name' => 'ESTAGIO_PERIODO',

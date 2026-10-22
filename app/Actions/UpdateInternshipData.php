@@ -82,7 +82,7 @@ class UpdateInternshipData
             'granting_party_id' => ['required', 'integer', 'min:1'],
             'student_year_semester' => ['required', 'string', 'max:255'],
             'activities' => ['required', 'string', 'max:20000'], 'internship_sector' => ['nullable', 'string', 'max:255'],
-            'protocol_number' => ['nullable', 'string', 'max:255'], 'observations' => ['nullable', 'string', 'max:10000'],
+            'observations' => ['nullable', 'string', 'max:10000'],
             'planned_start_date' => ['required', 'date_format:Y-m-d'],
             'weekly_hours' => ['required', 'array:'.implode(',', InternshipEndDateCalculator::DAYS), 'size:7'],
             'weekly_hours.*' => ['required', 'integer', 'min:0', 'max:24'],
@@ -201,7 +201,7 @@ class UpdateInternshipData
             $internship->workplace_address_id = $replacement->id;
         }
         $internship->fill(Arr::only($values, ['internship_type_id', 'advisor_affiliation_id', 'co_advisor_name', 'supervisor_affiliation_id', 'granting_party_id',
-            'activities', 'internship_sector', 'protocol_number', 'observations', 'planned_start_date', 'weekly_hours', 'planned_pauses',
+            'activities', 'internship_sector', 'observations', 'planned_start_date', 'weekly_hours', 'planned_pauses',
             'is_remunerated', 'grant_value', 'transportation_allowance']));
         if (! $internship->is_remunerated) {
             $internship->grant_value = null;

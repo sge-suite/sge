@@ -2,6 +2,7 @@
 
 use App\Actions\CancelGeneratedDocument;
 use App\Actions\GenerateInternshipDocument;
+use App\Actions\ManageDocumentSignature;
 use App\Enums\AffiliationType;
 use App\Enums\GeneratedDocumentStatus;
 use App\Enums\GeneratedDocumentType;
@@ -10,6 +11,8 @@ use App\Models\GeneratedDocument;
 use App\Models\Internship;
 use App\Support\PageSize;
 use App\Support\StudentInternshipContext;
+use App\Support\InternshipRecipients;
+use App\Support\CancellationReasonOptions;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
@@ -37,6 +40,71 @@ new class extends Component
     public bool $showGeneration = false;
     public bool $showCancellation = false;
     public bool $showDownload = false;
+    #[Locked] public ?int $signatureDocumentId = null;
+    #[Locked] public string $signatureOperation = '';
+    public bool $showSignature = false;
+    public bool $confirmedSignature = false;
+    public bool $sendSignatureNotice = true;
+    public string $signatureLocation = '';
+    public string $signatureDocumentName = '';
+    public string $signatureProtocolNumber = '';
+    /** @var list<string> */
+    public array $signatureRecipientKeys = [];
+    /** @var array<string, string> */
+    public array $signatureMessages = [];
+
+    /** @return array<string, array{name: string, email: string, role: string}> */
+    #[Computed]
+    public function signatureRecipients(): array
+    {
+        if ($this->signatureDocumentId === null || ! in_array($this->signatureOperation, ['await_signature', 'notify_signature'], true)) {
+            return [];
+        }
+        $document = $this->internship->generatedDocuments()->findOrFail($this->signatureDocumentId);
+        Gate::authorize($this->signatureOperation === 'notify_signature' ? 'notifySignature' : 'requestSignature', $document);
+
+        return collect(app(InternshipRecipients::class)->forInternship($this->internship))
+            ->map(fn (array $recipient): array => \Illuminate\Support\Arr::only($recipient, ['name', 'email', 'role']))->all();
+    }
+
+    /** @return array<string, string> */
+    #[Computed]
+    public function cancellationReasons(): array
+    {
+        return app(CancellationReasonOptions::class)->forUser(auth()->user());
+    }
+
+    public function openSignature(int $id, string $operation): void
+    {
+        abort_unless(in_array($operation, ['await_signature', 'confirm_signature', 'notify_signature', 'update_protocol'], true), 404);
+        $document = $this->internship->generatedDocuments()->findOrFail($id);
+        Gate::authorize(match ($operation) { 'await_signature' => 'requestSignature', 'notify_signature' => 'notifySignature', 'update_protocol' => 'updateProtocol', default => 'confirmSignature' }, $document);
+        $this->resetValidation();
+        $this->signatureDocumentId = $id;
+        $this->signatureOperation = $operation;
+        $this->signatureLocation = $document->signature_availability_location ?? '';
+        $this->signatureProtocolNumber = $document->protocol_number ?? '';
+        $this->signatureRecipientKeys = [];
+        $this->signatureMessages = [];
+        $this->signatureDocumentName = '';
+        $this->confirmedSignature = false;
+        $this->sendSignatureNotice = true;
+        $this->showSignature = true;
+    }
+
+    public function saveSignature(ManageDocumentSignature $signature): void
+    {
+        abort_if($this->signatureDocumentId === null, 422);
+        $signature->handle(auth()->user(), $this->affiliationId,
+            $this->internship->generatedDocuments()->findOrFail($this->signatureDocumentId), $this->signatureOperation, [
+                'document_name' => $this->signatureDocumentName, 'signature_availability_location' => $this->signatureLocation, 'protocol_number' => $this->signatureProtocolNumber, 'recipients' => $this->signatureRecipientKeys,
+                'messages' => $this->signatureMessages, 'send_notice' => $this->sendSignatureNotice, 'confirm_signature' => $this->confirmedSignature,
+            ]);
+        $this->reset('showSignature', 'signatureDocumentId', 'signatureOperation', 'signatureRecipientKeys', 'signatureMessages', 'confirmedSignature', 'signatureProtocolNumber', 'signatureDocumentName');
+        unset($this->documents, $this->internship, $this->signatureRecipients);
+        $this->dispatch('internship-updated');
+        Flux::toast('Operação documental registrada.', variant: 'success');
+    }
 
     public function mount(int $internshipId, StudentInternshipContext $context): void
     {
@@ -214,6 +282,7 @@ new class extends Component
         $this->reset('showCancellation', 'documentToCancel', 'cancellationReason');
         unset($this->documents, $this->downloadStates);
         Flux::toast('Documento cancelado. O registro histórico foi preservado.', variant: 'success');
+        $this->dispatch('internship-updated');
     }
 }; ?>
 
@@ -242,10 +311,19 @@ new class extends Component
                             <flux:table.cell class="whitespace-normal"><span class="font-medium">Nº {{ $document->id }} · {{ $document->type->label() }}</span><flux:text size="sm">{{ $document->snapshot['template_name'] ?? $document->templateVersion?->documentTemplate?->name ?? 'Documento externo' }} {{ $document->templateVersion ? '· v'.$document->templateVersion->version : '' }}</flux:text></flux:table.cell>
                             <flux:table.cell class="whitespace-normal">{{ formatDateTime($document->generated_at) }}<flux:text size="sm">{{ data_get($document->snapshot, 'actor.name', 'Responsável registrado na auditoria') }}</flux:text></flux:table.cell>
                             <flux:table.cell class="whitespace-normal"><flux:badge size="sm" :color="$document->status === GeneratedDocumentStatus::Cancelled ? 'red' : 'zinc'">{{ $document->status->label() }}</flux:badge>
+                                @if ($document->protocol_number !== null)<flux:text size="sm">Número de protocolo: {{ $document->protocol_number }}</flux:text>@endif
+                                @if ($document->signature_availability_location)<flux:text size="sm">Disponibilizado em: {{ $document->signature_availability_location }}</flux:text>@endif
                                 @if ($document->cancelled_at)<flux:text size="sm">{{ formatDateTime($document->cancelled_at) }} · {{ $document->cancellation_reason }}</flux:text>@endif
                                 <flux:text size="sm">{{ match ($this->downloadStates[$document->id] ?? null) { 'document_download_failed' => 'O último download falhou. Tente novamente.', 'document_download_transmitted' => 'Download transmitido.', default => 'Download ainda não confirmado.' } }}</flux:text>
                             </flux:table.cell>
-                            <flux:table.cell><div class="flex flex-wrap justify-end gap-2">@can('download', $document)<flux:button size="sm" variant="outline" icon="arrow-down-tray" wire:click="openDownload({{ $document->id }})">Baixar novamente</flux:button>@endcan @can('cancel', $document)<flux:button size="sm" variant="danger" wire:click="confirmCancellation({{ $document->id }})">Cancelar</flux:button>@endcan</div></flux:table.cell>
+                            <flux:table.cell><div class="flex flex-wrap justify-end gap-2">
+                                @can('updateProtocol', $document)<flux:button size="sm" wire:click="openSignature({{ $document->id }}, 'update_protocol')">Editar protocolo</flux:button>@endcan
+                                @can('requestSignature', $document)<flux:button size="sm" wire:click="openSignature({{ $document->id }}, 'await_signature')">Disponibilizar para assinatura</flux:button>@endcan
+                                @can('notifySignature', $document)<flux:button size="sm" wire:click="openSignature({{ $document->id }}, 'notify_signature')">Enviar aviso de assinatura</flux:button>@endcan
+                                @can('confirmSignature', $document)<flux:button size="sm" variant="primary" wire:click="openSignature({{ $document->id }}, 'confirm_signature')">Conferir assinaturas</flux:button>@endcan
+                                @can('download', $document)<flux:button size="sm" variant="outline" icon="arrow-down-tray" wire:click="openDownload({{ $document->id }})">Baixar novamente</flux:button>@endcan
+                                @can('cancel', $document)<flux:button size="sm" variant="danger" wire:click="confirmCancellation({{ $document->id }})">Cancelar</flux:button>@endcan
+                            </div></flux:table.cell>
                         </flux:table.row>
                     @endforeach
                 </flux:table.rows>
@@ -291,6 +369,47 @@ new class extends Component
         </form>
     </flux:modal>
     <flux:modal wire:model.self="showCancellation" class="md:w-lg">
-        <form wire:submit="cancelDocument" class="space-y-6"><flux:heading size="lg" level="2">Cancelar documento</flux:heading><flux:text>O registro e os dados originais serão preservados. Esta ação não cancela o estágio.</flux:text><flux:textarea label="Motivo" wire:model="cancellationReason" required maxlength="5000" /><flux:error name="cancellation_reason" /><div class="flex flex-wrap justify-end gap-3"><flux:button type="button" variant="outline" wire:click="$set('showCancellation', false)">Voltar</flux:button><flux:button type="submit" variant="danger" wire:loading.attr="disabled" wire:target="cancelDocument">Cancelar documento</flux:button></div></form>
+        <form wire:submit="cancelDocument" class="space-y-6"><flux:heading size="lg" level="2">Cancelar documento</flux:heading><flux:text>O registro e os dados originais serão preservados. Esta ação não cancela o estágio.</flux:text><x-select-create label="Motivo" wire:model="cancellationReason" :value="$cancellationReason" :options="$this->cancellationReasons" :error="$errors->first('cancellation_reason')" required /><div class="flex flex-wrap justify-end gap-3"><flux:button type="button" variant="outline" wire:click="$set('showCancellation', false)">Voltar</flux:button><flux:button type="submit" variant="danger" wire:loading.attr="disabled" wire:target="cancelDocument">Cancelar documento</flux:button></div></form>
+    </flux:modal>
+    <flux:modal wire:model.self="showSignature" class="md:w-2xl">
+        <form wire:submit="saveSignature" class="space-y-6">
+            <flux:heading size="lg" level="2">{{ match ($signatureOperation) { 'await_signature' => 'Disponibilizar para assinatura', 'notify_signature' => 'Enviar aviso de assinatura', 'update_protocol' => 'Editar número de protocolo', default => 'Conferir assinaturas' } }}</flux:heading>
+            @if (in_array($signatureOperation, ['await_signature', 'notify_signature'], true))
+                <flux:text>Documento nº {{ $signatureDocumentId }}. Informe onde o documento está disponível e escolha quem deve ser avisado. Cada pessoa recebe uma mensagem individual, com seu nome, papel no estágio e a orientação personalizada.</flux:text>
+                <flux:input wire:model="signatureLocation" label="Local de disponibilização para assinatura" maxlength="500" placeholder="Ex.: portal institucional de assinaturas" required /><flux:error name="signature_availability_location" />
+                <flux:input wire:model="signatureProtocolNumber" label="Número de protocolo (opcional)" description:trailing="Informe o número de protocolo deste documento. Ele será incluído no aviso, se preenchido." maxlength="255" /><flux:error name="protocol_number" />
+                @if ($signatureOperation === 'await_signature')<flux:checkbox wire:model.live="sendSignatureNotice" label="Avisar os interessados agora" />@endif
+                <flux:error name="send_notice" />
+                @if ($sendSignatureNotice)
+                <flux:input wire:model="signatureDocumentName" label="Nome do documento no aviso" placeholder="Ex.: Termo de Compromisso de Estágio" description:trailing="Este nome será usado nos avisos enviados aos destinatários." maxlength="255" required /><flux:error name="document_name" />
+                <flux:checkbox.group wire:model.live="signatureRecipientKeys" label="Pessoas que receberão o aviso">
+                    @foreach ($this->signatureRecipients as $key => $recipient)
+                        <flux:checkbox :value="$key" :label="$recipient['role'].' · '.$recipient['name']" :description="$recipient['email']" wire:key="signature-recipient-{{ $key }}" />
+                    @endforeach
+                </flux:checkbox.group>
+                <flux:error name="recipients" /><flux:error name="recipients.*" />
+                @if ($this->signatureRecipients === [])<flux:callout variant="warning" heading="Nenhum contato elegível">Confira os vínculos ativos e os e-mails cadastrados das partes deste estágio.</flux:callout>@endif
+                @foreach ($this->signatureRecipients as $key => $recipient)
+                    @if (in_array($key, $signatureRecipientKeys, true))
+                        <div wire:key="signature-message-{{ $key }}" class="space-y-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                            <flux:heading level="3">{{ $recipient['name'] }} · {{ $recipient['role'] }}</flux:heading>
+                            <flux:text size="sm">O aviso identifica o estágio e o documento e informa o local de assinatura. {{ $key === 'granting_party' ? 'A concedente recebe somente e-mail.' : 'Esta pessoa recebe aviso no SGE e por e-mail.' }}</flux:text>
+                            <flux:textarea wire:model="signatureMessages.{{ $key }}" label="Mensagem adicional para esta pessoa (opcional)" maxlength="5000" /><flux:error :name="'messages.'.$key" />
+                        </div>
+                    @endif
+                @endforeach
+                @endif
+            @elseif ($signatureOperation === 'update_protocol')
+                <flux:text>Registre ou corrija o protocolo deste documento sem alterar sua situação ou enviar avisos.</flux:text>
+                <flux:input wire:model="signatureProtocolNumber" label="Número de protocolo (opcional)" maxlength="255" /><flux:error name="protocol_number" />
+            @elseif ($signatureOperation === 'confirm_signature')
+                <flux:text>Confirme somente depois de conferir todas as assinaturas exigidas no documento nº {{ $signatureDocumentId }}. O arquivo assinado permanece no local de disponibilização registrado.</flux:text>
+                <flux:checkbox wire:model="confirmedSignature" label="Conferi todas as assinaturas exigidas neste documento." /><flux:error name="confirm_signature" />
+                <flux:text>Depois da conferência dos documentos principais, use a ação Liberar estágio para autorizar a execução.</flux:text>
+            @endif
+            <flux:error name="status" /><flux:error name="document" />
+            <div class="flex flex-wrap justify-end gap-3"><flux:button type="button" wire:click="$set('showSignature', false)">Voltar</flux:button><flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="saveSignature">{{ match ($signatureOperation) { 'await_signature' => $sendSignatureNotice ? 'Disponibilizar e enviar avisos' : 'Disponibilizar para assinatura', 'notify_signature' => 'Enviar avisos', 'update_protocol' => 'Salvar protocolo', default => 'Registrar como assinado' } }}</flux:button></div>
+            <flux:text size="sm" wire:loading wire:target="saveSignature">Registrando operação…</flux:text>
+        </form>
     </flux:modal>
 </section>

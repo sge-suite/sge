@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('type');
             $table->string('status')->default('generated');
             $table->string('signature_availability_location', 500)->nullable();
+            $table->string('protocol_number')->nullable();
             $table->jsonb('snapshot')->nullable();
             $table->uuid('generation_token')->unique();
             $table->string('output_filename')->nullable();

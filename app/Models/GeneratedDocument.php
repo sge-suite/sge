@@ -29,12 +29,15 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 #[Fillable([
     'internship_id', 'template_version_id', 'origin', 'type', 'status',
-    'signature_availability_location', 'snapshot', 'generation_token',
+    'signature_availability_location', 'protocol_number', 'snapshot', 'generation_token',
     'output_filename', 'template_sha256', 'generated_at', 'cancelled_at',
     'cancellation_reason',
 ])]
 class GeneratedDocument extends Model
 {
+    /** @var list<string> */
+    public array $signatureNoticeCategories = [];
+
     /** @use HasFactory<GeneratedDocumentFactory> */
     use HasFactory;
 
@@ -77,7 +80,7 @@ class GeneratedDocument extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logOnly(['internship_id', 'template_version_id', 'origin', 'type', 'status',
+        return LogOptions::defaults()->logOnly(['internship_id', 'template_version_id', 'origin', 'type', 'status', 'signature_availability_location', 'protocol_number',
             'template_sha256', 'generated_at', 'cancelled_at', 'cancellation_reason'])->logOnlyDirty()->dontLogEmptyChanges();
     }
 
@@ -85,14 +88,19 @@ class GeneratedDocument extends Model
     {
         $activity->properties = ($activity->properties ?? collect())->put('internship_id', $this->internship_id)
             ->put('campus_id', $this->internship()->firstOrFail()->course()->firstOrFail()->campus_id);
+        if ($this->signatureNoticeCategories !== []) {
+            $activity->properties = $activity->properties->put('signature_recipient_categories', $this->signatureNoticeCategories)
+                ->put('signature_recipient_count', count($this->signatureNoticeCategories));
+        }
     }
 
     protected static function booted(): void
     {
         static::saving(function (self $document): void {
-            foreach (['signature_availability_location', 'output_filename', 'cancellation_reason'] as $attribute) {
+            foreach (['signature_availability_location', 'protocol_number', 'output_filename', 'cancellation_reason'] as $attribute) {
                 if (is_string($document->{$attribute})) {
-                    $document->{$attribute} = trim($document->{$attribute}) ?: null;
+                    $value = trim($document->{$attribute});
+                    $document->{$attribute} = $value === '' ? null : $value;
                 }
             }
 
@@ -105,6 +113,7 @@ class GeneratedDocument extends Model
                 'type' => ['required', Rule::enum(GeneratedDocumentType::class)],
                 'status' => ['required', Rule::enum(GeneratedDocumentStatus::class)],
                 'signature_availability_location' => [$document->status === GeneratedDocumentStatus::AwaitingSignature ? 'required' : 'nullable', 'string', 'max:500'],
+                'protocol_number' => ['nullable', 'string', 'max:255'],
                 'snapshot' => [$isSge ? 'required' : 'prohibited', 'nullable', 'array'],
                 'generation_token' => ['required', 'uuid', Rule::unique('generated_documents', 'generation_token')->ignore($document->id)],
                 'output_filename' => [$isSge ? 'required' : 'prohibited', 'nullable', 'string', 'max:255'],
@@ -115,6 +124,16 @@ class GeneratedDocument extends Model
             ]);
 
             $validator->after(function (LaravelValidator $validator) use ($document): void {
+                if ($document->exists && $document->isDirty('status')) {
+                    $allowed = match ($document->getRawOriginal('status')) {
+                        'generated' => [GeneratedDocumentStatus::AwaitingSignature, GeneratedDocumentStatus::Cancelled],
+                        'awaiting_signature' => [GeneratedDocumentStatus::Signed, GeneratedDocumentStatus::Cancelled],
+                        default => [],
+                    };
+                    if (! in_array($document->status, $allowed, true)) {
+                        $validator->errors()->add('status', 'Transição documental inválida.');
+                    }
+                }
                 if ($document->exists && $document->isDirty(['internship_id', 'template_version_id', 'origin', 'type', 'snapshot', 'generation_token', 'output_filename', 'template_sha256', 'generated_at'])) {
                     $validator->errors()->add('snapshot', 'Os dados da geração não podem ser alterados.');
                 }
@@ -134,7 +153,7 @@ class GeneratedDocument extends Model
                     $validator->errors()->add('status', 'Atestados de orientação não passam por assinatura.');
                 }
                 if ($document->exists && in_array($document->getRawOriginal('status'), [GeneratedDocumentStatus::Cancelled->value, GeneratedDocumentStatus::Signed->value], true)
-                    && $document->isDirty(['status', 'cancelled_at', 'cancellation_reason'])) {
+                    && $document->isDirty(['status', 'cancelled_at', 'cancellation_reason', 'signature_availability_location'])) {
                     $validator->errors()->add('status', 'O ciclo deste documento não pode ser reaberto ou reescrito.');
                 }
             });

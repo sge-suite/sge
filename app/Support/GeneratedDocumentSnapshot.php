@@ -192,7 +192,6 @@ class GeneratedDocumentSnapshot
             'ESTAGIO_BOLSA_EXTENSO' => $grant === null ? null : NumberToWordsHelper::brl($grant),
             'ESTAGIO_AUXILIO_TRANSPORTE_VALOR' => $transport === null ? null : CurrencyHelper::formatDecimal($transport),
             'ESTAGIO_AUXILIO_TRANSPORTE_EXTENSO' => $transport === null ? null : NumberToWordsHelper::brl($transport),
-            'ESTAGIO_PROTOCOLO_SIGAA' => $this->text($stage->protocol_number),
             'ESTAGIO_NOTA_SUPERVISOR' => $this->text($stage->supervisor_grade),
             'ESTAGIO_NOTA_RELATORIO' => $this->text($stage->report_grade),
             'ESTAGIO_NOTA_APRESENTACAO' => $this->text($stage->presentation_grade),

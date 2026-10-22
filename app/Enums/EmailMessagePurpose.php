@@ -5,6 +5,7 @@ namespace App\Enums;
 enum EmailMessagePurpose: string
 {
     case Notification = 'notification';
+    case DocumentSignature = 'document_signature';
     case InternshipRequestSubmitted = 'internship_request_submitted';
     case AccountCreated = 'account_created';
     case NewAffiliation = 'new_affiliation';
@@ -18,6 +19,7 @@ enum EmailMessagePurpose: string
     {
         return match ($this) {
             self::Notification => 'Notificação operacional',
+            self::DocumentSignature => 'Documento disponível para assinatura',
             self::InternshipRequestSubmitted => 'Comprovante de envio da solicitação de estágio',
             self::AccountCreated => 'Conta criada',
             self::NewAffiliation => 'Novo vínculo',

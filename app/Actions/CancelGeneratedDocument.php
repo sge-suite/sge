@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Enums\GeneratedDocumentStatus;
+use App\Models\Course;
 use App\Models\GeneratedDocument;
 use App\Models\Internship;
 use App\Models\User;
@@ -21,8 +22,10 @@ class CancelGeneratedDocument
         Validator::make(['cancellation_reason' => $reason], ['cancellation_reason' => ['required', 'string', 'max:5000']])->validate();
         DB::transaction(function () use ($actor, $expectedAffiliationId, $target, $reason): void {
             $affiliation = $this->templates->lockOffice($actor, $expectedAffiliationId);
-            Internship::query()->lockForUpdate()->findOrFail($target->internship_id);
+            $internship = Internship::query()->lockForUpdate()->findOrFail($target->internship_id);
+            $internship->setRelation('course', Course::query()->with('campus')->lockForUpdate()->findOrFail($internship->course_id));
             $document = GeneratedDocument::query()->lockForUpdate()->findOrFail($target->id);
+            $document->setRelation('internship', $internship);
             Gate::forUser($actor)->authorize('cancel', $document);
             $this->causers->withCauser($affiliation, fn (): bool => $document->update(['status' => GeneratedDocumentStatus::Cancelled,
                 'cancelled_at' => now(), 'cancellation_reason' => $reason]));

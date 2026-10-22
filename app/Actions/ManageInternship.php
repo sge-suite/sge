@@ -19,7 +19,7 @@ class ManageInternship
 {
     public function __construct(private StudentInternshipContext $context, private CauserResolver $causerResolver, private ProjectInternshipEndDate $project, private SyncInternshipExecutionStatus $sync) {}
 
-    /** @param array{protocol_number?: ?string, observations?: ?string, starts_at?: string, ends_at?: string, reason?: string, date?: string, is_working_day?: bool} $data */
+    /** @param array{observations?: ?string, starts_at?: string, ends_at?: string, reason?: string, date?: string, is_working_day?: bool} $data */
     public function handle(User $actor, Internship $target, int $expectedAffiliationId, string $operation, array $data = [], ?int $recordId = null): Internship
     {
         $ability = match ($operation) {
@@ -42,7 +42,7 @@ class ManageInternship
 
             return $this->causerResolver->withCauser($affiliation, function () use ($internship, $operation, $data, $recordId): Internship {
                 if ($operation === 'update') {
-                    $values = Validator::make($data, ['protocol_number' => ['nullable', 'string', 'max:255'], 'observations' => ['nullable', 'string', 'max:10000']])->validate();
+                    $values = Validator::make($data, ['observations' => ['nullable', 'string', 'max:10000']])->validate();
                     $internship->fill($values)->save();
 
                     return $internship;

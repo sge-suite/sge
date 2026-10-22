@@ -37,7 +37,6 @@ return new class extends Migration
             $table->boolean('is_remunerated')->default(false);
             $table->decimal('grant_value', 10, 2)->nullable();
             $table->decimal('transportation_allowance', 10, 2)->nullable();
-            $table->string('protocol_number')->nullable();
             $table->text('observations')->nullable();
             $table->decimal('supervisor_grade', 5, 1)->nullable();
             $table->decimal('report_grade', 5, 1)->nullable();

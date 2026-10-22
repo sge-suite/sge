@@ -23,6 +23,7 @@ class GeneratedDocumentFactory extends Factory
             'type' => GeneratedDocumentType::Main,
             'status' => GeneratedDocumentStatus::Generated,
             'signature_availability_location' => null,
+            'protocol_number' => null,
             'snapshot' => ['student' => ['name' => fake()->name()]],
             'generation_token' => fake()->uuid(),
             'output_filename' => 'documento.docx',
