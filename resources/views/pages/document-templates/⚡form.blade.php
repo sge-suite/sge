@@ -86,6 +86,7 @@ new #[Title('Cadastro de template DOCX')] class extends Component
             $template = $action->handle(auth()->user(), $this->affiliationId,
                 DocumentTemplate::findOrFail($this->templateId), 'update', $data);
         }
+        $this->dispatch('form-saved', scope: 'template-edit', savedAt: formatDateTime(now()));
         $this->redirectRoute('document-templates.show', ['documentTemplate' => $template->id], navigate: true);
     }
 
@@ -119,7 +120,8 @@ new #[Title('Cadastro de template DOCX')] class extends Component
         <flux:breadcrumbs.item :href="route('document-templates.index')" wire:navigate>Templates DOCX</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>{{ $templateId ? 'Editar' : 'Cadastrar' }}</flux:breadcrumbs.item>
     </flux:breadcrumbs>
-    <form wire:submit="save" class="space-y-8" novalidate>
+    <form wire:submit="save" class="space-y-8" novalidate data-unsaved-changes="template-edit" data-unsaved-models='["name", "description", "document_type", "remuneration", "file"]' data-unsaved-actions='["save"]'>
+        <x-form-save-status />
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <flux:heading size="xl" level="1">{{ $templateId ? 'Editar template' : 'Cadastrar template' }}</flux:heading>

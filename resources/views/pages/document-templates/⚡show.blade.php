@@ -112,6 +112,7 @@ new #[Title('Versões do template DOCX')] class extends Component
         $this->resetPage();
         unset($this->template, $this->versions);
         Flux::toast(text: 'Arquivo validado e nova versão registrada.', variant: 'success');
+        $this->dispatch('form-saved', scope: 'template-version', savedAt: formatDateTime(now()));
     }
 
     public function prepareCurrentVersion(int $versionId): void
@@ -311,7 +312,8 @@ new #[Title('Versões do template DOCX')] class extends Component
                 <div><flux:heading id="template-upload-heading" size="lg" level="2">Enviar nova versão</flux:heading><flux:text class="mt-1">Cada arquivo diferente cria uma versão. Revise o guia antes de enviar.</flux:text></div>
                 <flux:button variant="outline" :href="route('document-templates.guide')" wire:navigate>Guia de variáveis</flux:button>
             </div>
-            <form wire:submit="uploadVersion" class="space-y-6">
+            <form wire:submit="uploadVersion" class="space-y-6" data-unsaved-changes="template-version" data-unsaved-models='["file"]' data-unsaved-actions='["uploadVersion"]'>
+                <x-form-save-status />
                 <x-file-upload wire:model="file" :files="$file" label="Original DOCX" description="Somente DOCX, até 10 MiB. Fontes incorporadas e links para sites e e-mails são permitidos. Sem macros ou arquivos anexados." accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
                 <div class="flex flex-wrap items-center justify-end gap-3">
                     <span wire:loading wire:target="file,uploadVersion" class="text-sm text-zinc-500 dark:text-zinc-400" role="status">Recebendo e inspecionando o arquivo…</span>

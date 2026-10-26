@@ -49,7 +49,8 @@ new #[Title('Editar vínculo')] class extends Component
         <flux:breadcrumbs.item :href="route('users.index')" wire:navigate>Usuários</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Editar vínculo</flux:breadcrumbs.item>
     </flux:breadcrumbs>
-    <form method="POST" action="{{ route('users.affiliations.update', [$this->account, $this->affiliation]) }}" class="space-y-8" novalidate x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
+    <form data-unsaved-changes="native-editor" method="POST" action="{{ route('users.affiliations.update', [$this->account, $this->affiliation]) }}" class="space-y-8" novalidate x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
+        <x-form-save-status :initial-dirty="$errors->any()" />
         @csrf
         @method('PUT')
         <div class="flex flex-wrap items-start justify-between gap-4">

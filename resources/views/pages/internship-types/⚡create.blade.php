@@ -18,7 +18,8 @@ new #[Title('Cadastrar tipo de estágio')] class extends Component
         <flux:breadcrumbs.item :href="route('internship-types.index')" wire:navigate>Tipos de estágio</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Cadastrar</flux:breadcrumbs.item>
     </flux:breadcrumbs>
-    <form method="POST" action="{{ route('internship-types.store') }}" class="space-y-8" x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false" novalidate>
+    <form data-unsaved-changes="native-editor" method="POST" action="{{ route('internship-types.store') }}" class="space-y-8" x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false" novalidate>
+        <x-form-save-status :initial-dirty="$errors->any()" />
         @csrf
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>

@@ -47,6 +47,7 @@ new #[Title('Segurança')] class extends Component {
         $this->reset('current_password', 'password', 'password_confirmation');
 
         Flux::toast(variant: 'success', text: 'Senha atualizada.');
+        $this->dispatch('form-saved', scope: 'account-password', savedAt: formatDateTime(now()));
     }
 
     public function updateEmail(RequestEmailDelivery $requestEmailDelivery, ActiveAffiliationContext $context, CauserResolver $causerResolver): void
@@ -88,6 +89,7 @@ new #[Title('Segurança')] class extends Component {
             $this->reset('email', 'email_confirmation');
 
             Flux::toast(variant: 'success', text: 'E-mail da conta atualizado. Enviaremos avisos aos endereços antigo e novo.');
+            $this->dispatch('form-saved', scope: 'account-email', savedAt: formatDateTime(now()));
         } finally {
             $this->reset('email_current_password');
         }
@@ -105,7 +107,8 @@ new #[Title('Segurança')] class extends Component {
                 <flux:heading id="password-settings-heading" level="2" size="lg">Alterar senha</flux:heading>
                 <flux:text class="mt-2">Use uma senha diferente da atual para proteger sua conta.</flux:text>
 
-                <form method="POST" wire:submit="updatePassword" class="mt-6 space-y-5">
+                <form method="POST" wire:submit="updatePassword" class="mt-6 space-y-5" data-unsaved-changes="account-password" data-unsaved-models='["current_password", "password", "password_confirmation"]' data-unsaved-actions='["updatePassword"]'>
+                    <x-form-save-status />
                     <flux:input
                         wire:model="current_password"
                         label="Senha atual"
@@ -158,7 +161,8 @@ new #[Title('Segurança')] class extends Component {
                 </flux:text>
                 <flux:text class="mt-3 text-sm">E-mail atual: <span class="break-all font-medium text-zinc-900 dark:text-zinc-100">{{ Auth::user()->email }}</span></flux:text>
 
-                <form method="POST" wire:submit="updateEmail" class="mt-6 space-y-5">
+                <form method="POST" wire:submit="updateEmail" class="mt-6 space-y-5" data-unsaved-changes="account-email" data-unsaved-models='["email", "email_confirmation", "email_current_password"]' data-unsaved-actions='["updateEmail"]'>
+                    <x-form-save-status />
                     <flux:input
                         wire:model="email"
                         label="Novo e-mail"

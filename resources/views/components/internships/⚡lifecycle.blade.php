@@ -130,7 +130,8 @@ new class extends Component
         </div>
     @endforeach
     <flux:modal wire:model.self="showOperation" class="md:w-xl">
-        <form wire:submit="confirm" class="space-y-6">
+        <form wire:submit="confirm" class="space-y-6" data-unsaved-changes="dialog-confirm" data-unsaved-models='["reason", "effectiveDate", "confirmHours"]' data-unsaved-actions='["confirm"]'>
+            <x-form-save-status />
             <flux:heading size="lg" level="2">{{ match ($operation) { 'release' => 'Liberar estágio', 'complete' => 'Concluir estágio', 'cancel' => 'Cancelar estágio', 'request_cancellation' => 'Solicitar cancelamento', 'withdraw_cancellation' => 'Retirar pedido de cancelamento', 'begin_cancellation' => 'Iniciar análise do cancelamento', 'approve_cancellation' => 'Aprovar cancelamento', 'reject_cancellation' => 'Recusar cancelamento', default => 'Confirmar operação' } }}</flux:heading>
             @if ($operation === 'release')
                 <flux:text>Todos os documentos principais vigentes precisam estar com as assinaturas conferidas. A liberação registra seu vínculo e avisa os envolvidos. Se a data de início já chegou, o estágio passa para execução conforme as pausas vigentes.</flux:text>

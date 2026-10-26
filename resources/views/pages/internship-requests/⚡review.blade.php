@@ -102,6 +102,9 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         $result = $action->handle(Auth::user(), $this->record, $operation, $this->message, $this->sections, $this->advisorId, $this->supervisorQualificationId, $this->sectionMessages);
         unset($this->record, $this->choices, $this->activityHistory);
         \Flux\Flux::toast($operation === 'accept' ? 'Solicitação aceita. Estágio nº '.$result->internship_id.' em formalização.' : 'Decisão registrada.', variant: 'success');
+        if ($operation !== 'begin') {
+            $this->dispatch('form-saved', scope: 'request-review', savedAt: formatDateTime(now()));
+        }
     }
 
     public function refreshChoices(): void
@@ -142,6 +145,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         $action->handle(Auth::user(), $this->record, $kind, $approve ? $id : null, $this->message ?: null);
         unset($this->record, $this->choices, $this->activityHistory);
         \Flux\Flux::toast('Análise do cadastro registrada. Os dados propostos foram preservados.', variant: 'success');
+        $this->dispatch('form-saved', scope: 'registration-'.$kind, savedAt: formatDateTime(now()));
     }
 
     public function evidence(int $id, bool $approve, ReviewEmancipationEvidence $action): void
@@ -151,6 +155,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         $action->handle(Auth::user(), $evidence, $approve, $this->evidenceReason ?: null);
         unset($this->record, $this->choices, $this->activityHistory);
         \Flux\Flux::toast('Análise do comprovante registrada.', variant: 'success');
+        $this->dispatch('form-saved', scope: 'evidence-review-'.$id, savedAt: formatDateTime(now()));
     }
 }; ?>
 @php
@@ -177,7 +182,8 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     <div class="space-y-6 rounded-xl border border-zinc-200 p-6 text-base dark:border-zinc-700">@include('pages.internship-requests.partials.review')</div>
     @foreach (['granting_party' => $request->grantingPartyRegistrationRequest, 'supervisor' => $request->supervisorRegistrationRequest] as $kind => $proposal)
         @if ($proposal)
-            <section wire:key="registration-{{ $kind }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+            <section wire:key="registration-{{ $kind }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="registration-{{ $kind }}" data-unsaved-models='@json([$kind === "granting_party" ? "partyId" : "supervisorId"])' data-unsaved-actions='["registration"]' data-unsaved-enabled="{{ $this->canDecide && ($kind === 'granting_party' ? $pendingParty : $pendingSupervisor) && in_array($proposal->status->value, ['submitted', 'under_review'], true) ? 'true' : 'false' }}">
+                <x-form-save-status />
                 <flux:heading level="2">Pedido de cadastro: {{ $kind === 'granting_party' ? 'concedente' : 'supervisor' }} · {{ $proposal->status->label() }}</flux:heading>
                 <flux:text size="lg">Revise a proposta acima. Se necessário, crie o cadastro pela gestão existente e depois associe-o aqui. A associação exige um cadastro ativo do mesmo campus.</flux:text>
                 @if ($kind === 'granting_party')
@@ -208,7 +214,8 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         @endif
     @endforeach
     @foreach ($request->emancipationEvidences as $evidence)
-        <section wire:key="review-evidence-{{ $evidence->id }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+        <section wire:key="review-evidence-{{ $evidence->id }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="evidence-review-{{ $evidence->id }}" data-unsaved-models='["evidenceReason"]' data-unsaved-actions='["evidence"]' data-unsaved-enabled="{{ $loop->first && $this->canDecide && $evidence->status->value === 'submitted' ? 'true' : 'false' }}">
+            <x-form-save-status />
             <flux:heading level="2">Comprovante de emancipação · {{ $evidence->status->label() }}</flux:heading>
             <flux:button :href="route('internship-requests.evidence', $evidence)" target="_blank" rel="noopener">Abrir comprovante privado</flux:button>
             @if ($this->canDecide && $loop->first && $evidence->status->value === 'submitted')
@@ -218,7 +225,8 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         </section>
     @endforeach
     @if ($this->canDecide)
-    <section class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+    <section class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="request-review" data-unsaved-models='["message", "sections", "sectionMessages", "advisorId", "supervisorQualificationId"]' data-unsaved-actions='["decide"]' data-unsaved-enabled="{{ in_array($request->status->value, ['submitted', 'under_review', 'accepted', 'pending_correction'], true) ? 'true' : 'false' }}">
+        <x-form-save-status />
         <flux:heading level="2">Decisão do Setor de Estágio</flux:heading>
         @if ($request->internship !== null)
             @php

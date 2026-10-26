@@ -28,8 +28,9 @@ new #[Title('Feriado')] class extends Component
         <flux:breadcrumbs.item :href="route('holidays.index')" wire:navigate>Feriados</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>{{ $holiday ? 'Editar' : 'Cadastrar' }}</flux:breadcrumbs.item>
     </flux:breadcrumbs>
-    <form method="POST" action="{{ $holiday ? route('holidays.update', $holiday) : route('holidays.store') }}" class="space-y-8"
+    <form data-unsaved-changes="native-editor" method="POST" action="{{ $holiday ? route('holidays.update', $holiday) : route('holidays.store') }}" class="space-y-8"
         x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false" novalidate>
+        <x-form-save-status :initial-dirty="$errors->any()" />
         @csrf
         @if ($holiday)
             @method('PUT')
