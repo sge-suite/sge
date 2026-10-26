@@ -6,6 +6,7 @@ use App\Models\HolidayImportRun;
 use App\Models\HolidaySource;
 use App\Models\InternshipRequest;
 use App\Support\HolidayCalendar;
+use App\Support\InternshipCalculationHistory;
 use App\Support\InternshipEndDateCalculator;
 use App\Support\InternshipPlannedPauses;
 use Carbon\CarbonImmutable;
@@ -14,7 +15,8 @@ use InvalidArgumentException;
 
 class ProjectInternshipRequestEndDate
 {
-    public function __construct(private HolidayCalendar $calendar, private InternshipEndDateCalculator $calculator) {}
+    public function __construct(private HolidayCalendar $calendar, private InternshipEndDateCalculator $calculator,
+        private InternshipCalculationHistory $history) {}
 
     public function handle(InternshipRequest $request): CarbonImmutable
     {
@@ -48,6 +50,12 @@ class ProjectInternshipRequestEndDate
                 throw ValidationException::withMessages(['projected_end_date' => 'O calendário do período precisa ser preparado ou revisado pelo Setor. Seu preenchimento pode ser salvo.']);
             }
         }
+
+        $request->calculationSnapshot = $this->history->snapshot([
+            'start' => $start->toDateString(), 'required_hours' => (int) $type['required_hours'],
+            'weekly_hours' => $request->weekly_hours, 'blocked_dates' => $blocked,
+            'margin_days' => (int) $type['safety_margin_days'], 'work_schedules' => [],
+        ], $result, $city->name.' / '.$city->state->value);
 
         return $end;
     }

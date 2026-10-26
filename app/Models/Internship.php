@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Concerns\HasOwnedAddresses;
 use App\Enums\AffiliationType;
 use App\Enums\InternshipStatus;
+use App\Support\InternshipCalculationHistory;
 use App\Support\InternshipPlannedPauses;
 use Carbon\CarbonImmutable;
 use Database\Factories\InternshipFactory;
@@ -62,6 +63,12 @@ class Internship extends Model
     use LogsActivity;
 
     public ?string $managementChangeReason = null;
+
+    /** @var array<string, mixed>|null */
+    public ?array $calculationSnapshot = null;
+
+    /** @var array{starts_on: string, weekly_hours: array<string, int>, previous_schedule_id: ?int, projected_end_date: string}|null */
+    public ?array $proposedWorkSchedule = null;
 
     /**
      * @param  Builder<Internship>  $query
@@ -271,6 +278,9 @@ class Internship extends Model
 
     protected static function booted(): void
     {
+        static::saved(function (self $internship): void {
+            app(InternshipCalculationHistory::class)->record($internship);
+        });
         static::saving(function (self $internship): void {
             $attributes = $internship->getAttributes();
             $partyExists = Rule::exists(GrantingParty::class, 'id');

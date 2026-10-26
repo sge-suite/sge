@@ -7,7 +7,7 @@ namespace App\Support;
  */
 class TemplateVariableCatalog
 {
-    public const REVISION = 8;
+    public const REVISION = 9;
 
     /** @return array<string, TemplateVariable> */
     public function all(): array
@@ -1264,28 +1264,28 @@ class TemplateVariableCatalog
             [
                 'name' => 'ADITIVO_VIGENCIA_INICIO',
                 'description' => 'Início do aditivo',
-                'origin' => 'workSchedules.starts_on só existe após aditivo assinado; falta contexto de emissão aprovado',
+                'origin' => 'Proposta de jornada confirmada pelo Setor na emissão do aditivo',
                 'format' => 'texto',
                 'example' => 'Exemplo fictício',
                 'type' => 'string',
                 'sensitivity' => 'institucional',
-                'condition' => 'Dado preenchido no contexto autorizado.',
-                'available' => false,
-                'snapshot' => 'Congelar na futura geração; não existe snapshot deste dado no estágio. Nunca atualizar documento anterior.',
-                'empty' => 'Valor ausente será tratado pela resolução futura, sem exigir presença do marcador e sem presumir zero.',
+                'condition' => 'Aditivo com alteração de jornada informada na emissão.',
+                'available' => true,
+                'snapshot' => 'Congelado no aditivo; a vigência só é aplicada depois da conferência de assinaturas.',
+                'empty' => 'Sem proposta de jornada, o marcador impede a emissão deste template.',
             ],
             [
                 'name' => 'ADITIVO_DESCRICAO_ALTERACAO',
                 'description' => 'Mudanças do aditivo',
-                'origin' => 'Sem registro estruturado de mudanças aprovadas para emissão',
+                'origin' => 'Descrição da nova distribuição semanal de horas confirmada na emissão do aditivo',
                 'format' => 'texto',
                 'example' => 'Exemplo fictício',
                 'type' => 'string',
                 'sensitivity' => 'institucional',
-                'condition' => 'Dado preenchido no contexto autorizado.',
-                'available' => false,
-                'snapshot' => 'Congelar na futura geração; não existe snapshot deste dado no estágio. Nunca atualizar documento anterior.',
-                'empty' => 'Valor ausente será tratado pela resolução futura, sem exigir presença do marcador e sem presumir zero.',
+                'condition' => 'Aditivo com alteração de jornada informada na emissão.',
+                'available' => true,
+                'snapshot' => 'Descrição e distribuição congeladas no aditivo.',
+                'empty' => 'Sem proposta de jornada, o marcador impede a emissão deste template.',
             ],
             [
                 'name' => 'RESCISAO_DATA_EFETIVA',

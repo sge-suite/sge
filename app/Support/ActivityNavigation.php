@@ -17,6 +17,7 @@ use App\Models\InternshipPause;
 use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
 use App\Models\InternshipType;
+use App\Models\InternshipWorkSchedule;
 use App\Models\SupervisorEvaluation;
 use App\Models\TemplateVersion;
 use App\Models\User;
@@ -61,7 +62,7 @@ class ActivityNavigation
 
             return $url === null ? null : $url.'#documents-heading';
         }
-        if ($model instanceof InternshipPause || $model instanceof InternshipCalendarOverride || $model instanceof InternshipCancellationRequest) {
+        if ($model instanceof InternshipPause || $model instanceof InternshipCalendarOverride || $model instanceof InternshipCancellationRequest || $model instanceof InternshipWorkSchedule) {
             return $this->forModel($model->internship);
         }
         if ($model instanceof InternshipRequestCorrection || $model instanceof EmancipationEvidence) {

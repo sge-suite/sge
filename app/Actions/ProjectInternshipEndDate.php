@@ -8,6 +8,7 @@ use App\Models\HolidaySource;
 use App\Models\Internship;
 use App\Models\InternshipWorkSchedule;
 use App\Support\HolidayCalendar;
+use App\Support\InternshipCalculationHistory;
 use App\Support\InternshipEndDateCalculator;
 use App\Support\InternshipPlannedPauses;
 use Carbon\CarbonImmutable;
@@ -17,7 +18,8 @@ use InvalidArgumentException;
 
 class ProjectInternshipEndDate
 {
-    public function __construct(private HolidayCalendar $calendar, private InternshipEndDateCalculator $calculator, private InternshipPlannedPauses $plannedPauses) {}
+    public function __construct(private HolidayCalendar $calendar, private InternshipEndDateCalculator $calculator,
+        private InternshipPlannedPauses $plannedPauses, private InternshipCalculationHistory $history) {}
 
     public function handle(Internship $internship): CarbonImmutable
     {
@@ -26,9 +28,10 @@ class ProjectInternshipEndDate
 
     /**
      * @param  list<array{id: ?int, date: string, is_working_day: bool, reason: string}>|null  $overrides
+     * @param  list<array{starts_on: string, ends_on: ?string, weekly_hours: array<string, int>}>|null  $workSchedules
      * @return array{completion_date: CarbonImmutable, projected_end_date: CarbonImmutable, credited_hours: int, calendar: list<array{date: string, scheduled_hours: int, credited_hours: int, accumulated_hours: int, kind: string, reason?: string}>}
      */
-    public function details(Internship $internship, ?City $city = null, bool $includeCalendar = true, ?array $overrides = null): array
+    public function details(Internship $internship, ?City $city = null, bool $includeCalendar = true, ?array $overrides = null, ?array $workSchedules = null): array
     {
         $rules = $internship->internship_type_snapshot['rules'] ?? [];
         $validator = Validator::make($rules, ['required_hours' => ['required', 'integer', 'min:1'], 'safety_margin_days' => ['required', 'integer', 'min:0']]);
@@ -67,7 +70,7 @@ class ProjectInternshipEndDate
                 $blocked[$day->toDateString()] = 'Pausa: '.$pause->reason;
             }
         }
-        $schedules = array_values($internship->workSchedules()->orderBy('starts_on')->get()->map(function (InternshipWorkSchedule $schedule): array {
+        $schedules = $workSchedules ?? array_values($internship->workSchedules()->orderBy('starts_on')->get()->map(function (InternshipWorkSchedule $schedule): array {
             if ($schedule->starts_on === null) {
                 throw ValidationException::withMessages(['projected_end_date' => 'Uma vigência histórica está sem data de início.']);
             }
@@ -96,6 +99,12 @@ class ProjectInternshipEndDate
             };
         }
         unset($day);
+
+        $internship->calculationSnapshot = $this->history->snapshot([
+            'start' => $start->toDateString(), 'required_hours' => (int) $rules['required_hours'],
+            'weekly_hours' => $internship->weekly_hours, 'blocked_dates' => array_keys($blocked),
+            'margin_days' => (int) $rules['safety_margin_days'], 'work_schedules' => $schedules,
+        ], $result, $city->name.' / '.$city->state->value, $blocked);
 
         return $result;
     }

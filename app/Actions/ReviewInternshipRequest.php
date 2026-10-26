@@ -184,6 +184,8 @@ class ReviewInternshipRequest
                         $request->projected_end_date = $this->project->handle($projection);
                     }
                     $attributes['projected_end_date'] = $request->projected_end_date;
+                    $stage->calculationSnapshot = $projection->calculationSnapshot;
+                    $request->calculationSnapshot = $projection->calculationSnapshot;
                     $attributes['status'] = InternshipStatus::PendingFormalization;
                     $stage->fill($attributes)->save();
                     $request->internship_id = $stage->id;

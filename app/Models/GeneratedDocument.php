@@ -5,12 +5,14 @@ namespace App\Models;
 use App\Enums\GeneratedDocumentOrigin;
 use App\Enums\GeneratedDocumentStatus;
 use App\Enums\GeneratedDocumentType;
+use Carbon\CarbonImmutable;
 use Database\Factories\GeneratedDocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -76,6 +78,33 @@ class GeneratedDocument extends Model
     public function workSchedules(): HasMany
     {
         return $this->hasMany(InternshipWorkSchedule::class);
+    }
+
+    /** @return MorphOne<Activity, $this> */
+    public function externalRegistration(): MorphOne
+    {
+        return $this->morphOne(Activity::class, 'subject')->where('event', 'external_document_registered');
+    }
+
+    /** @return array{starts_on: string, weekly_hours: array<string, int>, previous_schedule_id: ?int, projected_end_date: string}|null */
+    public function workScheduleChange(): ?array
+    {
+        return $this->origin === GeneratedDocumentOrigin::SGE ? ($this->snapshot['work_schedule_change'] ?? null)
+            : $this->externalRegistration?->properties->get('work_schedule_change');
+    }
+
+    public function signatureDateExpired(): bool
+    {
+        $date = $this->origin === GeneratedDocumentOrigin::SGE ? ($this->snapshot['signature_start_date'] ?? null)
+            : $this->externalRegistration?->properties->get('signature_start_date');
+        $date ??= $this->workScheduleChange()['starts_on'] ?? null;
+        if ($date === null && $this->type === GeneratedDocumentType::Main) {
+            $formatted = $this->snapshot['values']['ESTAGIO_DATA_INICIO'] ?? null;
+            $date = is_string($formatted) ? CarbonImmutable::createFromFormat('!d/m/Y', $formatted, config('app.timezone'))?->toDateString() : null;
+            $date ??= $this->internship->planned_start_date->toDateString();
+        }
+
+        return is_string($date) && $date < CarbonImmutable::today(config('app.timezone'))->toDateString();
     }
 
     public function getActivitylogOptions(): LogOptions

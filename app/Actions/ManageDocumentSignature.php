@@ -20,7 +20,7 @@ use Spatie\Activitylog\Support\CauserResolver;
 class ManageDocumentSignature
 {
     public function __construct(private ManageDocumentTemplate $templates, private CauserResolver $causers,
-        private InternshipRecipients $recipients, private RequestEmailDelivery $delivery) {}
+        private InternshipRecipients $recipients, private RequestEmailDelivery $delivery, private ApplyInternshipWorkSchedule $schedules) {}
 
     /** @param array<string, mixed> $data */
     public function handle(User $actor, int $expectedAffiliationId, GeneratedDocument $target, string $operation, array $data = []): void
@@ -36,7 +36,7 @@ class ManageDocumentSignature
             Gate::forUser($actor)->authorize(match ($operation) {
                 'await_signature' => 'requestSignature', 'notify_signature' => 'notifySignature', 'update_protocol' => 'updateProtocol', default => 'confirmSignature'
             }, $document);
-            $this->causers->withCauser($office, function () use ($document, $internship, $operation, $data): void {
+            $this->causers->withCauser($office, function () use ($actor, $document, $internship, $operation, $data): void {
                 if (is_string($data['protocol_number'] ?? null)) {
                     $protocol = trim($data['protocol_number']);
                     $data['protocol_number'] = $protocol === '' ? null : $protocol;
@@ -48,8 +48,18 @@ class ManageDocumentSignature
                     return;
                 }
                 if ($operation === 'confirm_signature') {
-                    Validator::make($data, ['confirm_signature' => ['accepted']])->validate();
+                    Validator::make($data, ['confirm_signature' => ['accepted'],
+                        'confirm_expired_date' => $document->signatureDateExpired() ? ['accepted'] : ['nullable', 'boolean']])->validate();
+                    if ($document->workScheduleChange() !== null) {
+                        Gate::forUser($actor)->authorize('applyWorkSchedule', $internship);
+                    }
                     $document->update(['status' => GeneratedDocumentStatus::Signed]);
+                    $this->schedules->handle($internship, $document);
+
+                    if ($document->signatureDateExpired()) {
+                        activity()->performedOn($document)->event('expired_document_signature_confirmed')
+                            ->log('Assinatura conferida após análise da data vencida');
+                    }
 
                     return;
                 }

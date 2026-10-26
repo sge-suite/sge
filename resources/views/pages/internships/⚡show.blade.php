@@ -271,6 +271,7 @@ new #[Title('Detalhes do estágio')] class extends Component
     <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="schedule-heading">
         <flux:heading id="schedule-heading" size="lg" level="2">Jornada registrada</flux:heading>
         <flux:text>A jornada inicial e as vigências já formalizadas são preservadas. Pausas suspendem o cômputo de horas.</flux:text>
+        <flux:heading level="3">Jornada inicial desde {{ formatShort($record->planned_start_date) }}{{ $record->workSchedules->first()?->starts_on ? ' até '.formatShort($record->workSchedules->first()->starts_on->copy()->subDay()) : '' }}</flux:heading>
         <div class="grid gap-3 sm:grid-cols-4 lg:grid-cols-7">
             @foreach (['sunday' => 'Domingo', 'monday' => 'Segunda', 'tuesday' => 'Terça', 'wednesday' => 'Quarta', 'thursday' => 'Quinta', 'friday' => 'Sexta', 'saturday' => 'Sábado'] as $day => $label)
                 <div wire:key="initial-{{ $day }}" class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700"><flux:text>{{ $label }}</flux:text><span class="font-semibold">{{ $record->weekly_hours[$day] }} h</span></div>
@@ -280,6 +281,7 @@ new #[Title('Detalhes do estágio')] class extends Component
             <div wire:key="schedule-{{ $schedule->id }}" class="space-y-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
                 <flux:heading level="3">Vigência de {{ formatShort($schedule->starts_on) }} {{ $schedule->ends_on ? 'a '.formatShort($schedule->ends_on) : 'em diante' }}</flux:heading>
                 <flux:text>{{ collect($schedule->weekly_hours)->map(fn ($hours, $day) => ['sunday' => 'Dom', 'monday' => 'Seg', 'tuesday' => 'Ter', 'wednesday' => 'Qua', 'thursday' => 'Qui', 'friday' => 'Sex', 'saturday' => 'Sáb'][$day].': '.$hours.' h')->implode(' · ') }}</flux:text>
+                <flux:text size="sm">Formalizada pelo aditivo nº {{ $schedule->generated_document_id }}.</flux:text>
             </div>
         @endforeach
     </section>
@@ -340,6 +342,10 @@ new #[Title('Detalhes do estágio')] class extends Component
     @endif
     @can('viewDocuments', $record)
         <livewire:internships.documents :internship-id="$internshipId" :key="'internship-documents-'.$internshipId.'-'.$record->status->value" @internship-updated="$refresh" />
+    @endcan
+
+    @can('viewCalculationHistory', $record)
+        <livewire:internships.calculation-history :internship-id="$internshipId" :key="'calculation-history-'.$internshipId" />
     @endcan
     @if ($this->isOffice)
         <section class="space-y-6 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="evaluations-heading">

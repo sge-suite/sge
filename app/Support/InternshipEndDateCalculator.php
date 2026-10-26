@@ -7,6 +7,8 @@ use InvalidArgumentException;
 
 class InternshipEndDateCalculator
 {
+    public const REVISION = 1;
+
     public const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
     /**

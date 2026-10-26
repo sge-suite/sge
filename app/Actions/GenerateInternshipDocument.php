@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Enums\AffiliationType;
 use App\Enums\GeneratedDocumentOrigin;
 use App\Enums\GeneratedDocumentStatus;
+use App\Enums\GeneratedDocumentType;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\Course;
@@ -25,14 +26,16 @@ use Spatie\Activitylog\Support\CauserResolver;
 class GenerateInternshipDocument
 {
     public function __construct(private StudentInternshipContext $context, private GeneratedDocumentSnapshot $snapshots,
-        private DocxRenderer $renderer, private CauserResolver $causers, private GeneratedDocumentFilename $filenames) {}
+        private DocxRenderer $renderer, private CauserResolver $causers, private GeneratedDocumentFilename $filenames,
+        private ApplyInternshipWorkSchedule $schedules) {}
 
-    public function handle(User $actor, int $expectedAffiliationId, Internship $target, int $templateId, int $versionId, string $token): GeneratedDocument
+    /** @param array<string, mixed>|null $workScheduleChange */
+    public function handle(User $actor, int $expectedAffiliationId, Internship $target, int $templateId, int $versionId, string $token, ?array $workScheduleChange = null): GeneratedDocument
     {
         Validator::make(['generation_token' => $token], ['generation_token' => ['required', 'uuid']])->validate();
         $path = null;
         try {
-            return DB::transaction(function () use ($actor, $expectedAffiliationId, $target, $templateId, $versionId, $token, &$path): GeneratedDocument {
+            return DB::transaction(function () use ($actor, $expectedAffiliationId, $target, $templateId, $versionId, $token, $workScheduleChange, &$path): GeneratedDocument {
                 abort_unless($this->context->selected($actor)?->id === $expectedAffiliationId, 403);
                 $affiliation = Affiliation::query()->lockForUpdate()->findOrFail($expectedAffiliationId);
                 abort_unless($affiliation->user_id === $actor->id && $affiliation->deactivated_at === null, 403);
@@ -50,6 +53,10 @@ class GenerateInternshipDocument
                         && $existing->template_version_id === $versionId
                         && (int) data_get($existing->snapshot, 'actor.affiliation_id') === $affiliation->id, 409);
                     Gate::forUser($actor)->authorize('download', $existing);
+                    $saved = $existing->workScheduleChange();
+                    abort_unless(($saved === null && $workScheduleChange === null)
+                        || ($saved !== null && $workScheduleChange !== null && $saved['starts_on'] === ($workScheduleChange['starts_on'] ?? null)
+                            && $saved['weekly_hours'] == ($workScheduleChange['weekly_hours'] ?? null)), 409);
 
                     return $existing;
                 }
@@ -67,8 +74,19 @@ class GenerateInternshipDocument
                     : ['course.campus.address.city', 'studentAddress.city', 'workplaceAddress.city', 'advisorAffiliation.user', 'workSchedules']);
                 $affiliation->load('user');
                 $generatedAt = now();
-                $snapshot = $this->snapshots->build($stage, $template, $affiliation, $this->renderer->markers($version), $generatedAt,
+                if ($workScheduleChange !== null) {
+                    abort_unless($template->document_type === GeneratedDocumentType::Addendum, 422);
+                    Gate::forUser($actor)->authorize('applyWorkSchedule', $stage);
+                    $stage->proposedWorkSchedule = $this->schedules->proposal($stage, $workScheduleChange);
+                }
+                $markers = $this->renderer->markers($version);
+                $snapshot = $this->snapshots->build($stage, $template, $affiliation, $markers, $generatedAt,
                     $coordinator);
+                if ($stage->proposedWorkSchedule !== null) {
+                    $snapshot['work_schedule_change'] = $stage->proposedWorkSchedule;
+                }
+                $snapshot['signature_start_date'] = $stage->proposedWorkSchedule['starts_on']
+                    ?? ($template->document_type === GeneratedDocumentType::Main ? $stage->planned_start_date->toDateString() : null);
                 $path = $this->renderer->render($version, $snapshot['replacements']);
                 $snapshot['output_sha256'] = hash_file('sha256', $path);
 

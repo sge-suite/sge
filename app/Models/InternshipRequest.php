@@ -9,6 +9,7 @@ use App\Enums\EmancipationEvidenceStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\LegalCapacityDeclaration;
 use App\Helpers\DateHelper;
+use App\Support\InternshipCalculationHistory;
 use App\Support\InternshipPlannedPauses;
 use Carbon\CarbonInterface;
 use Database\Factories\InternshipRequestFactory;
@@ -72,6 +73,9 @@ class InternshipRequest extends Model
 
     use InternshipRequestValidationRules;
     use LogsActivity;
+
+    /** @var array<string, mixed>|null */
+    public ?array $calculationSnapshot = null;
 
     protected $attributes = [
         'status' => 'draft',
@@ -196,6 +200,9 @@ class InternshipRequest extends Model
 
     protected static function booted(): void
     {
+        static::saved(function (self $request): void {
+            app(InternshipCalculationHistory::class)->record($request);
+        });
         static::saving(function (self $request): void {
             if ($request->exists && ! in_array($request->getRawOriginal('status'), ['draft', 'pending_correction'], true)
                 && $request->isDirty(['student_snapshot', 'internship_type_snapshot', 'granting_party_snapshot', 'supervisor_snapshot', 'student_address_id', 'workplace_address_id'])) {
@@ -254,7 +261,7 @@ class InternshipRequest extends Model
                 'granting_party_registration_request_id' => ['nullable', 'integer', Rule::exists(GrantingPartyRegistrationRequest::class, 'id')],
                 'supervisor_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')->where('type', AffiliationType::Supervisor->value)],
                 'supervisor_registration_request_id' => ['nullable', 'integer', Rule::exists(SupervisorRegistrationRequest::class, 'id')],
-                'student_year_semester' => [$required, 'string', 'max:255', ...($isIncomplete ? [] : [Rule::in($request->internship_type_snapshot['rules']['allowed_academic_periods'] ?? $request->internshipType?->allowed_academic_periods ?? [])])],
+                'student_year_semester' => [$required, 'string', 'max:255', ...($isIncomplete ? [] : [Rule::in($request->internship_type_snapshot['rules']['allowed_academic_periods'] ?? $request->internshipType->allowed_academic_periods ?? [])])],
                 'legal_capacity_declaration' => [$required, Rule::enum(LegalCapacityDeclaration::class)],
                 'legal_guardian_name' => [$isMinor ? 'required' : 'nullable', 'string', 'max:255'],
                 'legal_guardian_cpf' => [$isMinor ? 'required' : 'nullable', 'string'],

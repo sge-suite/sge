@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\EducationLevel;
+use App\Enums\GeneratedDocumentType;
 use App\Enums\LegalCapacityDeclaration;
 use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\BrazilianContactHelper;
@@ -154,11 +155,16 @@ class GeneratedDocumentSnapshot
         }
         $hours = $stage->weekly_hours;
         $needsSchedule = str_starts_with($name, 'ESTAGIO_CARGA_') || $name === 'ESTAGIO_JORNADA_DESCRICAO';
-        $schedule = $needsSchedule ? $stage->workSchedules->filter(fn ($schedule): bool => $schedule->starts_on->lte($generatedAt)
+        $schedule = $needsSchedule && $template->document_type !== GeneratedDocumentType::Main ? $stage->workSchedules->filter(fn ($schedule): bool => $schedule->starts_on->lte($generatedAt)
             && ($schedule->ends_on === null || $schedule->ends_on->gte($generatedAt)))->sortByDesc('starts_on')->first() : null;
         if ($schedule !== null) {
             $hours = $schedule->weekly_hours;
         }
+        $proposal = $template->document_type === GeneratedDocumentType::Addendum ? $stage->proposedWorkSchedule : null;
+        if ($proposal !== null) {
+            $hours = $proposal['weekly_hours'];
+        }
+        $projectedEnd = $proposal['projected_end_date'] ?? $stage->projected_end_date;
         $total = $stage->internship_type_snapshot['rules']['required_hours'] ?? null;
         $maxHours = $hours === [] ? null : max($hours);
         $grant = $stage->is_remunerated ? $this->text($stage->grant_value) : null;
@@ -178,8 +184,10 @@ class GeneratedDocumentSnapshot
             'ESTAGIO_SETOR' => $this->text($stage->internship_sector),
             'ESTAGIO_ATIVIDADES' => $this->text($stage->activities),
             'ESTAGIO_DATA_INICIO' => DateHelper::formatShort($stage->planned_start_date),
-            'ESTAGIO_DATA_TERMINO_PREVISTA' => DateHelper::formatShort($stage->projected_end_date),
-            'ESTAGIO_PERIODO' => DateHelper::formatShort($stage->planned_start_date).' a '.DateHelper::formatShort($stage->projected_end_date),
+            'ESTAGIO_DATA_TERMINO_PREVISTA' => DateHelper::formatShort($projectedEnd),
+            'ESTAGIO_PERIODO' => DateHelper::formatShort($stage->planned_start_date).' a '.DateHelper::formatShort($projectedEnd),
+            'ADITIVO_VIGENCIA_INICIO' => $proposal === null ? null : DateHelper::formatShort($proposal['starts_on']),
+            'ADITIVO_DESCRICAO_ALTERACAO' => $proposal === null ? null : 'Alteração da jornada a partir de '.DateHelper::formatShort($proposal['starts_on']).': '.$this->scheduleDescription($hours),
             'ESTAGIO_CARGA_TOTAL' => $this->text($total),
             'ESTAGIO_CARGA_TOTAL_EXTENSO' => $total === null ? null : NumberToWordsHelper::cardinal((int) $total),
             'ESTAGIO_CARGA_DIARIA_MAXIMA' => $this->text($maxHours),

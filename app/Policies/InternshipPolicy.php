@@ -167,6 +167,23 @@ class InternshipPolicy
                 InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused], true);
     }
 
+    public function applyWorkSchedule(User $user, Internship $internship): bool
+    {
+        return $this->update($user, $internship) && $internship->course->deactivated_at === null
+            && in_array($internship->status, [InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused], true);
+    }
+
+    public function registerExternalDocument(User $user, Internship $internship): bool
+    {
+        return $this->update($user, $internship) && $internship->course->deactivated_at === null
+            && $internship->status !== InternshipStatus::PendingCorrection;
+    }
+
+    public function viewCalculationHistory(User $user, Internship $internship): bool
+    {
+        return $this->view($user, $internship) && $this->context->selected($user)->type === AffiliationType::InternshipOffice;
+    }
+
     public function generateDocument(User $user, Internship $internship, GeneratedDocumentType $type): bool
     {
         if (! $this->view($user, $internship)) {

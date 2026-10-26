@@ -80,6 +80,13 @@ class GeneratedDocumentPolicy
             && $document->status === GeneratedDocumentStatus::AwaitingSignature;
     }
 
+    public function requestDateCorrection(User $user, GeneratedDocument $document): bool
+    {
+        return $this->confirmSignature($user, $document) && $document->type === GeneratedDocumentType::Main
+            && $document->signatureDateExpired() && $document->internship->released_at === null
+            && $document->internship->internshipRequest()->exists();
+    }
+
     private function manage(User $user, GeneratedDocument $document): bool
     {
         return $this->view($user, $document)

@@ -37,6 +37,7 @@ use App\Models\InternshipPause;
 use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
 use App\Models\InternshipType;
+use App\Models\InternshipWorkSchedule;
 use App\Models\SupervisorEvaluation;
 use App\Models\SupervisorRegistrationRequest;
 use App\Models\TemplateVersion;
@@ -76,6 +77,9 @@ class AdministrativeActivityPresenter
     public static function eventOptions(): array
     {
         return ['created' => 'Criação', 'updated' => 'Alteração', 'deleted' => 'Exclusão', 'restored' => 'Restauração',
+            'end_date_calculated' => 'Previsão de término calculada', 'external_document_registered' => 'Documento externo registrado',
+            'expired_document_signature_confirmed' => 'Assinatura conferida após análise da data vencida',
+            'document_date_correction_requested' => 'Correção da data inicial solicitada',
             'signature_notice_requested' => 'Avisos de assinatura solicitados', 'password_changed' => 'Senha alterada', 'template_version_uploaded' => 'Arquivo DOCX enviado',
             'template_current_version_changed' => 'Versão vigente do template alterada',
             'document_download_transmitted' => 'Documento enviado para download', 'document_download_failed' => 'Falha no download'];
@@ -273,6 +277,7 @@ class AdministrativeActivityPresenter
             (new SupervisorEvaluation)->getMorphClass() => 'Avaliação do supervisor',
             (new InternshipCancellationRequest)->getMorphClass() => 'Pedido de cancelamento',
             (new InternshipPause)->getMorphClass() => 'Pausa de estágio',
+            (new InternshipWorkSchedule)->getMorphClass() => 'Vigência de jornada',
             (new InternshipCalendarOverride)->getMorphClass() => 'Exceção do calendário de estágio',
             (new InternshipRequest)->getMorphClass() => 'Solicitação de estágio',
             (new InternshipRequestCorrection)->getMorphClass() => 'Correção de solicitação',
@@ -343,6 +348,10 @@ class AdministrativeActivityPresenter
             ],
             (new InternshipPause)->getMorphClass() => [
                 'internship_id' => 'Estágio', 'starts_at' => 'Início da pausa', 'ends_at' => 'Fim da pausa', 'reason' => 'Motivo',
+            ],
+            (new InternshipWorkSchedule)->getMorphClass() => [
+                'internship_id' => 'Estágio', 'starts_on' => 'Início da vigência', 'ends_on' => 'Fim da vigência',
+                'weekly_hours' => 'Jornada semanal', 'generated_document_id' => 'Aditivo assinado',
             ],
             (new InternshipCalendarOverride)->getMorphClass() => [
                 'internship_id' => 'Estágio', 'date' => 'Data da exceção', 'is_working_day' => 'Expediente liberado', 'reason' => 'Justificativa',
@@ -647,7 +656,8 @@ class AdministrativeActivityPresenter
 
         if (in_array($field, ['planned_start_date', 'projected_end_date', 'effective_date'], true)
             || ($subjectType === (new InternshipPause)->getMorphClass() && in_array($field, ['starts_at', 'ends_at'], true))
-            || ($subjectType === (new InternshipCalendarOverride)->getMorphClass() && $field === 'date')) {
+            || ($subjectType === (new InternshipCalendarOverride)->getMorphClass() && $field === 'date')
+            || ($subjectType === (new InternshipWorkSchedule)->getMorphClass() && in_array($field, ['starts_on', 'ends_on'], true))) {
             return formatShort((string) $value);
         }
 

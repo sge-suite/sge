@@ -7,6 +7,7 @@ use App\Models\Internship;
 use App\Models\InternshipCalendarOverride;
 use App\Models\InternshipCancellationRequest;
 use App\Models\InternshipPause;
+use App\Models\InternshipWorkSchedule;
 use App\Models\SupervisorEvaluation;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\Activitylog\Models\Activity;
@@ -28,7 +29,7 @@ class InternshipActivityScope
                 $query->where('subject_type', (new Internship)->getMorphClass())->whereIn('subject_id', clone $internshipIds);
             });
 
-            foreach ([new InternshipPause, new InternshipCalendarOverride, new GeneratedDocument, new SupervisorEvaluation, new InternshipCancellationRequest] as $subject) {
+            foreach ([new InternshipPause, new InternshipCalendarOverride, new InternshipWorkSchedule, new GeneratedDocument, new SupervisorEvaluation, new InternshipCancellationRequest] as $subject) {
                 $query->orWhere(function (Builder $query) use ($subject, $internshipIds, $recordedInternshipIds): void {
                     $historicalIds = Activity::query()->where('subject_type', $subject->getMorphClass())
                         ->where(function (Builder $query) use ($recordedInternshipIds): void {
