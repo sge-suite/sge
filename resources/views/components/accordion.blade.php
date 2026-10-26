@@ -1,17 +1,30 @@
 @props(['title', 'open' => false])
 
+@php($panelId = 'accordion-'.\Illuminate\Support\Str::uuid())
+
 <div
     {{ $attributes->class('t-acc rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/50') }}
     data-open="{{ $open ? 'true' : 'false' }}"
-    x-data="{ open: @js($open) }"
+    x-data="{
+        open: @js($open),
+        toggle() {
+            if (this.open && this.$refs.panel.contains(document.activeElement)) {
+                this.$refs.trigger.focus({ preventScroll: true });
+            }
+            this.open = ! this.open;
+        }
+    }"
     x-bind:data-open="open ? 'true' : 'false'"
 >
     <button
+        id="{{ $panelId }}-trigger"
+        x-ref="trigger"
         type="button"
         class="t-acc-head flex w-full items-center justify-between gap-3 rounded-lg px-4 py-3 text-start text-sm font-medium text-zinc-700 hover:text-zinc-950 dark:text-zinc-200 dark:hover:text-white"
         aria-expanded="{{ $open ? 'true' : 'false' }}"
+        aria-controls="{{ $panelId }}"
         x-bind:aria-expanded="open ? 'true' : 'false'"
-        x-on:click="open = ! open"
+        x-on:click="toggle()"
     >
         <span>{{ $title }}</span>
         <span class="t-acc-chevron text-zinc-500 dark:text-zinc-400" aria-hidden="true">
@@ -21,7 +34,7 @@
         </span>
     </button>
 
-    <div class="t-acc-panel" aria-hidden="{{ $open ? 'false' : 'true' }}" x-bind:aria-hidden="open ? 'false' : 'true'">
+    <div id="{{ $panelId }}" x-ref="panel" role="region" aria-labelledby="{{ $panelId }}-trigger" class="t-acc-panel" aria-hidden="{{ $open ? 'false' : 'true' }}" x-bind:aria-hidden="open ? 'false' : 'true'" @if (! $open) inert @endif x-bind:inert="! open">
         <div class="t-acc-panel-inner">
             <div class="px-4 pb-4">
                 {{ $slot }}
