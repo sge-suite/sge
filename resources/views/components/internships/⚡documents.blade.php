@@ -381,7 +381,7 @@ new class extends Component
     }
 }; ?>
 
-<section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="documents-heading"
+<section id="internship-documents" class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="documents-heading"
     x-data x-on:document-generated.window="if ($event.detail.internshipId === {{ $internshipId }}) window.location.assign($event.detail.url)">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div><flux:heading id="documents-heading" size="lg" level="2">Documentos</flux:heading><flux:text class="mt-1">Cada emissão preserva os dados e a versão do template. Baixe em DOCX ou PDF.</flux:text></div>

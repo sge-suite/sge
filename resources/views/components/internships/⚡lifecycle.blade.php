@@ -2,6 +2,8 @@
 
 use App\Actions\ManageInternshipLifecycle;
 use App\Enums\InternshipCancellationRequestStatus;
+use App\Enums\GeneratedDocumentStatus;
+use App\Enums\GeneratedDocumentType;
 use App\Models\Internship;
 use App\Models\InternshipCancellationRequest;
 use App\Support\CancellationReasonOptions;
@@ -11,6 +13,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 new class extends Component
@@ -66,6 +69,37 @@ new class extends Component
         return app(CancellationReasonOptions::class)->forUser(auth()->user());
     }
 
+    /** @return list<array{label: string, met: bool, description: string, href: string, action: string}> */
+    #[Computed]
+    public function releaseRequirements(): array
+    {
+        Gate::authorize('release', $this->internship);
+        $documents = $this->internship->generatedDocuments()->where('type', GeneratedDocumentType::Main)
+            ->where('status', '!=', GeneratedDocumentStatus::Cancelled)->with(['templateVersion.documentTemplate', 'externalRegistration'])->orderBy('id')->get();
+        $requirements = [['label' => 'Pedido de cancelamento', 'met' => $this->pendingCancellation === null,
+            'description' => $this->pendingCancellation === null ? 'Não há pedido de cancelamento em análise.' : 'Decida o pedido nº '.$this->pendingCancellation->id.' antes de liberar o estágio.',
+            'href' => '#lifecycle-heading', 'action' => 'Conferir pedido de cancelamento']];
+        if ($documents->isEmpty()) {
+            $requirements[] = ['label' => 'Documentos principais', 'met' => false, 'description' => 'Não há documento principal vigente. Gere ou registre o documento e confira as assinaturas.',
+                'href' => '#internship-documents', 'action' => 'Ir aos documentos'];
+        }
+        foreach ($documents as $document) {
+            $name = $document->snapshot['template_name'] ?? $document->externalRegistration?->properties->get('document_name') ?? $document->templateVersion?->documentTemplate?->name ?? 'Documento externo';
+            $requirements[] = ['label' => 'Documento nº '.$document->id.' · '.$name.($document->templateVersion === null ? '' : ' · v'.$document->templateVersion->version),
+                'met' => $document->status === GeneratedDocumentStatus::Signed, 'description' => $document->status->label().'. Todos os documentos principais vigentes precisam estar assinados.',
+                'href' => '#internship-documents', 'action' => 'Conferir este número na lista de documentos'];
+        }
+
+        return $requirements;
+    }
+
+    #[On('internship-updated')]
+    public function refreshRequirements(): void
+    {
+        Gate::authorize('viewLifecycle', $this->internship);
+        unset($this->internship, $this->pendingCancellation, $this->cancellations, $this->releaseRequirements);
+    }
+
     public function openOperation(string $operation, ?int $requestId = null): void
     {
         $ability = match ($operation) {
@@ -105,9 +139,18 @@ new class extends Component
 <section class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="lifecycle-heading">
     <flux:heading id="lifecycle-heading" size="lg" level="2">Situação e encerramento</flux:heading>
     <flux:text>As operações abaixo conferem os requisitos, registram a decisão no histórico e enviam os avisos correspondentes.</flux:text>
+    @can('release', $this->internship)
+        <x-operation-requirements :items="$this->releaseRequirements" title="Antes de liberar o estágio" id="release-requirements" />
+        <flux:button size="sm" variant="ghost" wire:click="refreshRequirements" wire:loading.attr="disabled">Atualizar conferência</flux:button>
+    @endcan
+    @can('complete', $this->internship)
+        @if ($this->pendingCancellation !== null)
+            <flux:callout variant="warning" heading="Conclusão aguardando decisão do cancelamento">Decida o pedido de cancelamento nº {{ $this->pendingCancellation->id }} nas ações abaixo antes de concluir o estágio.</flux:callout>
+        @endif
+    @endcan
     <div class="flex flex-wrap gap-3">
-        @can('release', $this->internship)<flux:button variant="primary" wire:click="openOperation('release')">Liberar estágio</flux:button>@endcan
-        @can('complete', $this->internship)<flux:button variant="primary" wire:click="openOperation('complete')">Concluir estágio</flux:button>@endcan
+        @can('release', $this->internship)<flux:button variant="primary" wire:click="openOperation('release')" :disabled="collect($this->releaseRequirements)->contains(fn ($item) => ! $item['met'])">Liberar estágio</flux:button>@endcan
+        @can('complete', $this->internship)<flux:button variant="primary" wire:click="openOperation('complete')" :disabled="$this->pendingCancellation !== null">Concluir estágio</flux:button>@endcan
         @if ($this->pendingCancellation === null)
             @can('cancel', $this->internship)<flux:button variant="danger" wire:click="openOperation('cancel')">Cancelar estágio</flux:button>@endcan
             @can('requestCancellation', $this->internship)<flux:button wire:click="openOperation('request_cancellation')">Solicitar cancelamento</flux:button>@endcan

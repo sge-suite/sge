@@ -4,6 +4,9 @@ use App\Actions\ReviewEmancipationEvidence;
 use App\Actions\ReviewInternshipRegistration;
 use App\Actions\ReviewInternshipRequest;
 use App\Enums\AffiliationType;
+use App\Enums\EmancipationEvidenceStatus;
+use App\Enums\InternshipRequestCorrectionStatus;
+use App\Enums\LegalCapacityDeclaration;
 use App\Models\Affiliation;
 use App\Models\GrantingParty;
 use App\Models\InternshipRequest;
@@ -60,6 +63,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     {
         $request = InternshipRequest::query()->with(['internship', 'advisorAffiliation.user', 'course', 'internshipType', 'studentAddress.city', 'workplaceAddress.city',
             'grantingPartyRegistrationRequest', 'supervisorRegistrationRequest', 'emancipationEvidences' => fn ($query) => $query->latest('id'),
+            'emancipationEvidences.media', 'affiliation', 'grantingParty', 'supervisorAffiliation',
             'corrections' => fn ($query) => $query->latest('id')])->findOrFail($this->requestId);
         Gate::authorize('review', $request);
         if ($request->grantingPartyRegistrationRequest === null && isset($request->granting_party_snapshot['source_registration_request_id'])) {
@@ -95,6 +99,41 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     public function canDecide(): bool
     {
         return app(StudentInternshipContext::class)->selected(Auth::user())?->campus?->deactivated_at === null;
+    }
+
+    /** @return list<array{label: string, met: bool, description: string, href: string, action: string}> */
+    #[Computed]
+    public function acceptanceRequirements(): array
+    {
+        Gate::authorize('review', $this->record);
+        $request = $this->record;
+        $owner = $request->affiliation;
+        $party = $request->grantingParty;
+        $supervisor = $request->supervisorAffiliation;
+        $needsQualification = $request->internship === null || $request->corrections
+            ->where('status', InternshipRequestCorrectionStatus::Responded)->contains(fn ($correction) => in_array('supervisor', $correction->affected_sections, true));
+        $advisorId = $this->advisorId ?? $request->internship?->advisor_affiliation_id ?? $request->advisor_affiliation_id;
+        $items = [
+            ['label' => 'Vínculo discente', 'met' => $owner?->type === AffiliationType::Student && $owner->deactivated_at === null && $owner->course_id === $request->course_id,
+                'description' => 'O vínculo discente precisa estar ativo e associado ao curso da solicitação.', 'href' => '#request-data', 'action' => 'Revisar dados da solicitação'],
+            ['label' => 'Tipo de estágio', 'met' => $request->internshipType !== null && $request->internshipType->deactivated_at === null && $request->internshipType->course_id === $owner?->course_id,
+                'description' => 'O tipo precisa estar ativo e pertencer ao curso do vínculo discente.', 'href' => '#request-data', 'action' => 'Revisar tipo de estágio'],
+            ['label' => 'Concedente associada', 'met' => $request->granting_party_registration_request_id === null && $party !== null && $party->deactivated_at === null && $party->campus_id === $owner?->campus_id,
+                'description' => 'Aprove e associe o pedido de concedente, quando houver, a um cadastro ativo do campus.', 'href' => $request->grantingPartyRegistrationRequest === null ? '#request-data' : '#registration-granting_party', 'action' => 'Conferir concedente'],
+            ['label' => 'Supervisor associado', 'met' => $request->supervisor_registration_request_id === null && $supervisor?->type === AffiliationType::Supervisor && $supervisor->deactivated_at === null && $supervisor->campus_id === $owner?->campus_id,
+                'description' => 'Aprove e associe o pedido de supervisor, quando houver, a um vínculo ativo desse papel no campus.', 'href' => $request->supervisorRegistrationRequest === null ? '#review-decision' : '#registration-supervisor', 'action' => 'Conferir supervisor'],
+            ['label' => 'Orientador', 'met' => $this->choices['advisors']->contains('id', $advisorId),
+                'description' => 'Selecione um vínculo ativo de orientador do campus para este estágio.', 'href' => '#review-decision', 'action' => 'Escolher orientador'],
+            ['label' => 'Qualificação do supervisor', 'met' => ! $needsQualification || $this->choices['qualifications']->contains('id', $this->supervisorQualificationId),
+                'description' => $needsQualification ? 'Escolha a formação ou experiência cadastrada do supervisor que será congelada no estágio.' : 'A qualificação histórica será preservada porque a seção de supervisor não foi corrigida.', 'href' => '#review-decision', 'action' => 'Conferir qualificação'],
+        ];
+        if ($request->legal_capacity_declaration === LegalCapacityDeclaration::EmancipatedMinor) {
+            $evidence = $request->emancipationEvidences->first();
+            $items[] = ['label' => 'Comprovante de emancipação', 'met' => $evidence?->status === EmancipationEvidenceStatus::Approved && $evidence->hasMedia('emancipation_evidence'),
+                'description' => 'O comprovante mais recente precisa estar anexado e aprovado antes do aceite.', 'href' => $evidence === null ? '#request-data' : '#review-evidence-'.$evidence->id, 'action' => 'Conferir comprovante'];
+        }
+
+        return $items;
     }
 
     public function decide(string $operation, ReviewInternshipRequest $action): void
@@ -179,10 +218,13 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         @endif
     </div>
     @if ($errors->any())<flux:callout variant="danger" heading="Confira a decisão"><ul>@foreach($errors->all() as $index => $error)<li wire:key="review-error-{{ $index }}">{{ $error }}</li>@endforeach</ul></flux:callout>@endif
-    <div class="space-y-6 rounded-xl border border-zinc-200 p-6 text-base dark:border-zinc-700">@include('pages.internship-requests.partials.review')</div>
+    @if ($this->canDecide && in_array($request->status->value, ['submitted', 'under_review'], true))
+        <x-operation-requirements :items="$this->acceptanceRequirements" title="Antes de aceitar e formalizar" id="acceptance-requirements" />
+    @endif
+    <div id="request-data" class="space-y-6 rounded-xl border border-zinc-200 p-6 text-base dark:border-zinc-700">@include('pages.internship-requests.partials.review')</div>
     @foreach (['granting_party' => $request->grantingPartyRegistrationRequest, 'supervisor' => $request->supervisorRegistrationRequest] as $kind => $proposal)
         @if ($proposal)
-            <section wire:key="registration-{{ $kind }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="registration-{{ $kind }}" data-unsaved-models='@json([$kind === "granting_party" ? "partyId" : "supervisorId"])' data-unsaved-actions='["registration"]' data-unsaved-enabled="{{ $this->canDecide && ($kind === 'granting_party' ? $pendingParty : $pendingSupervisor) && in_array($proposal->status->value, ['submitted', 'under_review'], true) ? 'true' : 'false' }}">
+            <section id="registration-{{ $kind }}" wire:key="registration-{{ $kind }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="registration-{{ $kind }}" data-unsaved-models='@json([$kind === "granting_party" ? "partyId" : "supervisorId"])' data-unsaved-actions='["registration"]' data-unsaved-enabled="{{ $this->canDecide && ($kind === 'granting_party' ? $pendingParty : $pendingSupervisor) && in_array($proposal->status->value, ['submitted', 'under_review'], true) ? 'true' : 'false' }}">
                 <x-form-save-status />
                 <flux:heading level="2">Pedido de cadastro: {{ $kind === 'granting_party' ? 'concedente' : 'supervisor' }} · {{ $proposal->status->label() }}</flux:heading>
                 <flux:text size="lg">Revise a proposta acima. Se necessário, crie o cadastro pela gestão existente e depois associe-o aqui. A associação exige um cadastro ativo do mesmo campus.</flux:text>
@@ -214,7 +256,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         @endif
     @endforeach
     @foreach ($request->emancipationEvidences as $evidence)
-        <section wire:key="review-evidence-{{ $evidence->id }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="evidence-review-{{ $evidence->id }}" data-unsaved-models='["evidenceReason"]' data-unsaved-actions='["evidence"]' data-unsaved-enabled="{{ $loop->first && $this->canDecide && $evidence->status->value === 'submitted' ? 'true' : 'false' }}">
+        <section id="review-evidence-{{ $evidence->id }}" wire:key="review-evidence-{{ $evidence->id }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="evidence-review-{{ $evidence->id }}" data-unsaved-models='["evidenceReason"]' data-unsaved-actions='["evidence"]' data-unsaved-enabled="{{ $loop->first && $this->canDecide && $evidence->status->value === 'submitted' ? 'true' : 'false' }}">
             <x-form-save-status />
             <flux:heading level="2">Comprovante de emancipação · {{ $evidence->status->label() }}</flux:heading>
             <flux:button :href="route('internship-requests.evidence', $evidence)" target="_blank" rel="noopener">Abrir comprovante privado</flux:button>
@@ -225,7 +267,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         </section>
     @endforeach
     @if ($this->canDecide)
-    <section class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="request-review" data-unsaved-models='["message", "sections", "sectionMessages", "advisorId", "supervisorQualificationId"]' data-unsaved-actions='["decide"]' data-unsaved-enabled="{{ in_array($request->status->value, ['submitted', 'under_review', 'accepted', 'pending_correction'], true) ? 'true' : 'false' }}">
+    <section id="review-decision" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="request-review" data-unsaved-models='["message", "sections", "sectionMessages", "advisorId", "supervisorQualificationId"]' data-unsaved-actions='["decide"]' data-unsaved-enabled="{{ in_array($request->status->value, ['submitted', 'under_review', 'accepted', 'pending_correction'], true) ? 'true' : 'false' }}">
         <x-form-save-status />
         <flux:heading level="2">Decisão do Setor de Estágio</flux:heading>
         @if ($request->internship !== null)
@@ -239,7 +281,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
             </flux:callout>
         @endif
         @if ($request->supervisor_affiliation_id !== null)
-            <x-select wire:model="supervisorQualificationId" :value="$supervisorQualificationId ?? ''" label="Qualificação do supervisor para este estágio" placeholder="Selecione a formação ou experiência adequada" :options="$this->choices['qualifications']->mapWithKeys(fn ($qualification) => [$qualification->id => $qualification->label()])->all()" :error="$errors->first('supervisorQualificationId')" />
+            <x-select wire:model.live="supervisorQualificationId" :value="$supervisorQualificationId ?? ''" label="Qualificação do supervisor para este estágio" placeholder="Selecione a formação ou experiência adequada" :options="$this->choices['qualifications']->mapWithKeys(fn ($qualification) => [$qualification->id => $qualification->label()])->all()" :error="$errors->first('supervisorQualificationId')" />
             <flux:text size="sm">A escolha será copiada para o histórico do estágio ao aceitar a solicitação.</flux:text>
             @if ($this->choices['qualifications']->isEmpty())
                 <flux:callout variant="warning">O supervisor ainda não possui formações ou experiências cadastradas. Atualize o cadastro antes de formalizar o estágio.</flux:callout>
@@ -258,12 +300,12 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
                 <flux:textarea wire:model="sectionMessages.{{ $section }}" :label="'O que o discente precisa corrigir em '.\App\Models\InternshipRequestCorrection::sectionLabel($section).'?'" rows="3" maxlength="5000" required error:name="sectionMessages.{{ $section }}" />
             </div>
         @endforeach
-        <x-select wire:model="advisorId" :value="$advisorId ?? ''" label="Orientador" placeholder="Selecione" :options="$this->choices['advisors']->mapWithKeys(fn ($advisor) => [$advisor->id => $advisor->user->name.' - '.$advisor->email])->all()" :invalid="$errors->has('advisorId') || $errors->has('advisor_affiliation_id')" :error="$errors->first('advisorId') ?: $errors->first('advisor_affiliation_id')" searchable />
+        <x-select wire:model.live="advisorId" :value="$advisorId ?? ''" label="Orientador" placeholder="Selecione" :options="$this->choices['advisors']->mapWithKeys(fn ($advisor) => [$advisor->id => $advisor->user->name.' - '.$advisor->email])->all()" :invalid="$errors->has('advisorId') || $errors->has('advisor_affiliation_id')" :error="$errors->first('advisorId') ?: $errors->first('advisor_affiliation_id')" searchable />
         @if (in_array($request->status->value, ['submitted', 'under_review', 'accepted', 'pending_correction'], true))
             <div class="flex flex-wrap gap-3">
                 @if (in_array($request->status->value, ['submitted', 'under_review'], true))<flux:button wire:click="decide('begin')" wire:loading.attr="disabled">Iniciar análise</flux:button>@endif
                 <flux:button wire:click="decide('return')" wire:loading.attr="disabled">Devolver para correção</flux:button>
-                @if (in_array($request->status->value, ['submitted', 'under_review'], true))<flux:button variant="primary" wire:click="decide('accept')" wire:loading.attr="disabled">Aceitar e formalizar</flux:button>@endif
+                @if (in_array($request->status->value, ['submitted', 'under_review'], true))<flux:button variant="primary" wire:click="decide('accept')" wire:loading.attr="disabled" :disabled="collect($this->acceptanceRequirements)->contains(fn ($item) => ! $item['met'])">Aceitar e formalizar</flux:button>@endif
                 @if ($request->internship_id === null && in_array($request->status->value, ['submitted', 'under_review'], true))<flux:button variant="danger" wire:click="decide('reject')" wire:loading.attr="disabled">Recusar com motivo</flux:button>@endif
             </div>
         @endif
