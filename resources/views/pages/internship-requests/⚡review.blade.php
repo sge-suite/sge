@@ -90,7 +90,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     {
         $campusId = app(StudentInternshipContext::class)->selected(Auth::user())->campus_id;
         return ['qualifications' => \App\Models\SupervisorQualification::query()->where('user_id', $this->record->supervisorAffiliation?->user_id)->get(),
-            'parties' => GrantingParty::query()->active()->where('campus_id', $campusId)->orderBy('name')->get(),
+            'parties' => GrantingParty::query()->active()->where('campus_id', $campusId)->with('address.city')->orderBy('name')->orderBy('id')->get(),
             'supervisors' => Affiliation::query()->active()->where('campus_id', $campusId)->where('type', AffiliationType::Supervisor->value)->with('user')->get(),
             'advisors' => Affiliation::query()->active()->where('campus_id', $campusId)->where('type', AffiliationType::Advisor->value)->with('user')->get()];
     }
@@ -233,7 +233,21 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
                         <flux:button :href="route('granting-parties.create', ['internship_request' => $request->id])" icon="building-office" target="_blank" rel="noopener">Cadastrar concedente com os dados do pedido</flux:button>
                         <flux:text>Ao voltar para esta tela, a lista será atualizada automaticamente. Selecione o cadastro criado e aprove a associação.</flux:text>
                     @endif
-                    <x-select wire:model="partyId" :value="$partyId ?? ''" label="Concedente aprovada" placeholder="Selecione" :options="$this->choices['parties']->pluck('name', 'id')->all()" :invalid="$errors->has('partyId')" :error="$errors->first('partyId')" searchable />
+                    <x-select wire:model.live="partyId" :value="$partyId ?? ''" label="Concedente a associar" placeholder="Busque por nome, documento, cidade ou endereço" :options="$this->choices['parties']->mapWithKeys(fn ($party) => [$party->id => $party->selectionLabel()])->all()" :invalid="$errors->has('partyId')" :error="$errors->first('partyId')" :disabled="! $this->canDecide || ! $pendingParty || ! in_array($proposal->status->value, ['submitted', 'under_review'], true)" searchable />
+                    <flux:text size="sm">Confira a unidade pelo documento e endereço. Selecionar apenas prepara a associação; a aprovação acontece no botão abaixo.</flux:text>
+                    @php($selectedParty = $this->choices['parties']->firstWhere('id', $partyId))
+                    @if ($selectedParty !== null)
+                        <div wire:key="review-selected-party-{{ $selectedParty->id }}" role="status" class="space-y-3 rounded-xl border border-brand/30 bg-brand/5 p-4">
+                            <flux:heading level="3">Confira a unidade selecionada · nº {{ $selectedParty->id }}</flux:heading>
+                            <dl class="grid gap-3 text-sm sm:grid-cols-2">
+                                @foreach (['Concedente' => $selectedParty->name, 'CPF/CNPJ' => \App\Helpers\BrazilianDocumentHelper::formatCpfCnpj($selectedParty->document_number), 'Cidade/UF' => $selectedParty->address?->city?->name.($selectedParty->address?->city ? '/'.$selectedParty->address->city->state->value : ''), 'Endereço' => $selectedParty->address?->street.', '.$selectedParty->address?->number.' · '.$selectedParty->address?->neighborhood] as $label => $value)
+                                    <div wire:key="review-party-detail-{{ $loop->index }}"><dt class="text-zinc-500 dark:text-zinc-400">{{ $label }}</dt><dd class="mt-1 wrap-anywhere text-zinc-900 dark:text-white">{{ filled($value) ? $value : 'Não informado' }}</dd></div>
+                                @endforeach
+                            </dl>
+                        </div>
+                    @elseif ($partyId !== null)
+                        <flux:callout variant="warning">O cadastro selecionado não está mais disponível entre as concedentes ativas deste campus. Atualize a lista e escolha uma unidade disponível.</flux:callout>
+                    @endif
                     @if ($pendingParty && $this->canDecide && in_array($proposal->status->value, ['submitted', 'under_review'], true))
                         <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="refreshChoices">Atualizar lista de concedentes</flux:button>
                     @endif
@@ -249,7 +263,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
                     @endif
                 @endif
                 @if ($this->canDecide && in_array($proposal->status->value, ['submitted', 'under_review'], true))
-                    <div class="flex flex-wrap gap-3"><flux:button wire:click="registration('{{ $kind }}', true)" wire:loading.attr="disabled">Aprovar e associar cadastro</flux:button><flux:button variant="danger" wire:click="registration('{{ $kind }}', false)" wire:loading.attr="disabled">Recusar pedido com o motivo abaixo</flux:button></div>
+                    <div class="flex flex-wrap gap-3"><flux:button wire:click="registration('{{ $kind }}', true)" wire:loading.attr="disabled" :disabled="$kind === 'granting_party' && ! $this->choices['parties']->contains('id', $partyId)">Aprovar e associar cadastro</flux:button><flux:button variant="danger" wire:click="registration('{{ $kind }}', false)" wire:loading.attr="disabled">Recusar pedido com o motivo abaixo</flux:button></div>
                 @endif
                 @if($proposal->decision_reason)<flux:text>{{ $proposal->decision_reason }}</flux:text>@endif
             </section>

@@ -8,6 +8,7 @@ use App\Casts\PhoneCast;
 use App\Concerns\GrantingPartyValidationRules;
 use App\Concerns\HasOwnedAddresses;
 use App\Enums\PartyDocumentType;
+use App\Helpers\BrazilianDocumentHelper;
 use Database\Factories\GrantingPartyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -69,6 +70,19 @@ class GrantingParty extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(Address::class);
+    }
+
+    public function selectionLabel(): string
+    {
+        $city = $this->address?->city;
+
+        return implode(' · ', array_filter([
+            $this->name,
+            BrazilianDocumentHelper::formatCpfCnpj($this->document_number),
+            $city === null ? 'Cidade não informada' : $city->name.'/'.$city->state->value,
+            filled($this->address?->street) ? $this->address->street.', '.$this->address->number : 'Endereço não informado',
+            'Unidade nº '.$this->id,
+        ], fn (?string $value): bool => filled($value)));
     }
 
     /** @return BelongsTo<Campus, $this> */

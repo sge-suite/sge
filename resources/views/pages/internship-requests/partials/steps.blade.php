@@ -52,7 +52,7 @@
     @if ($partyMatchMessage)<div role="status" tabindex="-1" x-data x-init="$el.focus({ preventScroll: true })"><flux:callout :variant="$choices['selectedParty'] ? 'success' : 'warning'" icon="information-circle" :heading="$partyMatchMessage" /></div>@endif
     @if (! $pendingParty)
         <x-select wire:model.live="values.granting_party_id" :value="$values['granting_party_id'] ?? ''" label="Onde você fará o estágio?" placeholder="Buscar por nome ou CPF/CNPJ"
-            :options="collect([$choices['selectedParty']])->merge($choices['parties'])->filter()->unique('id')->mapWithKeys(fn ($party) => [$party->id => $party->name.' · '.\App\Helpers\BrazilianDocumentHelper::formatCpfCnpj($party->document_number).' · '.($party->address?->city?->name ?? 'Cidade não informada').($party->address?->city ? '/'.$party->address->city->state->value : '').' · '.($party->address?->street ? $party->address->street.', '.$party->address->number : 'Unidade nº '.$party->id)])->all()"
+            :options="collect([$choices['selectedParty']])->merge($choices['parties'])->filter()->unique('id')->mapWithKeys(fn ($party) => [$party->id => $party->selectionLabel()])->all()"
             :empty="mb_strlen(trim($partySearch)) < 2 && blank($partyCityId) ? 'Digite pelo menos dois caracteres para buscar.' : 'Não encontramos uma concedente disponível para seu campus com esses filtros.'"
             :invalid="$errors->has('granting_party_id')" :error="$errors->first('granting_party_id')" required>
             <x-slot:search>
