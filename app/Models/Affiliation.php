@@ -81,6 +81,18 @@ class Affiliation extends Model
         return $this->belongsTo(Course::class);
     }
 
+    public function contextLabel(): string
+    {
+        return implode(' · ', array_filter([
+            $this->type->label(),
+            $this->campus_id === null ? 'Escopo global' : $this->campus?->name,
+            $this->course?->name,
+            filled($this->registration_number) ? 'Matrícula '.$this->registration_number : null,
+            $this->email,
+            'Vínculo #'.$this->id,
+        ], fn (?string $value): bool => filled($value)));
+    }
+
     /** @return HasMany<Course, $this> */
     public function primaryCoordinatedCourses(): HasMany
     {

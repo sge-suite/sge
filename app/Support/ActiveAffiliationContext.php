@@ -19,7 +19,7 @@ class ActiveAffiliationContext
     /** @return Collection<int, Affiliation> */
     public function availableFor(User $user): Collection
     {
-        return $user->affiliations()->active()->with('campus')->orderByLastUsedAt()->get();
+        return $user->affiliations()->active()->with(['campus', 'course'])->orderByLastUsedAt()->get();
     }
 
     public function resolve(User $user, Session $session): ?Affiliation

@@ -7,6 +7,7 @@ use App\Models\Campus;
 use App\Models\User;
 use App\Policies\ActivityPolicy;
 use App\Policies\CampusPolicy;
+use App\Support\ActiveAffiliationContext;
 use App\Support\AuditInfrastructureModel;
 use App\Support\ProtectTemplateMedia;
 use Illuminate\Console\Events\CommandStarting;
@@ -16,8 +17,10 @@ use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\View\View as BladeView;
 use RuntimeException;
 use Spatie\Activitylog\Actions\LogActivityAction;
 use Spatie\Activitylog\Contracts\Activity as ActivityContract;
@@ -40,6 +43,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->requirePostgreSqlForMigrations();
+        View::composer(['*::app.sidebar', '*::app.header'], function (BladeView $view): void {
+            $request = request();
+            $user = $request->user();
+            $context = app(ActiveAffiliationContext::class);
+            $available = $user === null ? collect() : $context->availableFor($user);
+            $current = $user === null ? null : $context->resolve($user, $request->session());
+
+            $view->with([
+                'navigationAffiliations' => $available,
+                'activeNavigationAffiliation' => $current === null ? null : $available->firstWhere('id', $current->id),
+            ]);
+        });
         Gate::policy(Activity::class, ActivityPolicy::class);
         Gate::policy(Campus::class, CampusPolicy::class);
         DatabaseNotification::observe(AuditInfrastructureModel::class);

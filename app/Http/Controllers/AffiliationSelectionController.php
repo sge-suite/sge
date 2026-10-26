@@ -30,8 +30,8 @@ class AffiliationSelectionController extends Controller
         if ($affiliation === null) {
             return to_route('affiliations.select');
         }
-        $affiliation->loadMissing('campus');
-        $label = $affiliation->type->label().' · '.($affiliation->campus_id === null ? 'Escopo global' : $affiliation->campus->name);
+        $affiliation->loadMissing(['campus', 'course']);
+        $label = $affiliation->contextLabel();
 
         return to_route('dashboard')->with('affiliation_switched', 'Vínculo alterado para '.$label.'.');
     }

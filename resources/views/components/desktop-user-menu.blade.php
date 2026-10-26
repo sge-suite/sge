@@ -1,3 +1,5 @@
+@props(['affiliations', 'currentAffiliation'])
+
 <flux:dropdown position="bottom" align="start">
     <flux:sidebar.profile
         :name="auth()->user()->name"
@@ -14,12 +16,12 @@
             />
             <div class="grid flex-1 text-start text-sm leading-tight">
                 <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
-                <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
+                <flux:text class="wrap-anywhere">E-mail de acesso: {{ auth()->user()->email }}</flux:text>
             </div>
         </div>
         <flux:menu.separator />
         <flux:menu.radio.group>
-            <x-affiliations.switcher />
+            <x-affiliations.switcher :affiliations="$affiliations" :current-affiliation="$currentAffiliation" />
             <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
                 Configurações
             </flux:menu.item>
