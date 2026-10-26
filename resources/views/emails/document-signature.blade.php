@@ -1,9 +1,13 @@
-<x-mail::message>
-# {{ $messageSubject }}
+<x-email-message :subject="$messageSubject" :recipient-identity="$recipientIdentity" :requester-name="$requesterName ?? null" :requester-role="$requesterRole ?? null">
+Sua assinatura é necessária no documento **{{ $documentName }}**.
 
-Olá, {{ $recipientName }}.
+<x-mail::panel>
+**Onde assinar:** {{ $location }}
 
-Como **{{ $recipientRole }}**, solicitamos sua assinatura no documento **{{ $documentName }}**.
+Confira o documento e siga as orientações de assinatura do local informado.
+</x-mail::panel>
+
+## Identificação do estágio
 
 @include('emails.partials.internship-details', ['details' => $internshipDetails])
 
@@ -11,8 +15,6 @@ Como **{{ $recipientRole }}**, solicitamos sua assinatura no documento **{{ $doc
 **Número de protocolo:** {{ $protocolNumber }}
 
 @endif
-
-**Local de disponibilização para assinatura:** {{ $location }}
 
 @if ($personalMessage !== '')
 **Orientação do Setor de Estágio:**
@@ -22,9 +24,8 @@ Como **{{ $recipientRole }}**, solicitamos sua assinatura no documento **{{ $doc
 
 @if ($dashboardUrl)
 <x-mail::button :url="$dashboardUrl">
-Acessar o SGE
+Consultar no SGE
 </x-mail::button>
 @endif
 
-@include('emails.partials.signature')
-</x-mail::message>
+</x-email-message>

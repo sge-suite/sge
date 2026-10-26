@@ -1,6 +1,4 @@
-<x-mail::message>
-# {{ $messageSubject }}
-
+<x-email-message :subject="$messageSubject" :recipient-identity="$recipientIdentity">
 Recebemos sua solicitação de estágio para análise. Confira abaixo a cópia dos dados registrados neste envio.
 
 @foreach ($sections as $section)
@@ -22,5 +20,4 @@ Acompanhe a análise e eventuais orientações do Setor de Estágio pelo SGE.
 Acompanhar solicitação
 </x-mail::button>
 
-@include('emails.partials.signature', ['requesterName' => null, 'requesterRole' => null])
-</x-mail::message>
+</x-email-message>

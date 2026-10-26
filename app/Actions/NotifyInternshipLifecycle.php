@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\Internship;
 use App\Support\EmailDeliveryContext;
+use App\Support\EmailRecipientIdentity;
 use App\Support\InternshipEmailDetails;
 use App\Support\InternshipRecipients;
 use Illuminate\Mail\Markdown;
@@ -12,7 +13,8 @@ use Illuminate\Support\Str;
 class NotifyInternshipLifecycle
 {
     public function __construct(private InternshipRecipients $recipients, private RequestEmailDelivery $delivery, private Markdown $markdown,
-        private InternshipEmailDetails $details, private NotifyInternshipEvaluationResults $results) {}
+        private InternshipEmailDetails $details, private NotifyInternshipEvaluationResults $results,
+        private EmailRecipientIdentity $identities) {}
 
     /** @param list<string> $categories */
     public function handle(Internship $internship, string $title, string $explanation, array $categories = ['student', 'advisor', 'supervisor'], bool $supervisorEvaluationApproved = false): void
@@ -32,9 +34,16 @@ class NotifyInternshipLifecycle
 
                 continue;
             }
-            $html = (string) $this->markdown->render('emails.notification', ['messageSubject' => $title, 'body' => $text,
-                'internshipDetails' => $details, 'dashboardUrl' => route('dashboard')]);
-            $this->delivery->notification($notification, $title.' — estágio nº '.$internship->id, $text."\n\n".$this->details->text($details), $html, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
+            if ($category === 'supervisor' && $supervisorEvaluationApproved) {
+                continue;
+            }
+            $data = ['messageSubject' => $title, 'body' => $explanation,
+                'internshipDetails' => [...$details, 'Situação do estágio' => $internship->status->label()], 'dashboardUrl' => route('dashboard'),
+                'recipientIdentity' => $this->identities->forAffiliation($recipient['affiliation']),
+                'nextStep' => 'Acompanhe os detalhes no SGE com o vínculo identificado nesta mensagem.'];
+            $html = (string) $this->markdown->render('emails.notification', $data);
+            $emailText = (string) $this->markdown->renderText('emails.notification', $data);
+            $this->delivery->notification($notification, $title.' — estágio nº '.$internship->id, $emailText, $html, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
         }
     }
 }

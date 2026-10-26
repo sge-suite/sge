@@ -7,6 +7,7 @@ use App\Models\Affiliation;
 use App\Models\EmailMessage;
 use App\Models\SupervisorEvaluation;
 use App\Support\EmailDeliveryContext;
+use App\Support\EmailRecipientIdentity;
 use App\Support\InternshipEmailDetails;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -25,12 +26,17 @@ class DeliverSupervisorEvaluationNotice implements ShouldQueue
     /** @var list<int> */
     public array $backoff = [5, 30, 120];
 
-    public function __construct(public int $evaluationId, public int $recipientId, public string $noticeId,
-        public string $title, public string $message) {}
+    public bool $internshipCompleted = false;
 
-    public function handle(RequestEmailDelivery $delivery, InternshipEmailDetails $details): void
+    public function __construct(public int $evaluationId, public int $recipientId, public string $noticeId,
+        public string $title, public string $message, bool $internshipCompleted = false)
     {
-        DB::transaction(function () use ($delivery, $details): void {
+        $this->internshipCompleted = $internshipCompleted;
+    }
+
+    public function handle(RequestEmailDelivery $delivery, InternshipEmailDetails $details, EmailRecipientIdentity $identities): void
+    {
+        DB::transaction(function () use ($delivery, $details, $identities): void {
             $recipient = Affiliation::query()->lockForUpdate()->findOrFail($this->recipientId);
             if (EmailMessage::query()->where('idempotency_key', $this->noticeId)->exists()) {
                 return;
@@ -41,12 +47,25 @@ class DeliverSupervisorEvaluationNotice implements ShouldQueue
             ]);
             $evaluation = SupervisorEvaluation::query()->with('internship.course')->findOrFail($this->evaluationId);
             $internshipDetails = $details->forInternship($evaluation->internship);
-            $contentHtml = (string) app(Markdown::class)->render('emails.notification', [
-                'messageSubject' => $this->title, 'body' => $this->message,
+            $subject = $this->internshipCompleted ? 'Sua avaliação foi aceita e o estágio está concluído' : $this->title;
+            $body = $this->message;
+            if ($this->internshipCompleted) {
+                $body = 'O Setor de Estágio aceitou sua avaliação. O cumprimento integral da carga horária foi confirmado e o estágio está concluído.';
+                if (filled($evaluation->review_notes)) {
+                    $body .= "\n\n".'Orientação do Setor de Estágio: '.$this->message;
+                }
+            }
+            $data = [
+                'messageSubject' => $subject, 'body' => $body,
                 'internshipDetails' => $internshipDetails,
                 'dashboardUrl' => route('supervisor-evaluations.show', $this->evaluationId),
-            ]);
-            $delivery->notification($notification, $this->title, $this->message."\n\n".$details->text($internshipDetails), $contentHtml, $this->noticeId,
+                'recipientIdentity' => $identities->forAffiliation($recipient), 'actionLabel' => 'Consultar avaliação',
+                'nextStep' => $this->internshipCompleted ? 'Sua avaliação está encerrada. Você pode consultá-la pelo SGE.'
+                    : 'Acesse a avaliação pelo SGE com o vínculo identificado nesta mensagem.',
+            ];
+            $contentHtml = (string) app(Markdown::class)->render('emails.notification', $data);
+            $contentText = (string) app(Markdown::class)->renderText('emails.notification', $data);
+            $delivery->notification($notification, $subject, $contentText, $contentHtml, $this->noticeId,
                 app(EmailDeliveryContext::class)->forInternship($evaluation->internship));
         });
     }

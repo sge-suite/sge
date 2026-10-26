@@ -1,23 +1,20 @@
-<x-mail::message>
-# {{ $messageSubject }}
-
-Olá, {{ $internshipDetails['Discente'] }}.
-
+<x-email-message :subject="$messageSubject" :recipient-identity="$recipientIdentity">
 {{ $body }}
+
+## Resultado da avaliação
+
+@include('emails.partials.internship-details', ['details' => $grades, 'highlightLabel' => array_key_exists('Nota final', $grades) ? 'Nota final' : 'Nota do supervisor'])
+
+<x-mail::panel>
+{{ $explanation }}
+</x-mail::panel>
 
 ## Identificação do estágio
 
 @include('emails.partials.internship-details', ['details' => $internshipDetails])
 
-## Resultado da avaliação
-
-@include('emails.partials.internship-details', ['details' => $grades])
-
-{{ $explanation }}
-
 <x-mail::button :url="$dashboardUrl">
 Acessar o SGE
 </x-mail::button>
 
-@include('emails.partials.signature', ['requesterName' => null, 'requesterRole' => null])
-</x-mail::message>
+</x-email-message>

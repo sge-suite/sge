@@ -14,6 +14,7 @@ use App\Models\GeneratedDocument;
 use App\Models\InternshipRequest;
 use App\Models\User;
 use App\Support\EmailDeliveryContext;
+use App\Support\EmailRecipientIdentity;
 use App\Support\InternshipRequestReceipt;
 use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\DatabaseNotification;
@@ -25,6 +26,8 @@ use Spatie\Activitylog\Support\CauserResolver;
 
 class RequestEmailDelivery
 {
+    public function __construct(private EmailRecipientIdentity $identities) {}
+
     /** @param array{name: string, email: string, role: string, affiliation: Affiliation|null} $recipient */
     public function documentSignature(GeneratedDocument $document, array $recipient, string $documentName, string $location, string $personalMessage, string $deliveryKey): EmailDeliveryAttempt
     {
@@ -48,23 +51,15 @@ class RequestEmailDelivery
             'Término previsto' => data_get($document->snapshot, 'values.ESTAGIO_DATA_TERMINO_PREVISTA') ?? formatShort($internship->projected_end_date),
         ], fn (mixed $value): bool => is_string($value) && trim($value) !== '');
         $protocolNumber = $document->protocol_number;
-        $lines = ['Olá, '.$recipient['name'].'.', 'Como '.$recipient['role'].', solicitamos sua assinatura no documento '.$documentName.'.'];
-        foreach ($internshipDetails as $label => $value) {
-            $lines[] = $label.': '.$value;
-        }
-        if ($protocolNumber !== null) {
-            $lines[] = 'Número de protocolo: '.$protocolNumber;
-        }
-        $lines[] = 'Local de disponibilização: '.$location;
-        if ($personalMessage !== '') {
-            $lines[] = 'Orientação do Setor de Estágio: '.$personalMessage;
-        }
-        $text = implode("\n\n", $lines);
-        $data = [...$this->signatureData(), 'recipientName' => $recipient['name'], 'recipientRole' => $recipient['role'],
+        $identity = $recipient['affiliation'] === null
+            ? ['name' => $recipient['name'], 'role' => $recipient['role'], 'context' => [$internship->granting_party_snapshot['name'] ?? 'Parte concedente']]
+            : $this->identities->forAffiliation($recipient['affiliation']);
+        $data = [...$this->signatureData(), 'recipientIdentity' => $identity,
             'messageSubject' => $subject, 'documentName' => $documentName, 'internshipDetails' => $internshipDetails,
             'protocolNumber' => $protocolNumber, 'location' => $location, 'personalMessage' => $personalMessage,
             'dashboardUrl' => $recipient['affiliation'] === null ? null : route('dashboard')];
         $html = (string) app(Markdown::class)->render('emails.document-signature', $data);
+        $text = (string) app(Markdown::class)->renderText('emails.document-signature', $data);
 
         return DB::transaction(function () use ($recipient, $subject, $text, $html, $deliveryKey, $document): EmailDeliveryAttempt {
             $notification = $recipient['affiliation']?->notifications()->firstOrCreate(['id' => $deliveryKey], [
@@ -74,7 +69,7 @@ class RequestEmailDelivery
             $message = EmailMessage::query()->firstOrCreate(['idempotency_key' => $deliveryKey], [
                 'purpose' => EmailMessagePurpose::DocumentSignature, 'notification_id' => $notification?->id,
                 'subject' => $subject, 'content_text' => $text, 'content_html' => $html,
-                'template_key' => 'document.signature-available', 'template_version' => '3',
+                'template_key' => 'document.signature-available', 'template_version' => '4',
             ]);
             if ($message->purpose !== EmailMessagePurpose::DocumentSignature || $message->notification_id !== $notification?->id
                 || $message->subject !== $subject || $message->content_text !== $text || $message->content_html !== $html) {
@@ -99,24 +94,18 @@ class RequestEmailDelivery
         $subject = ($resubmission ? 'Reenvio' : 'Envio').' da solicitação de estágio nº '.$request->id;
         $sections = app(InternshipRequestReceipt::class)->sections($request);
         $url = route('internship-requests.show', $request);
-        $contentHtml = (string) app(Markdown::class)->render('emails.internship-request-submitted', [
+        $data = [
             'messageSubject' => $subject, 'sections' => $sections, 'requestUrl' => $url,
-        ]);
-        $lines = [$subject, 'Recebemos sua solicitação para análise. Estes são os dados registrados neste envio.'];
-        foreach ($sections as $section) {
-            $lines[] = $section['title'];
-            foreach ($section['fields'] as $label => $value) {
-                $lines[] = $label.': '.$value;
-            }
-        }
-        $lines[] = 'Acompanhe a solicitação: '.$url;
-        $contentText = implode("\n\n", $lines);
+            'recipientIdentity' => $this->identities->forAffiliation($request->affiliation),
+        ];
+        $contentHtml = (string) app(Markdown::class)->render('emails.internship-request-submitted', $data);
+        $contentText = (string) app(Markdown::class)->renderText('emails.internship-request-submitted', $data);
 
         return DB::transaction(function () use ($deliveryKey, $recipientEmail, $subject, $contentHtml, $contentText, $request): EmailDeliveryAttempt {
             $purpose = EmailMessagePurpose::InternshipRequestSubmitted;
             $message = EmailMessage::query()->firstOrCreate(['idempotency_key' => $deliveryKey], [
                 'purpose' => $purpose, 'subject' => $subject, 'content_text' => $contentText, 'content_html' => $contentHtml,
-                'template_key' => 'internship-request.submitted', 'template_version' => '1',
+                'template_key' => 'internship-request.submitted', 'template_version' => '2',
             ]);
             if ($message->purpose !== $purpose || $message->subject !== $subject || $message->content_text !== $contentText || $message->content_html !== $contentHtml) {
                 throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
@@ -158,20 +147,21 @@ class RequestEmailDelivery
         });
     }
 
-    public function accountCreated(string $recipientEmail, string $deliveryKey, ?Affiliation $affiliation = null): EmailDeliveryAttempt
+    public function accountCreated(string $recipientEmail, string $deliveryKey, Affiliation $affiliation): EmailDeliveryAttempt
     {
         $this->validateKey($deliveryKey);
-        $affiliation?->loadMissing(['campus', 'course']);
-        $scopeContext = $affiliation === null ? null : app(EmailDeliveryContext::class)->forAffiliation($affiliation);
+        $affiliation->loadMissing(['campus', 'course']);
+        $scopeContext = app(EmailDeliveryContext::class)->forAffiliation($affiliation);
         $subject = 'Sua conta no Sistema de Gestão de Estágios foi criada';
         $data = [
             ...$this->signatureData(),
-            'affiliationName' => $affiliation?->type->label() ?? 'Vínculo administrativo',
+            'recipientIdentity' => $this->identities->forAffiliation($affiliation),
+            'affiliationName' => $affiliation->type->label(),
             'loginEmail' => $recipientEmail,
-            'campusName' => $affiliation === null ? null : ($affiliation->campus_id === null ? 'Escopo global' : $affiliation->campus->name),
-            'registrationNumber' => $affiliation?->registration_number,
-            'courseName' => $affiliation?->course?->name,
-            'affiliationEmail' => $affiliation?->email,
+            'campusName' => $affiliation->campus_id === null ? 'Escopo global' : $affiliation->campus->name,
+            'registrationNumber' => $affiliation->registration_number,
+            'courseName' => $affiliation->course?->name,
+            'affiliationEmail' => $affiliation->email,
             'requestUrl' => route('password.request', ['email' => $recipientEmail]),
         ];
         $markdown = app(Markdown::class);
@@ -185,7 +175,7 @@ class RequestEmailDelivery
                 'content_text' => $contentText,
                 'content_html' => $contentHtml,
                 'template_key' => 'administrative.account-created',
-                'template_version' => '2',
+                'template_version' => '3',
             ]);
 
             if ($message->purpose !== EmailMessagePurpose::AccountCreated || $message->subject !== $subject ||
@@ -206,6 +196,7 @@ class RequestEmailDelivery
         $subject = 'Novo vínculo criado no Sistema de Gestão de Estágios';
         $data = [
             ...$this->signatureData(),
+            'recipientIdentity' => $this->identities->forAffiliation($affiliation),
             'affiliationName' => $affiliation->type->label(),
             'campusName' => $affiliation->campus_id === null ? 'Escopo global' : $affiliation->campus->name,
             'registrationNumber' => $affiliation->registration_number,
@@ -224,7 +215,7 @@ class RequestEmailDelivery
                     'content_text' => $contentText,
                     'content_html' => $contentHtml,
                     'template_key' => 'administrative.affiliation-created',
-                    'template_version' => '1',
+                    'template_version' => '2',
                 ],
             );
 
@@ -237,7 +228,7 @@ class RequestEmailDelivery
         });
     }
 
-    public function accountEmailChanged(string $recipientEmail, string $previousEmail, string $newEmail, string $deliveryKey, ?User $account = null): EmailDeliveryAttempt
+    public function accountEmailChanged(string $recipientEmail, string $previousEmail, string $newEmail, string $deliveryKey, User $account): EmailDeliveryAttempt
     {
         $this->validateKey($deliveryKey);
 
@@ -247,12 +238,13 @@ class RequestEmailDelivery
             'newEmail' => ['required', 'email', 'different:previousEmail'],
         ])->validate();
 
-        $scopeContext = $account === null ? null : app(EmailDeliveryContext::class)->forUser($account);
+        $scopeContext = app(EmailDeliveryContext::class)->forUser($account);
         $subject = 'E-mail da conta alterado';
         $requester = app(CauserResolver::class)->resolve();
-        $isSelfChange = $account !== null && $requester instanceof Affiliation && $requester->user_id === $account->id;
+        $isSelfChange = $requester instanceof Affiliation && $requester->user_id === $account->id;
         $data = [
             ...($isSelfChange ? ['requesterName' => null, 'requesterRole' => null] : $this->signatureData()),
+            'recipientIdentity' => $this->identities->forAccount($account),
             'isSelfChange' => $isSelfChange,
             'previousEmail' => $previousEmail,
             'newEmail' => $newEmail,
@@ -282,17 +274,14 @@ class RequestEmailDelivery
         });
     }
 
-    public function administrativeChange(string $recipientEmail, string $subject, string $body, string $deliveryKey, User|Affiliation|null $record = null): EmailDeliveryAttempt
+    public function administrativeChange(string $recipientEmail, string $subject, string $body, string $deliveryKey, User|Affiliation $record): EmailDeliveryAttempt
     {
         $this->validateKey($deliveryKey);
         $markdown = app(Markdown::class);
         $context = app(EmailDeliveryContext::class);
-        $scopeContext = match (true) {
-            $record instanceof Affiliation => $context->forAffiliation($record),
-            $record instanceof User => $context->forUser($record),
-            default => null,
-        };
-        $data = [...$this->signatureData(), 'messageSubject' => $subject, 'body' => $body, 'dashboardUrl' => route('login')];
+        $scopeContext = $record instanceof Affiliation ? $context->forAffiliation($record) : $context->forUser($record);
+        $data = [...$this->signatureData(), 'messageSubject' => $subject, 'body' => $body, 'dashboardUrl' => route('login'),
+            'recipientIdentity' => $this->identities->forRecord($record)];
         $contentHtml = (string) $markdown->render('emails.notification', $data);
         $contentText = (string) $markdown->renderText('emails.notification', $data);
 

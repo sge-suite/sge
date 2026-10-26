@@ -4,21 +4,25 @@ namespace App\Actions;
 
 use App\Enums\EvaluationStatus;
 use App\Enums\InternshipStatus;
+use App\Models\Affiliation;
 use App\Models\EmailMessage;
 use App\Models\Internship;
 use App\Support\EmailDeliveryContext;
+use App\Support\EmailRecipientIdentity;
 use App\Support\InternshipEmailDetails;
 use App\Support\InternshipGradeCalculator;
 use App\Support\InternshipRecipients;
 use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\DatabaseNotification;
+use LogicException;
 use Ramsey\Uuid\Uuid;
 
 class NotifyInternshipEvaluationResults
 {
     public function __construct(private RequestEmailDelivery $delivery, private Markdown $markdown,
         private InternshipEmailDetails $details, private InternshipRecipients $recipients,
-        private InternshipGradeCalculator $calculator, private EmailDeliveryContext $emailContext) {}
+        private InternshipGradeCalculator $calculator, private EmailDeliveryContext $emailContext,
+        private EmailRecipientIdentity $identities) {}
 
     /** O chamador mantém o estágio bloqueado na transação da aprovação/conclusão. */
     public function supervisorApproved(Internship $internship, DatabaseNotification $notification): void
@@ -76,8 +80,13 @@ class NotifyInternshipEvaluationResults
         if (EmailMessage::query()->where('idempotency_key', $notification->id)->exists()) {
             return;
         }
+        $recipient = $notification->notifiable;
+        if (! $recipient instanceof Affiliation) {
+            throw new LogicException('O aviso acadêmico exige um vínculo destinatário.');
+        }
         $data = ['messageSubject' => $title, 'body' => $body, 'internshipDetails' => $this->details->forInternship($internship),
-            'grades' => $grades, 'explanation' => $explanation, 'dashboardUrl' => route('dashboard')];
+            'grades' => $grades, 'explanation' => $explanation, 'dashboardUrl' => route('dashboard'),
+            'recipientIdentity' => $this->identities->forAffiliation($recipient)];
         $html = (string) $this->markdown->render('emails.internship-evaluation-result', $data);
         $text = (string) $this->markdown->renderText('emails.internship-evaluation-result', $data);
         $this->delivery->notification($notification, $title, $text, $html, $notification->id, $this->emailContext->forInternship($internship));

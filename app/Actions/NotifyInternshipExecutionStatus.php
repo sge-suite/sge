@@ -6,6 +6,7 @@ use App\Enums\AffiliationType;
 use App\Enums\InternshipStatus;
 use App\Models\Internship;
 use App\Support\EmailDeliveryContext;
+use App\Support\EmailRecipientIdentity;
 use App\Support\InternshipEmailDetails;
 use Carbon\CarbonImmutable;
 use Illuminate\Mail\Markdown;
@@ -14,7 +15,8 @@ use InvalidArgumentException;
 
 class NotifyInternshipExecutionStatus
 {
-    public function __construct(private RequestEmailDelivery $delivery, private Markdown $markdown, private InternshipEmailDetails $details) {}
+    public function __construct(private RequestEmailDelivery $delivery, private Markdown $markdown, private InternshipEmailDetails $details,
+        private EmailRecipientIdentity $identities) {}
 
     /** O chamador mantém o campus e o estágio bloqueados na mesma transação. */
     public function handle(Internship $internship, InternshipStatus $previous, CarbonImmutable $referenceDate): void
@@ -54,10 +56,12 @@ class NotifyInternshipExecutionStatus
                 'previous_status' => $previous->value, 'status' => $internship->status->value, 'reference_date' => $referenceDate->toDateString()],
         ]);
         $details = $this->details->forInternship($internship);
-        $contentHtml = (string) $this->markdown->render('emails.notification', [
-            'messageSubject' => $subject, 'body' => $text, 'dashboardUrl' => $url,
-            'internshipDetails' => $details,
-        ]);
-        $this->delivery->notification($notification, $subject, $text."\n\n".$this->details->text($details), $contentHtml, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
+        $data = ['messageSubject' => $title, 'body' => $explanation, 'dashboardUrl' => $url,
+            'internshipDetails' => [...$details, 'Situação anterior' => $previous->label(),
+                'Situação atual' => $internship->status->label(), 'Data de referência' => formatShort($referenceDate)],
+            'recipientIdentity' => $this->identities->forAffiliation($recipient), 'actionLabel' => 'Acompanhar estágio'];
+        $contentHtml = (string) $this->markdown->render('emails.notification', $data);
+        $emailText = (string) $this->markdown->renderText('emails.notification', $data);
+        $this->delivery->notification($notification, $subject, $emailText, $contentHtml, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
     }
 }

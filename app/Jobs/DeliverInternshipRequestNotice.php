@@ -8,6 +8,7 @@ use App\Models\EmailMessage;
 use App\Models\InternshipRequest;
 use App\Models\InternshipRequestCorrection;
 use App\Support\EmailDeliveryContext;
+use App\Support\EmailRecipientIdentity;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Mail\Markdown;
@@ -32,9 +33,9 @@ class DeliverInternshipRequestNotice implements ShouldQueue
         public array $affectedSections = [], public array $sectionMessages = [], public ?string $legacyMessage = null,
         public ?string $generalMessage = null) {}
 
-    public function handle(RequestEmailDelivery $delivery): void
+    public function handle(RequestEmailDelivery $delivery, EmailRecipientIdentity $identities): void
     {
-        DB::transaction(function () use ($delivery): void {
+        DB::transaction(function () use ($delivery, $identities): void {
             $request = InternshipRequest::query()->findOrFail($this->requestId);
             $owner = Affiliation::query()->lockForUpdate()->findOrFail($request->affiliation_id);
             if (EmailMessage::query()->where('idempotency_key', $this->noticeId)->exists()) {
@@ -49,14 +50,16 @@ class DeliverInternshipRequestNotice implements ShouldQueue
                 'type' => self::class,
                 'data' => ['title' => $title, 'message' => $text, 'route' => 'internship-requests.show', 'internship_request_id' => $request->id],
             ]);
-            $contentHtml = (string) app(Markdown::class)->render('emails.notification', [
+            $data = [
                 'messageSubject' => $title,
                 'body' => $isPendingCorrection ? $this->correctionEmailMarkdown($request->id) : $text,
                 'dashboardUrl' => route('internship-requests.show', $request),
                 'internshipDetails' => ['Solicitação' => 'nº '.$request->id,
-                    'Tipo de estágio' => $request->internship_type_snapshot['name'] ?? 'Não informado'],
-            ]);
-            $emailText = $text."\n\n".'Tipo de estágio: '.($request->internship_type_snapshot['name'] ?? 'Não informado');
+                    'Tipo de estágio' => $request->internship_type_snapshot['name'] ?? 'Não informado', 'Situação' => $this->statusLabel],
+                'recipientIdentity' => $identities->forAffiliation($owner), 'actionLabel' => 'Acompanhar solicitação',
+            ];
+            $contentHtml = (string) app(Markdown::class)->render('emails.notification', $data);
+            $emailText = (string) app(Markdown::class)->renderText('emails.notification', $data);
             $delivery->notification($notification, $title, $emailText, $contentHtml, $this->noticeId, app(EmailDeliveryContext::class)->forInternshipRequest($request));
         });
     }

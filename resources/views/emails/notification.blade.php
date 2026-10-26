@@ -1,15 +1,19 @@
-<x-mail::message>
-# {{ $messageSubject }}
-
+<x-email-message :subject="$messageSubject" :recipient-identity="$recipientIdentity ?? null" :requester-name="$requesterName ?? null" :requester-role="$requesterRole ?? null">
 {{ $body }}
 
 @if (! empty($internshipDetails))
+## Identificação do estágio
+
 @include('emails.partials.internship-details', ['details' => $internshipDetails])
 
 @endif
-<x-mail::button :url="$dashboardUrl">
-Acessar o sistema
-</x-mail::button>
+@if (! empty($nextStep))
+<x-mail::panel>
+{{ $nextStep }}
+</x-mail::panel>
+@endif
 
-@include('emails.partials.signature', ['requesterName' => $requesterName ?? null, 'requesterRole' => $requesterRole ?? null])
-</x-mail::message>
+<x-mail::button :url="$dashboardUrl">
+{{ $actionLabel ?? 'Acessar o SGE' }}
+</x-mail::button>
+</x-email-message>

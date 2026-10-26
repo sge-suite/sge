@@ -1,17 +1,11 @@
-<x-mail::message>
-# E-mail da conta alterado
-
+<x-email-message subject="Seu e-mail de acesso foi alterado" :recipient-identity="$recipientIdentity" :requester-name="$requesterName ?? null" :requester-role="$requesterRole ?? null">
 O endereço usado para entrar no Sistema de Gestão de Estágios foi alterado.
 
 @if ($isSelfChange ?? false)
 Esta alteração foi realizada por você, na sua própria conta.
 @endif
 
-<x-mail::panel>
-**E-mail anterior:** {{ $previousEmail }}
-
-**Novo e-mail:** {{ $newEmail }}
-</x-mail::panel>
+@include('emails.partials.internship-details', ['details' => ['E-mail anterior' => $previousEmail, 'Novo e-mail de acesso' => $newEmail]])
 
 Se você reconhece essa alteração, use o novo endereço no próximo acesso. Se não reconhece, procure imediatamente a administração do sistema.
 
@@ -19,5 +13,4 @@ Se você reconhece essa alteração, use o novo endereço no próximo acesso. Se
 Acessar o sistema
 </x-mail::button>
 
-@include('emails.partials.signature', ['requesterName' => $requesterName ?? null, 'requesterRole' => $requesterRole ?? null])
-</x-mail::message>
+</x-email-message>

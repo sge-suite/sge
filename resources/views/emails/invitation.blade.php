@@ -1,31 +1,23 @@
-<x-mail::message>
-# Sua conta foi criada
-
-Sua conta no Sistema de Gestão de Estágios foi criada com o vínculo **{{ $affiliationName }}**.
+<x-email-message subject="Sua conta no SGE foi criada" :recipient-identity="$recipientIdentity ?? null" :requester-name="$requesterName ?? null" :requester-role="$requesterRole ?? null">
+Seu acesso ao Sistema de Gestão de Estágios está disponível com o vínculo **{{ $affiliationName }}**.
 
 <x-mail::panel>
 **E-mail de acesso:** {{ $loginEmail }}
 
-**Tipo de vínculo:** {{ $affiliationName }}
-
-@if ($campusName !== null)
-**Campus:** {{ $campusName }}
-@endif
-
-@if ($registrationNumber !== null)
-**Matrícula:** {{ $registrationNumber }}
-@endif
-
-@if ($courseName !== null)
-**Curso:** {{ $courseName }}
-@endif
-
-@if ($affiliationEmail !== null)
+@if ($affiliationEmail !== null && $affiliationEmail !== $loginEmail)
 **E-mail do vínculo:** {{ $affiliationEmail }}
 @endif
 </x-mail::panel>
 
-Para definir sua senha, abra a página abaixo e solicite um link de recuperação. Enviaremos a mensagem para este endereço de e-mail.
+@if (! isset($recipientIdentity))
+@include('emails.partials.internship-details', ['details' => array_filter(['Vínculo' => $affiliationName, 'Campus' => $campusName, 'Curso' => $courseName, 'Matrícula' => $registrationNumber], fn ($value) => $value !== null)])
+@endif
+
+## Primeiro acesso
+
+1. Abra a página abaixo e solicite o link para definir sua senha usando o e-mail de acesso.
+2. Abra a mensagem que chegará a esse endereço e escolha sua senha.
+3. Entre no SGE e selecione o vínculo indicado nesta mensagem.
 
 <x-mail::button :url="$requestUrl">
 Solicitar link para definir senha
@@ -33,5 +25,4 @@ Solicitar link para definir senha
 
 Se você não esperava a criação desta conta, procure a administração do sistema.
 
-@include('emails.partials.signature', ['requesterName' => $requesterName ?? null, 'requesterRole' => $requesterRole ?? null])
-</x-mail::message>
+</x-email-message>

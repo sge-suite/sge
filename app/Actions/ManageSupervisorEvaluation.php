@@ -92,7 +92,7 @@ class ManageSupervisorEvaluation
                 }
                 if (in_array($operation, ['return', 'approve'], true)) {
                     $this->notify($evaluation, $evaluation->supervisorAffiliation()->firstOrFail(), 'Avaliação de estágio '.$evaluation->status->label(),
-                        $evaluation->review_notes ?? 'O Setor de Estágio aprovou sua avaliação.');
+                        $evaluation->review_notes ?? 'O Setor de Estágio aprovou sua avaliação.', $operation === 'approve');
                 }
                 if ($operation === 'submit') {
                     foreach (Affiliation::query()->active()->where('campus_id', $campus->id)->whereIn('type', AffiliationType::InternshipOffice->databaseValues())->get() as $office) {
@@ -133,8 +133,8 @@ class ManageSupervisorEvaluation
             'estimated_hours_remaining' => $met === false ? ($data['estimated_hours_remaining'] ?? null) : null];
     }
 
-    private function notify(SupervisorEvaluation $evaluation, Affiliation $recipient, string $title, string $message): void
+    private function notify(SupervisorEvaluation $evaluation, Affiliation $recipient, string $title, string $message, bool $internshipCompleted = false): void
     {
-        DeliverSupervisorEvaluationNotice::dispatch($evaluation->id, $recipient->id, (string) Str::uuid(), $title, $message)->afterCommit();
+        DeliverSupervisorEvaluationNotice::dispatch($evaluation->id, $recipient->id, (string) Str::uuid(), $title, $message, $internshipCompleted)->afterCommit();
     }
 }

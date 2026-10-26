@@ -1,17 +1,13 @@
-<x-mail::message>
-# Novo vínculo criado
-
-Um vínculo foi criado para sua conta no Sistema de Gestão de Estágios. Agora você pode acessar o sistema com este vínculo.
+<x-email-message subject="Seu novo vínculo está disponível" :recipient-identity="$recipientIdentity ?? null" :requester-name="$requesterName ?? null" :requester-role="$requesterRole ?? null">
+O vínculo **{{ $affiliationName }}** foi adicionado à sua conta no Sistema de Gestão de Estágios.
 
 <x-mail::panel>
-**Tipo:** {{ $affiliationName }}
-
-**Campus:** {{ $campusName }}
-
-@if ($registrationNumber !== null)
-**Matrícula:** {{ $registrationNumber }}
-@endif
+Entre com o e-mail e a senha da sua conta e selecione o vínculo identificado acima para trabalhar nesse contexto.
 </x-mail::panel>
+
+@if (! isset($recipientIdentity))
+@include('emails.partials.internship-details', ['details' => array_filter(['Vínculo' => $affiliationName, 'Campus' => $campusName, 'Matrícula' => $registrationNumber], fn ($value) => $value !== null)])
+@endif
 
 <x-mail::button :url="$loginUrl">
 Acessar o sistema
@@ -19,5 +15,4 @@ Acessar o sistema
 
 Se você não esperava esta alteração, procure a administração do sistema.
 
-@include('emails.partials.signature', ['requesterName' => $requesterName ?? null, 'requesterRole' => $requesterRole ?? null])
-</x-mail::message>
+</x-email-message>
