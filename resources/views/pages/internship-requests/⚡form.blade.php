@@ -11,14 +11,16 @@ use App\Enums\EmancipationEvidenceStatus;
 use App\Enums\InternshipRequestCorrectionStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\LegalCapacityDeclaration;
+use App\Helpers\BrazilianDocumentHelper;
+use App\Helpers\DigitsHelper;
 use App\Models\Affiliation;
 use App\Models\City;
 use App\Models\EmancipationEvidence;
-use App\Models\GrantingParty;
 use App\Models\InternshipRequest;
 use App\Models\InternshipType;
 use App\Support\InternshipEndDateCalculator;
 use App\Support\InternshipPlannedPauses;
+use App\Support\InternshipRegistrationLookup;
 use App\Support\InternshipRequestPersonalData;
 use App\Support\StudentInternshipContext;
 use Illuminate\Support\Arr;
@@ -50,9 +52,11 @@ new #[Title('Solicitação de estágio')] class extends Component
     public bool $showWithdrawal = false;
     public string $withdrawalPassword = '';
     public string|int|null $partyCityId = '';
+    public string $partySearch = '';
     public string $supervisorSearch = '';
     public string $partyMatchMessage = '';
-    private bool $partyMatchedThisRequest = false;
+    public string $supervisorMatchMessage = '';
+    private ?int $matchedRegistrationStep = null;
     public $evidence;
 
     public const STEPS = [
@@ -135,20 +139,30 @@ new #[Title('Solicitação de estágio')] class extends Component
     public function choices(): array
     {
         $owner = $this->personal['owner'];
-        $partyQuery = GrantingParty::query()->active()->where('campus_id', $owner->campus_id);
-        $supervisorQuery = Affiliation::query()->active()->where('campus_id', $owner->campus_id)->where('type', AffiliationType::Supervisor->value);
+        $lookup = app(InternshipRegistrationLookup::class);
+        $partyQuery = $lookup->grantingParties($owner);
+        $supervisorQuery = $lookup->supervisors($owner);
         $partyKey = $this->lookupKey($this->values['granting_party_id'] ?? null);
         $supervisorKey = $this->lookupKey($this->values['supervisor_affiliation_id'] ?? null);
         $selectedParty = $partyKey === null ? null : (clone $partyQuery)->with('address.city')->find($partyKey);
         $selectedSupervisor = $supervisorKey === null ? null : (clone $supervisorQuery)->with('user.personalData')->find($supervisorKey);
         $partyCityKey = $this->lookupKey($this->partyCityId);
+        $partyTerm = mb_substr(trim($this->partySearch), 0, 100);
+        $partyDocument = BrazilianDocumentHelper::normalizeCnpj($partyTerm);
         $supervisorTerm = mb_substr(trim($this->supervisorSearch), 0, 100);
-        $supervisorDigits = \App\Helpers\DigitsHelper::only($supervisorTerm);
+        $supervisorDigits = DigitsHelper::only($supervisorTerm);
         return [
             'proposalCity' => ($proposalCityKey = $this->lookupKey($this->values['granting_party_proposal']['city_id'] ?? null)) === null ? null : City::find($proposalCityKey),
             'advisors' => Affiliation::query()->active()->where('campus_id', $owner->campus_id)->where('type', AffiliationType::Advisor->value)->with('user')->get()->sortBy(fn (Affiliation $advisor): string => $advisor->user->name),
             'types' => InternshipType::query()->active()->where('course_id', $owner->course_id)->orderBy('name')->get(),
-            'parties' => $partyCityKey === null ? collect() : $partyQuery->whereHas('address', fn ($query) => $query->where('city_id', $partyCityKey))->orderBy('name')->get(),
+            'parties' => mb_strlen($partyTerm) < 2 && $partyCityKey === null ? collect() : $partyQuery
+                ->when($partyCityKey !== null, fn ($query) => $query->whereHas('address', fn ($address) => $address->where('city_id', $partyCityKey)))
+                ->when(mb_strlen($partyTerm) >= 2, fn ($query) => $query->where(function ($query) use ($partyTerm, $partyDocument): void {
+                    $query->where('name', 'ilike', '%'.$partyTerm.'%');
+                    if ($partyDocument !== '') {
+                        $query->orWhere('document_number', 'like', '%'.$partyDocument.'%');
+                    }
+                }))->with('address.city')->orderBy('name')->orderBy('id')->limit(20)->get(),
             'supervisors' => mb_strlen($supervisorTerm) < 2 ? collect() : $supervisorQuery->with('user')->whereHas('user', function ($query) use ($supervisorTerm, $supervisorDigits): void {
                 $query->where('name', 'ilike', '%'.$supervisorTerm.'%');
                 if ($supervisorDigits !== '') {
@@ -251,9 +265,15 @@ new #[Title('Solicitação de estágio')] class extends Component
     {
         $this->values['granting_party_id'] = '';
         $this->values['granting_party_change_note'] = '';
+        $this->partyMatchMessage = '';
         $this->termsAccepted = false;
         unset($this->choices);
         $this->resetValidation('granting_party_id');
+    }
+
+    public function updatedPartySearch(): void
+    {
+        $this->partyMatchMessage = '';
     }
 
     public function updatedValues(mixed $value, string $key): void
@@ -281,8 +301,10 @@ new #[Title('Solicitação de estágio')] class extends Component
         }
         if ($key === 'granting_party_id') {
             $this->values['granting_party_change_note'] = '';
+            $this->partyMatchMessage = '';
         }
         if ($key === 'supervisor_affiliation_id') {
+            $this->supervisorMatchMessage = '';
             unset($this->choices);
             $profile = $this->choices['selectedSupervisor']?->user?->personalData;
             $this->values['supervisor_professional'] = ['job_role' => $profile?->job_role ?? ''];
@@ -294,39 +316,142 @@ new #[Title('Solicitação de estágio')] class extends Component
             $this->values['supervisor_proposal']['job_role'] = $value;
         }
         $this->termsAccepted = false;
-        if (in_array($key, ['granting_party_proposal.document_number', 'granting_party_proposal.document_type'], true)) {
-            $this->partyMatchMessage = '';
-            $field = 'granting_party_proposal.document_number';
-            $this->resetValidation($field);
-            $number = $this->values['granting_party_proposal']['document_number'] ?? '';
+        if (in_array($key, ['granting_party_proposal.document_number', 'supervisor_proposal.cpf'], true)) {
+            $kind = $key === 'supervisor_proposal.cpf' ? 'supervisor' : 'granting_party';
+            $this->resetValidation($key);
+            $number = data_get($this->values, $key);
             if (filled($number)) {
-                $type = $this->values['granting_party_proposal']['document_type'] ?? '';
-                $validator = Validator::make(['document' => $number], ['document' => [in_array($type, ['cpf', 'cnpj'], true) ? $type : 'cpf_ou_cnpj']], attributes: ['document' => 'CPF ou CNPJ']);
+                $rule = $kind === 'supervisor' ? 'cpf' : ($this->values['granting_party_proposal']['document_type'] ?? 'cpf_ou_cnpj');
+                $validator = Validator::make(['document' => $number], ['document' => ['required', in_array($rule, ['cpf', 'cnpj'], true) ? $rule : 'cpf_ou_cnpj']],
+                    attributes: ['document' => $kind === 'supervisor' ? 'CPF do supervisor' : 'CPF ou CNPJ']);
                 if ($validator->fails()) {
-                    $this->addError($field, $validator->errors()->first('document'));
-                } elseif (($this->values['granting_party_mode'] ?? '') === 'pending') {
-                    $matches = GrantingParty::query()->active()->where('campus_id', $this->personal['owner']->campus_id)
-                        ->where('document_number', \App\Helpers\DigitsHelper::only($number))->with('address.city')->get();
-                    if ($matches->isNotEmpty()) {
-                        $this->partyMatchedThisRequest = true;
-                        $this->step = 2;
-                        $this->navigationStep = 2;
-                        $this->values['granting_party_mode'] = 'existing';
-                        $this->values['granting_party_change_note'] = '';
-                        if ($matches->count() === 1) {
-                            $party = $matches->first();
-                            $this->partyCityId = $party->address?->city_id ?? '';
-                            $this->values['granting_party_id'] = $party->id;
-                            $this->partyMatchMessage = 'Esta concedente já está cadastrada. Selecionamos o cadastro para você conferir os dados e informar eventuais alterações.';
-                        } else {
-                            $this->values['granting_party_id'] = '';
-                            $this->partyMatchMessage = 'Existem várias unidades cadastradas com este CPF/CNPJ. Selecione a cidade e confira qual unidade corresponde ao local do estágio.';
-                        }
-                        unset($this->choices);
-                    }
+                    $this->addError($key, $validator->errors()->first('document'));
+                } else {
+                    $this->resolveExistingRegistration($kind);
                 }
             }
         }
+    }
+
+    public function completeRegistration(string $kind): void
+    {
+        $this->authorizeRegistrationSection($kind);
+        $this->values[$kind.'_mode'] = 'pending';
+        $this->values[$kind === 'granting_party' ? 'granting_party_id' : 'supervisor_affiliation_id'] = '';
+        $term = trim($kind === 'granting_party' ? $this->partySearch : $this->supervisorSearch);
+        $proposal = $this->values[$kind.'_proposal'];
+        $this->partyMatchMessage = '';
+        $this->supervisorMatchMessage = '';
+        if ($term !== '' && Validator::make(['document' => $term], ['document' => [$kind === 'supervisor' ? 'cpf' : 'cpf_ou_cnpj']])->passes()) {
+            if ($kind === 'granting_party') {
+                $proposal['document_type'] = mb_strlen(BrazilianDocumentHelper::normalizeCnpj($term)) === 11 ? 'cpf' : 'cnpj';
+                $proposal['document_number'] = $term;
+            } else {
+                $proposal['cpf'] = $term;
+            }
+        } elseif (blank($proposal['name'] ?? null) && $term !== '' && DigitsHelper::only($term) === '') {
+            $proposal['name'] = $term;
+        }
+        if ($kind === 'supervisor') {
+            $proposal['job_role'] = $this->values['supervisor_professional']['job_role'] ?? '';
+        }
+        $this->values[$kind.'_proposal'] = $proposal;
+        $this->termsAccepted = false;
+        $this->resetValidation();
+        $this->resolveExistingRegistration($kind);
+    }
+
+    public function searchRegistration(string $kind): void
+    {
+        $this->authorizeRegistrationSection($kind);
+        $this->values[$kind.'_mode'] = 'existing';
+        $this->termsAccepted = false;
+        $this->resetValidation();
+        unset($this->choices);
+    }
+
+    public function changeRegistration(string $kind): void
+    {
+        $this->authorizeRegistrationSection($kind);
+        $this->values[$kind.'_mode'] = 'existing';
+        $this->values[$kind === 'granting_party' ? 'granting_party_id' : 'supervisor_affiliation_id'] = '';
+        $this->values[$kind.'_proposal'] = array_fill_keys(array_keys($this->values[$kind.'_proposal']), '');
+        if ($kind === 'granting_party') {
+            $this->partySearch = '';
+            $this->partyCityId = '';
+            $this->partyMatchMessage = '';
+            $this->values['granting_party_change_note'] = '';
+        } else {
+            $this->supervisorSearch = '';
+            $this->supervisorMatchMessage = '';
+        }
+        $this->termsAccepted = false;
+        $this->resetValidation();
+        unset($this->choices);
+    }
+
+    public function clearPartyCityFilter(): void
+    {
+        $this->authorizeRegistrationSection('granting_party');
+        $this->partyCityId = '';
+        unset($this->choices);
+    }
+
+    private function authorizeRegistrationSection(string $kind): void
+    {
+        abort_unless(in_array($kind, ['granting_party', 'supervisor'], true), 404);
+        Gate::authorize('update', $this->record);
+        abort_unless(in_array($kind, $this->editableSections, true), 403);
+    }
+
+    private function resolveExistingRegistration(?string $onlyKind = null): bool
+    {
+        $lookup = app(InternshipRegistrationLookup::class);
+        foreach ($onlyKind === null ? ['granting_party', 'supervisor'] : [$onlyKind] as $kind) {
+            if (! in_array($kind, $this->editableSections, true) || ($this->values[$kind.'_mode'] ?? '') !== 'pending') {
+                continue;
+            }
+            $this->authorizeRegistrationSection($kind);
+            $field = $kind === 'granting_party' ? 'granting_party_proposal.document_number' : 'supervisor_proposal.cpf';
+            $document = data_get($this->values, $field);
+            if (! is_string($document) || Validator::make(['document' => $document], ['document' => ['required', $kind === 'supervisor' ? 'cpf' : 'cpf_ou_cnpj']])->fails()) {
+                continue;
+            }
+            if ($kind === 'granting_party') {
+                $matches = $lookup->grantingPartyMatches($this->personal['owner'], $document);
+                if ($matches->isEmpty()) {
+                    continue;
+                }
+                $this->partySearch = BrazilianDocumentHelper::normalizeCnpj($document);
+                $this->partyCityId = '';
+                $this->values['granting_party_id'] = $matches->count() === 1 ? $matches->first()->id : '';
+                $this->values['granting_party_change_note'] = '';
+                $this->partyMatchMessage = $matches->count() === 1
+                    ? 'Encontramos esta concedente e já a selecionamos. Confira os dados abaixo; não é necessário solicitar outro cadastro.'
+                    : 'Encontramos mais de uma unidade com este CPF/CNPJ. Escolha abaixo a unidade onde fará o estágio.';
+            } else {
+                $supervisor = $lookup->supervisorMatch($this->personal['owner'], $document);
+                if ($supervisor === null) {
+                    continue;
+                }
+                $this->supervisorSearch = '';
+                $this->values['supervisor_affiliation_id'] = $supervisor->id;
+                if (blank($this->values['supervisor_professional']['job_role'] ?? null)) {
+                    $this->values['supervisor_professional']['job_role'] = $supervisor->user->personalData?->job_role ?? '';
+                }
+                $this->supervisorMatchMessage = 'Encontramos um vínculo ativo de supervisor para este CPF e já o selecionamos. Confira os dados e o cargo ou função; não é necessário solicitar outro cadastro.';
+            }
+            $this->values[$kind.'_mode'] = 'existing';
+            $this->matchedRegistrationStep = $kind === 'granting_party' ? 2 : 3;
+            $this->step = $this->matchedRegistrationStep;
+            $this->navigationStep = $this->step;
+            $this->termsAccepted = false;
+            $this->cancelCepLookup();
+            $this->resetValidation();
+            unset($this->choices);
+            return true;
+        }
+        return false;
     }
 
     protected function addressLookupPath(): string
@@ -382,6 +507,9 @@ new #[Title('Solicitação de estágio')] class extends Component
 
     private function persist(?string $section = null, string $operation = 'save'): bool
     {
+        if ($operation !== 'withdraw' && ($this->matchedRegistrationStep !== null || $this->resolveExistingRegistration($section))) {
+            return false;
+        }
         $this->syncLegalCapacity();
         try {
             if ($operation !== 'withdraw' && ($section === null || $section === 'legal_capacity')
@@ -396,6 +524,9 @@ new #[Title('Solicitação de estágio')] class extends Component
             $this->resetValidation();
             return true;
         } catch (ValidationException $exception) {
+            if ($operation !== 'withdraw' && $this->resolveExistingRegistration($section)) {
+                return false;
+            }
             $this->setErrorBag($exception->errors());
             if ($operation !== 'withdraw' && ! in_array(array_key_first($exception->errors()), ['request', 'snapshot'], true)) {
                 $this->step = $this->stepForError(array_key_first($exception->errors()));
@@ -420,7 +551,8 @@ new #[Title('Solicitação de estágio')] class extends Component
     public function goTo(int $step): void
     {
         abort_unless($step >= 0 && $step < count(self::STEPS), 404);
-        if ($this->partyMatchedThisRequest && $step > 2) {
+        if (($this->matchedRegistrationStep !== null && $step > $this->matchedRegistrationStep)
+            || ($step > $this->step && $this->resolveExistingRegistration())) {
             return;
         }
         if ($step > $this->step) {

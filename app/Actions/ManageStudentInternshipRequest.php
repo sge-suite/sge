@@ -20,6 +20,7 @@ use App\Models\InternshipType;
 use App\Models\SupervisorRegistrationRequest;
 use App\Models\User;
 use App\Support\InternshipEndDateCalculator;
+use App\Support\InternshipRegistrationLookup;
 use App\Support\InternshipRequestPersonalData;
 use App\Support\InternshipRequestSnapshots;
 use App\Support\StudentInternshipContext;
@@ -39,7 +40,7 @@ class ManageStudentInternshipRequest
 
     public function __construct(private StudentInternshipContext $context, private CauserResolver $causerResolver,
         private InternshipRequestSnapshots $snapshots, private ProjectInternshipRequestEndDate $project,
-        private RequestEmailDelivery $emailDelivery) {}
+        private RequestEmailDelivery $emailDelivery, private InternshipRegistrationLookup $registrations) {}
 
     /** @param array<string, mixed> $data */
     public function handle(User $actor, int $expectedAffiliationId, ?InternshipRequest $target, string $operation, array $data = [], bool $termsAccepted = false, ?string $expectedUpdatedAt = null): InternshipRequest
@@ -162,6 +163,10 @@ class ManageStudentInternshipRequest
                 || ($mode === 'existing' && ! empty($input[$kind.'_proposal']))) {
                 throw ValidationException::withMessages([$kind.'_mode' => 'Escolha um cadastro existente ou um pedido de cadastro, sem combinar os dois.']);
             }
+            if ($mode === 'pending' || array_key_exists($kind.'_proposal', $input)) {
+                $document = $input[$kind.'_proposal'][$kind === 'granting_party' ? 'document_number' : 'cpf'] ?? null;
+                $this->assertRegistrationNotAvailable($owner, $kind, $document);
+            }
             if ($mode === 'existing') {
                 $request->{$pendingField} = null;
             } elseif ($mode === 'pending') {
@@ -229,6 +234,20 @@ class ManageStudentInternshipRequest
         }
     }
 
+    private function assertRegistrationNotAvailable(Affiliation $owner, string $kind, ?string $document): void
+    {
+        if ($document === null || $document === '') {
+            return;
+        }
+        $exists = $kind === 'granting_party'
+            ? $this->registrations->grantingPartyMatches($owner, $document)->isNotEmpty()
+            : $this->registrations->supervisorMatch($owner, $document) !== null;
+        if ($exists) {
+            $field = $kind === 'granting_party' ? 'granting_party_proposal.document_number' : 'supervisor_proposal.cpf';
+            throw ValidationException::withMessages([$field => 'Já existe um cadastro disponível para este documento. Volte à busca e confira o cadastro antes de continuar.']);
+        }
+    }
+
     private function saveProposal(GrantingPartyRegistrationRequest|SupervisorRegistrationRequest $proposal, string $prefix): void
     {
         try {
@@ -282,8 +301,8 @@ class ManageStudentInternshipRequest
         $full = $sections === null;
         $type = $request->internshipType()->first();
         $periods = $full || in_array('internship', $sections, true)
-            ? ($type?->allowed_academic_periods ?? [])
-            : ($request->internship_type_snapshot['rules']['allowed_academic_periods'] ?? $type?->allowed_academic_periods ?? []);
+            ? ($type->allowed_academic_periods ?? [])
+            : ($request->internship_type_snapshot['rules']['allowed_academic_periods'] ?? $type->allowed_academic_periods ?? []);
         Validator::make(['advisor_affiliation_id' => $request->advisor_affiliation_id, 'internship_type_id' => $type?->id, 'student_year_semester' => $request->student_year_semester, 'activities' => $request->activities, 'internship_sector' => $request->internship_sector,
             'planned_start_date' => $request->planned_start_date?->toDateString(), 'weekly_hours' => $request->weekly_hours], [
                 'student_year_semester' => ['required', Rule::in($periods)],
@@ -294,6 +313,11 @@ class ManageStudentInternshipRequest
                 'student_year_semester.in' => 'Selecione um ano ou semestre permitido para este tipo de estágio.'], $this->internshipFieldLabels())->validate();
         foreach (['grantingPartyRegistrationRequest' => 'granting_party_proposal', 'supervisorRegistrationRequest' => 'supervisor_proposal'] as $relation => $prefix) {
             $pending = $request->{$relation}()->first();
+            $kind = $relation === 'grantingPartyRegistrationRequest' ? 'granting_party' : 'supervisor';
+            if ($pending !== null && ($full || in_array($kind, $sections, true))) {
+                $this->assertRegistrationNotAvailable($owner, $kind,
+                    $pending instanceof GrantingPartyRegistrationRequest ? $pending->document_number : $pending->cpf);
+            }
             if ($pending?->status === RegistrationRequestStatus::Draft) {
                 $pending->status = RegistrationRequestStatus::Submitted;
                 $this->saveProposal($pending, $prefix);

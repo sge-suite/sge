@@ -47,20 +47,45 @@
     <flux:input wire:model="values.co_advisor_name" error:name="co_advisor_name" label="Co-orientador (opcional)" maxlength="255" />
     @if ($choices['advisors']->isEmpty())<flux:callout variant="warning">Não há orientadores ativos cadastrados no seu campus. Salve o rascunho e procure o Setor de Estágio.</flux:callout>@endif
 @elseif ($step === 2)
-    <flux:text>A parte concedente é a empresa ou pessoa onde você fará o estágio. Ela pode já estar cadastrada no sistema. Selecione a cidade para conferir os cadastros disponíveis no seu campus antes de solicitar um novo.</flux:text>
-    <flux:radio.group wire:model.live="values.granting_party_mode" label="Como informar a concedente?" error:name="granting_party_mode" label:required variant="cards" class="grid gap-3 sm:grid-cols-2">
-        <flux:radio value="existing" label="Usar concedente cadastrada" description="Escolha a cidade e busque um cadastro do seu campus." />
-        <flux:radio value="pending" label="Solicitar novo cadastro" description="Informe os dados para o Setor analisar e cadastrar." />
-    </flux:radio.group>
-    @if ($partyMatchMessage)<flux:callout variant="warning" :heading="$partyMatchMessage" />@endif
+    <flux:text>A concedente é a empresa ou pessoa onde você fará o estágio. Busque pelo nome ou CPF/CNPJ. Você não precisa saber se ela já está cadastrada.</flux:text>
+    <flux:error name="granting_party_mode" />
+    @if ($partyMatchMessage)<div role="status" tabindex="-1" x-data x-init="$el.focus({ preventScroll: true })"><flux:callout :variant="$choices['selectedParty'] ? 'success' : 'warning'" icon="information-circle" :heading="$partyMatchMessage" /></div>@endif
     @if (! $pendingParty)
-        <livewire:cities.select wire:model.live="partyCityId" :selected-city-id="$partyCityId" :city-error="''" :personal-data="true" field-name="party_city_id" :required="false" :key="'existing-party-city-'.$requestId" />
-        <x-select wire:model.live="values.granting_party_id" :value="$values['granting_party_id'] ?? ''" label="Parte concedente" :placeholder="filled($partyCityId) ? 'Selecione uma concedente' : 'Selecione primeiro a cidade'" :options="$choices['parties']->mapWithKeys(fn ($party) => [$party->id => $party->name.' · '.\App\Helpers\BrazilianDocumentHelper::formatCpfCnpj($party->document_number)])->all()" :disabled="blank($partyCityId)" searchable :invalid="$errors->has('granting_party_id')" :error="$errors->first('granting_party_id')" required />
-        @if (filled($partyCityId) && $choices['parties']->isEmpty())<flux:text size="sm">Nenhuma concedente cadastrada nessa cidade para seu campus. Você pode solicitar um novo cadastro.</flux:text>@endif
+        <x-select wire:model.live="values.granting_party_id" :value="$values['granting_party_id'] ?? ''" label="Onde você fará o estágio?" placeholder="Buscar por nome ou CPF/CNPJ"
+            :options="collect([$choices['selectedParty']])->merge($choices['parties'])->filter()->unique('id')->mapWithKeys(fn ($party) => [$party->id => $party->name.' · '.\App\Helpers\BrazilianDocumentHelper::formatCpfCnpj($party->document_number).' · '.($party->address?->city?->name ?? 'Cidade não informada').($party->address?->city ? '/'.$party->address->city->state->value : '').' · '.($party->address?->street ? $party->address->street.', '.$party->address->number : 'Unidade nº '.$party->id)])->all()"
+            :empty="mb_strlen(trim($partySearch)) < 2 && blank($partyCityId) ? 'Digite pelo menos dois caracteres para buscar.' : 'Não encontramos uma concedente disponível para seu campus com esses filtros.'"
+            :invalid="$errors->has('granting_party_id')" :error="$errors->first('granting_party_id')" required>
+            <x-slot:search>
+                <flux:input wire:model.live.debounce.400ms="partySearch" wire:ignore.self placeholder="Nome ou CPF/CNPJ…" aria-label="Buscar concedente por nome ou CPF/CNPJ" icon="magnifying-glass" size="sm" maxlength="100"
+                    role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="listElement()?.id" x-bind:aria-activedescendant="activeId()" />
+                <span wire:loading wire:target="partySearch,partyCityId" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando concedentes…</span>
+            </x-slot:search>
+        </x-select>
+        @if (! $choices['selectedParty'])
+        <x-accordion title="Filtrar pela cidade (opcional)" :open="filled($partyCityId)">
+            <div class="space-y-3">
+                <livewire:cities.select wire:model.live="partyCityId" :selected-city-id="$partyCityId" :city-error="''" :personal-data="true" field-name="party_city_id" :required="false" :key="'existing-party-city-'.$requestId.'-'.$partyCityId" />
+                @if (filled($partyCityId))<flux:button size="sm" variant="ghost" wire:click="clearPartyCityFilter" wire:loading.attr="disabled">Limpar filtro de cidade</flux:button>@endif
+            </div>
+        </x-accordion>
+        @if ($choices['parties']->count() === 20)<flux:text size="sm">Exibimos até 20 resultados. Refine a busca pelo nome, documento ou cidade para encontrar a unidade correta.</flux:text>@endif
+        @if ($partyMatchMessage)
+            <flux:text size="sm">Se a unidade correta não estiver na lista, procure o Setor de Estágio para conferir os cadastros desse documento.</flux:text>
+        @else
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+            <flux:text size="sm">Não encontrou a empresa, pessoa ou unidade onde fará o estágio?</flux:text>
+            <flux:button variant="outline" wire:click="completeRegistration('granting_party')" wire:loading.attr="disabled">Não encontrei a concedente</flux:button>
+        </div>
+        @endif
+        @endif
         @if ($choices['selectedParty'])
             @php
         $party = $choices['selectedParty'];
     @endphp
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <flux:heading level="3">Confira a concedente selecionada</flux:heading>
+                <flux:button size="sm" variant="ghost" wire:click="changeRegistration('granting_party')" wire:loading.attr="disabled">Trocar concedente</flux:button>
+            </div>
             @include('pages.internship-requests.partials.granting-party-details')
             <flux:textarea wire:model="values.granting_party_change_note" label="Algum dado da concedente mudou?" description="Informe o campo e o valor correto, por exemplo representante, cargo, CPF/CNPJ, endereço ou contato. O Setor conferirá as alterações; o cadastro não será alterado automaticamente." rows="3" maxlength="5000" error:name="granting_party_change_note" />
         @endif
@@ -68,12 +93,19 @@
         @php
         $companyProposal = ($values['granting_party_proposal']['document_type'] ?? '') === 'cnpj';
     @endphp
-        <flux:callout heading="Solicitação de cadastro"><flux:callout.text>Preencha os dados abaixo. O pedido será enviado ao Setor junto à solicitação de estágio para análise e cadastro da concedente.</flux:callout.text></flux:callout>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <flux:heading level="3">Informe os dados da concedente</flux:heading>
+            <flux:button size="sm" variant="ghost" wire:click="searchRegistration('granting_party')" wire:loading.attr="disabled">Voltar para busca</flux:button>
+        </div>
+        <flux:callout icon="information-circle" heading="Comece pelo CPF ou CNPJ">
+            <flux:callout.text>Se encontrarmos um cadastro disponível para seu campus, vamos selecioná-lo para você conferir. Caso contrário, complete os dados e continue: o Setor analisará o cadastro junto com sua solicitação de estágio.</flux:callout.text>
+        </flux:callout>
         <div class="grid items-start gap-5 sm:grid-cols-2">
             <x-select wire:model.live="values.granting_party_proposal.document_type" :value="$values['granting_party_proposal']['document_type'] ?? ''" label="Tipo de documento" placeholder="Selecione" :options="['cpf' => 'Pessoa física — CPF', 'cnpj' => 'Pessoa jurídica — CNPJ']" :invalid="$errors->has('granting_party_proposal.document_type')" :error="$errors->first('granting_party_proposal.document_type')" required />
             @if (filled($values['granting_party_proposal']['document_type'] ?? null))
             <div wire:key="proposal-document-{{ $values['granting_party_proposal']['document_type'] }}">
                 <flux:input wire:model.blur="values.granting_party_proposal.document_number" :label="$companyProposal ? 'CNPJ' : 'CPF'" error:name="granting_party_proposal.document_number" :maxlength="$companyProposal ? 18 : 14" :placeholder="$companyProposal ? '00.000.000/0000-00' : '000.000.000-00'" required />
+                <span wire:loading wire:target="values.granting_party_proposal.document_number" role="status" class="text-sm text-zinc-500">Conferindo cadastro…</span>
             </div>
             <div class="sm:col-span-2">
                 <flux:input wire:model="values.granting_party_proposal.name" :label="$companyProposal ? 'Razão social' : 'Nome completo'" error:name="granting_party_proposal.name" maxlength="255" required />
@@ -95,22 +127,48 @@
         <flux:text size="sm">Todos os campos exibidos são obrigatórios para enviar. Você pode salvar o preenchimento parcial como rascunho.</flux:text>
     @endif
 @elseif ($step === 3)
-    <flux:text>O supervisor acompanha suas atividades na concedente. Selecione um cadastro do seu campus ou solicite um novo. O Setor conferirá a qualificação adequada no aceite.</flux:text>
-    <flux:radio.group wire:model.live="values.supervisor_mode" label="Como informar o supervisor?" error:name="supervisor_mode" label:required variant="cards" class="grid gap-3 sm:grid-cols-2">
-        <flux:radio value="existing" label="Usar supervisor cadastrado" description="Busque por nome ou CPF entre os supervisores do campus." />
-        <flux:radio value="pending" label="Solicitar novo cadastro" description="Informe os dados do supervisor para o Setor analisar." />
-    </flux:radio.group>
+    <flux:text>Quem acompanhará suas atividades na concedente? Busque pelo nome ou CPF do supervisor. Você não precisa saber se ele já está cadastrado.</flux:text>
+    <flux:error name="supervisor_mode" />
+    @if ($supervisorMatchMessage)<div role="status" tabindex="-1" x-data x-init="$el.focus({ preventScroll: true })"><flux:callout variant="success" icon="check-circle" :heading="$supervisorMatchMessage" /></div>@endif
     @if ($pendingSupervisor)
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <flux:heading level="3">Informe os dados do supervisor</flux:heading>
+            <flux:button size="sm" variant="ghost" wire:click="searchRegistration('supervisor')" wire:loading.attr="disabled">Voltar para busca</flux:button>
+        </div>
+        <flux:callout icon="information-circle" heading="Comece pelo CPF do supervisor">
+            <flux:callout.text>Se este CPF tiver um vínculo ativo de supervisor no seu campus, vamos selecioná-lo para você conferir. Caso contrário, complete os dados e continue: o Setor analisará o cadastro junto com sua solicitação de estágio.</flux:callout.text>
+        </flux:callout>
         <div class="grid items-start gap-5 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+                <flux:input wire:model.blur="values.supervisor_proposal.cpf" label="CPF do supervisor" error:name="supervisor_proposal.cpf" placeholder="000.000.000-00" maxlength="14" required />
+                <span wire:loading wire:target="values.supervisor_proposal.cpf" role="status" class="text-sm text-zinc-500">Conferindo vínculo de supervisor…</span>
+            </div>
             <div class="sm:col-span-2"><flux:input wire:model="values.supervisor_proposal.name" label="Nome completo do supervisor" error:name="supervisor_proposal.name" maxlength="255" required /></div>
-            <flux:input wire:model="values.supervisor_proposal.cpf" label="CPF do supervisor" error:name="supervisor_proposal.cpf" placeholder="000.000.000-00" maxlength="14" required />
             <flux:input wire:model="values.supervisor_proposal.phone" label="Telefone do supervisor com DDD" type="tel" error:name="supervisor_proposal.phone" placeholder="(00) 00000-0000" maxlength="20" required />
             <div class="sm:col-span-2"><flux:input wire:model="values.supervisor_proposal.email" label="E-mail do supervisor" type="email" error:name="supervisor_proposal.email" maxlength="255" required /></div>
         </div>
     @else
-        <flux:text size="sm">Busque pelo nome ou CPF. Informe pelo menos dois caracteres.</flux:text>
-        <x-select wire:model.live="values.supervisor_affiliation_id" search-model="supervisorSearch" :value="$values['supervisor_affiliation_id'] ?? ''" label="Supervisor do seu campus" placeholder="Buscar por nome ou CPF" :empty="mb_strlen(trim($supervisorSearch)) < 2 ? 'Digite pelo menos dois caracteres para buscar.' : 'Nenhum supervisor encontrado para esse nome ou CPF.'" :options="collect([$choices['selectedSupervisor']])->merge($choices['supervisors'])->filter()->unique('id')->mapWithKeys(fn ($supervisor) => [$supervisor->id => $supervisor->user->name.' - '.$supervisor->email])->all()" searchable :invalid="$errors->has('supervisor_affiliation_id')" :error="$errors->first('supervisor_affiliation_id')" required />
-        @if ($choices['selectedSupervisor'])<flux:callout heading="{{ $choices['selectedSupervisor']->user->name }}"><flux:callout.text>{{ $choices['selectedSupervisor']->email }} · {{ $choices['selectedSupervisor']->user->personalData?->phone ?? 'Telefone não informado no cadastro' }}</flux:callout.text></flux:callout>@endif
+        <x-select wire:model.live="values.supervisor_affiliation_id" :value="$values['supervisor_affiliation_id'] ?? ''" label="Supervisor do seu campus" placeholder="Buscar por nome ou CPF" :empty="mb_strlen(trim($supervisorSearch)) < 2 ? 'Digite pelo menos dois caracteres para buscar.' : 'Não encontramos um vínculo de supervisor disponível para seu campus com esses dados.'" :options="collect([$choices['selectedSupervisor']])->merge($choices['supervisors'])->filter()->unique('id')->mapWithKeys(fn ($supervisor) => [$supervisor->id => $supervisor->user->name.' · '.$supervisor->email])->all()" :invalid="$errors->has('supervisor_affiliation_id')" :error="$errors->first('supervisor_affiliation_id')" required>
+            <x-slot:search>
+                <flux:input wire:model.live.debounce.400ms="supervisorSearch" wire:ignore.self placeholder="Nome ou CPF…" aria-label="Buscar supervisor por nome ou CPF" icon="magnifying-glass" size="sm" maxlength="100"
+                    role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="listElement()?.id" x-bind:aria-activedescendant="activeId()" />
+                <span wire:loading wire:target="supervisorSearch" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando supervisores…</span>
+            </x-slot:search>
+        </x-select>
+        @if (! $choices['selectedSupervisor'])
+        @if ($choices['supervisors']->count() === 20)<flux:text size="sm">Exibimos até 20 resultados. Refine a busca pelo nome ou CPF.</flux:text>@endif
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+            <flux:text size="sm">Não encontrou quem acompanhará suas atividades?</flux:text>
+            <flux:button variant="outline" wire:click="completeRegistration('supervisor')" wire:loading.attr="disabled">Não encontrei o supervisor</flux:button>
+        </div>
+        @endif
+        @if ($choices['selectedSupervisor'])
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <flux:heading level="3">Confira o supervisor selecionado</flux:heading>
+                <flux:button size="sm" variant="ghost" wire:click="changeRegistration('supervisor')" wire:loading.attr="disabled">Trocar supervisor</flux:button>
+            </div>
+            <flux:callout heading="{{ $choices['selectedSupervisor']->user->name }}"><flux:callout.text>{{ $choices['selectedSupervisor']->email }} · {{ filled($choices['selectedSupervisor']->user->personalData?->phone) ? \App\Helpers\BrazilianContactHelper::formatPhone($choices['selectedSupervisor']->user->personalData->phone) : 'Telefone não informado no cadastro' }}</flux:callout.text></flux:callout>
+        @endif
     @endif
     @if ($pendingSupervisor)
         <x-select wire:model.live="values.supervisor_proposal.has_academic_background" :value="$values['supervisor_proposal']['has_academic_background'] ?? ''" label="Qualificação relacionada às atividades" placeholder="Selecione" :options="['1' => 'Formação na área', '0' => 'Experiência profissional na área']" :invalid="$errors->has('supervisor_proposal.has_academic_background')" :error="$errors->first('supervisor_proposal.has_academic_background')" required />
