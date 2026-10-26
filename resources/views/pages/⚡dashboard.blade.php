@@ -2,6 +2,7 @@
 
 use App\Actions\GetAdministrativeDashboardMetrics;
 use App\Actions\GetInternshipOfficeDashboard;
+use App\Actions\GetSupervisorDashboard;
 use App\Models\User;
 use App\Models\InternshipRequest;
 use App\Models\Internship;
@@ -18,6 +19,13 @@ new #[Title('Painel')] class extends Component
     public function officeOverview(): array
     {
         return app(GetInternshipOfficeDashboard::class)(auth()->user());
+    }
+
+    /** @return array<string, mixed> */
+    #[Computed]
+    public function supervisorOverview(): array
+    {
+        return app(GetSupervisorDashboard::class)(auth()->user());
     }
 
     /** @return array<string, mixed> */
@@ -84,6 +92,8 @@ new #[Title('Painel')] class extends Component
     @else
         @can('viewAny', \App\Models\Internship::class)
             @include('pages.dashboard.partials.academic', ['overview' => $this->internshipOverview])
+        @elsecan('viewAny', \App\Models\SupervisorEvaluation::class)
+            @include('pages.dashboard.partials.supervisor', ['overview' => $this->supervisorOverview])
         @else
             @include('pages.dashboard.partials.default')
         @endcan
