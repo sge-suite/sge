@@ -115,6 +115,7 @@ new #[Title('Templates DOCX')] class extends Component
                             <flux:table.cell class="whitespace-normal">
                                 <a data-template-link href="{{ route('document-templates.show', $template) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">{{ $template->name }}</a>
                                 <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ $template->template_versions_count }} versões · {{ $template->remuneration->label() }}</div>
+                                <flux:text size="sm" class="md:hidden">Tipo documental: {{ $template->document_type->label() }}</flux:text>
                             </flux:table.cell>
                             <flux:table.cell class="hidden whitespace-normal md:table-cell">{{ $template->document_type->label() }}</flux:table.cell>
                             <flux:table.cell>{{ $template->currentVersion ? 'v'.$template->currentVersion->version : 'Não disponível' }}</flux:table.cell>

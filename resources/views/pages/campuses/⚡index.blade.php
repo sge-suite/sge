@@ -135,6 +135,7 @@ new #[Title('Campi')] class extends Component
                             <flux:table.cell class="whitespace-normal">
                                 <a data-campus-link href="{{ route('campuses.show', $campus) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">{{ $campus->name }}</a>
                                 <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ $campus->address->city->name }} · {{ $campus->address->city->state->value }}</div>
+                                <flux:text size="sm" class="md:hidden">Representante legal: {{ $campus->legal_representative_name }}</flux:text>
                             </flux:table.cell>
                             <flux:table.cell class="hidden max-w-60 whitespace-normal md:table-cell">{{ $campus->legal_representative_name }}</flux:table.cell>
                             <flux:table.cell><flux:badge size="sm" :color="$campus->deactivated_at === null ? 'green' : 'zinc'">{{ $campus->deactivated_at === null ? 'Ativo' : 'Desativado' }}</flux:badge></flux:table.cell>

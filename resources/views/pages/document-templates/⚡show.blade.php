@@ -340,10 +340,12 @@ new #[Title('Versões do template DOCX')] class extends Component
                     <flux:table.rows>
                         @foreach ($versions as $version)
                             <flux:table.row :key="$version->id">
-                                <flux:table.cell>
+                                <flux:table.cell class="whitespace-normal">
                                     <span class="font-medium">v{{ $version->version }}</span>
                                     @if ($template->currentVersion?->id === $version->id)<flux:badge size="sm" color="blue">Vigente</flux:badge>@endif
                                     @if ($version->generated_documents_count > 0)<flux:badge size="sm">Utilizada</flux:badge>@endif
+                                    <flux:text size="sm" class="md:hidden">Enviada: {{ formatDateTime($version->created_at) }}</flux:text>
+                                    <flux:text size="sm" class="lg:hidden">Responsável: {{ $version->uploadedByAffiliation?->user?->name ?? 'Vínculo #'.$version->uploaded_by_affiliation_id }}</flux:text>
                                 </flux:table.cell>
                                 <flux:table.cell>{{ $version->generated_documents_count }}</flux:table.cell>
                                 <flux:table.cell><flux:badge size="sm" :color="($version->validation_report['errors'] ?? []) !== [] ? 'red' : 'green'">{{ ($version->validation_report['errors'] ?? []) !== [] ? 'Com erros' : 'Validado no envio' }}</flux:badge></flux:table.cell>

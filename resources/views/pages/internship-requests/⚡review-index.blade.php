@@ -163,6 +163,8 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
                             <flux:table.cell class="whitespace-normal">
                                 <a data-request-link href="{{ route('internship-review.show', $request) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">Nº {{ $request->id }} · {{ $request->student_snapshot['name'] ?? 'Discente' }}</a>
                                 <flux:text size="sm">Matrícula: {{ $request->student_snapshot['registration_number'] ?? 'Não informada' }}</flux:text>
+                                <div class="space-y-1 md:hidden"><flux:text size="sm">Curso: {{ $request->course?->name ?? 'Não informado' }}</flux:text><flux:text size="sm">Tipo: {{ $request->internshipType?->name ?? 'Não informado' }}</flux:text></div>
+                                <flux:text size="sm" class="lg:hidden">Atualizada: {{ formatDateTime($request->updated_at) }}</flux:text>
                             </flux:table.cell>
                             <flux:table.cell class="hidden whitespace-normal md:table-cell">
                                 {{ $request->course?->name ?? 'Não informado' }}

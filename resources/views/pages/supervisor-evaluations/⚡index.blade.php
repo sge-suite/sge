@@ -64,6 +64,9 @@ new class extends Component
                             <flux:table.cell class="whitespace-normal">
                                 <a data-evaluation-link href="{{ route('supervisor-evaluations.show', $evaluation) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">Nº {{ $evaluation->id }} · {{ $evaluation->internship->student_snapshot['name'] ?? 'Discente' }}</a>
                                 <flux:text size="sm">Estágio nº {{ $evaluation->internship_id }} · Matrícula: {{ $evaluation->internship->student_snapshot['registration_number'] ?? 'Não informada' }}</flux:text>
+                                <flux:text size="sm">{{ $evaluation->internship->internship_type_snapshot['name'] ?? 'Tipo não informado' }}</flux:text>
+                                <div class="space-y-1 md:hidden"><flux:text size="sm">Curso: {{ $evaluation->internship->course->name }}</flux:text><flux:text size="sm">Concedente: {{ $evaluation->internship->granting_party_snapshot['name'] ?? 'Não informada' }}</flux:text></div>
+                                <flux:text size="sm" class="lg:hidden">Último envio: {{ formatDateTime($evaluation->submitted_at) }}</flux:text>
                             </flux:table.cell>
                             <flux:table.cell class="hidden whitespace-normal md:table-cell">{{ $evaluation->internship->course->name }}<flux:text size="sm">{{ $evaluation->internship->granting_party_snapshot['name'] ?? 'Concedente não informada' }}</flux:text></flux:table.cell>
                             <flux:table.cell><flux:badge size="sm" :color="match ($evaluation->status) { EvaluationStatus::Submitted => 'amber', EvaluationStatus::Returned => 'orange', EvaluationStatus::Approved => 'green', EvaluationStatus::Cancelled => 'red', default => 'zinc' }">{{ $evaluation->status->label() }}</flux:badge></flux:table.cell>

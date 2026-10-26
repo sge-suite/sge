@@ -19,7 +19,8 @@
                 <flux:table.cell class="whitespace-normal">
                     <a data-student-request-link href="{{ route('internship-requests.show', $request) }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">Solicitação nº {{ $request->id }}</a>
                     <flux:text size="sm">{{ $request->internship_type_snapshot['name'] ?? $request->internshipType?->name ?? 'Tipo ainda não escolhido' }}</flux:text>
-                    <flux:text size="sm" class="md:hidden">{{ $party }}</flux:text>
+                    <flux:text size="sm" class="md:hidden">Concedente: {{ $party }}</flux:text>
+                    <flux:text size="sm" class="lg:hidden">Atualizada: {{ formatDateTime($request->updated_at) }}</flux:text>
                     @if ($editable)<flux:text size="sm" class="md:hidden">{{ $status === 'pending_correction' ? 'Abra para revisar as pendências.' : 'Abra para continuar o preenchimento.' }}</flux:text>@endif
                 </flux:table.cell>
                 <flux:table.cell class="hidden whitespace-normal md:table-cell">{{ $party }}</flux:table.cell>

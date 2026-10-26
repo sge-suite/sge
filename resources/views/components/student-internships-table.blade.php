@@ -15,7 +15,8 @@
                     <flux:text size="sm">{{ $internship->granting_party_snapshot['name'] ?? 'Concedente não informada' }}</flux:text>
                     <flux:text size="sm">{{ $internship->internship_type_snapshot['name'] ?? 'Tipo não informado' }}</flux:text>
                     <flux:text size="sm">Atualizado em {{ formatDateTime($internship->updated_at) }}</flux:text>
-                    <flux:text size="sm" class="lg:hidden">{{ formatShort($internship->planned_start_date) }} a {{ formatShort($internship->projected_end_date) }}</flux:text>
+                    <div class="space-y-1 md:hidden"><flux:text size="sm">Orientação: {{ $internship->advisorAffiliation?->user?->name ?? 'Não informada' }}</flux:text>@if ($internship->co_advisor_name)<flux:text size="sm">Co-orientação: {{ $internship->co_advisor_name }}</flux:text>@endif</div>
+                    <flux:text size="sm" class="lg:hidden">Início: {{ formatShort($internship->planned_start_date) }} · Término previsto: {{ formatShort($internship->projected_end_date) }}</flux:text>
                 </flux:table.cell>
                 <flux:table.cell class="hidden whitespace-normal md:table-cell">
                     {{ $internship->advisorAffiliation?->user?->name ?? 'Não informado' }}
