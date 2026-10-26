@@ -48,6 +48,7 @@ new #[Title('Solicitação de estágio')] class extends Component
     #[Locked] public string $savedUpdatedAt;
     public int $step = 0;
     public int $navigationStep = 0;
+    #[Locked] public string $resumeNotice = '';
     public bool $termsAccepted = false;
     public bool $showWithdrawal = false;
     public string $withdrawalPassword = '';
@@ -87,13 +88,15 @@ new #[Title('Solicitação de estágio')] class extends Component
         }
         if (! Auth::user()->can('update', $internshipRequest)) {
             $this->step = 8;
-        } elseif ($internshipRequest->status === InternshipRequestStatus::PendingCorrection) {
-            foreach (self::STEPS as $index => $item) {
-                if (in_array($item['section'], $this->editableSections, true) || ($index === 6 && in_array('planned_start_date', $this->editableSections, true))) {
-                    $this->step = $index;
-                    break;
-                }
-            }
+        } else {
+            $statuses = $this->stepStatuses;
+            $unfinished = array_keys(array_filter($statuses, fn (array $status): bool => $status['editable'] && ! $status['review'] && ! $status['complete']));
+            $corrections = array_keys(array_filter($statuses, fn (array $status): bool => $status['needsCorrection']));
+            $this->step = $unfinished[0] ?? $corrections[0] ?? 8;
+            $this->resumeNotice = $this->step === 8
+                ? 'O rascunho está preenchido. Confira os dados na revisão antes de enviar para análise.'
+                : ($corrections !== [] ? 'Retomamos uma etapa indicada para correção pelo Setor. Confira também as demais orientações.'
+                    : 'Abrimos na primeira etapa incompleta, considerando os dados salvos. Seu preenchimento anterior foi mantido.');
         }
         $this->navigationStep = $this->step;
     }
@@ -110,7 +113,7 @@ new #[Title('Solicitação de estágio')] class extends Component
     {
         $request = InternshipRequest::query()->with(['internship', 'advisorAffiliation.user', 'course', 'internshipType', 'grantingParty.address.city', 'grantingPartyRegistrationRequest',
             'supervisorAffiliation.user.personalData', 'supervisorRegistrationRequest', 'studentAddress.city', 'workplaceAddress.city',
-            'emancipationEvidences' => fn ($query) => $query->latest('id'), 'corrections' => fn ($query) => $query->latest('id')])->findOrFail($this->requestId);
+            'emancipationEvidences' => fn ($query) => $query->latest('id'), 'emancipationEvidences.media', 'corrections' => fn ($query) => $query->latest('id')])->findOrFail($this->requestId);
         Gate::authorize('view', $request);
         return $request;
     }
@@ -133,6 +136,39 @@ new #[Title('Solicitação de estágio')] class extends Component
             return array_keys(self::internshipSections());
         }
         return $this->record->corrections->firstWhere('status', InternshipRequestCorrectionStatus::Open)?->affected_sections ?? [];
+    }
+
+    private function isSectionEditable(string $section): bool
+    {
+        return in_array($section, $this->editableSections, true)
+            || ($section === 'schedule' && in_array('planned_start_date', $this->editableSections, true));
+    }
+
+    /** @return array<int, array{title: string, editable: bool, complete: bool, needsCorrection: bool, optional: bool, review: bool, ready: bool}> */
+    #[Computed]
+    public function stepStatuses(): array
+    {
+        $statuses = [];
+        foreach (self::STEPS as $index => $item) {
+            $review = $item['section'] === 'review';
+            $editable = $review ? Auth::user()->can('update', $this->record) : $this->isSectionEditable($item['section']);
+            $complete = false;
+            if ($editable && ! $review) {
+                try {
+                    $this->validateSection($item['section'], synchronize: false);
+                    $complete = true;
+                } catch (ValidationException) {
+                    $complete = false;
+                }
+            }
+            $statuses[$index] = ['title' => $item['title'], 'editable' => $editable, 'complete' => $complete,
+                'needsCorrection' => $editable && ! $review && $this->record->status === InternshipRequestStatus::PendingCorrection,
+                'optional' => false, 'review' => $review, 'ready' => false];
+        }
+        $statuses[8]['ready'] = $statuses[8]['editable'] && ! collect($statuses)
+            ->contains(fn (array $status): bool => $status['editable'] && ! $status['review'] && ! $status['complete']);
+
+        return $statuses;
     }
 
     #[Computed]
@@ -185,7 +221,7 @@ new #[Title('Solicitação de estágio')] class extends Component
 
     private function loadValues(): void
     {
-        unset($this->record, $this->editableSections, $this->choices);
+        unset($this->record, $this->editableSections, $this->choices, $this->stepStatuses);
         $request = $this->record;
         $this->savedUpdatedAt = $request->getRawOriginal('updated_at');
         foreach (array_merge(...array_values(self::internshipSections())) as $field) {
@@ -278,6 +314,9 @@ new #[Title('Solicitação de estágio')] class extends Component
 
     public function updatedValues(mixed $value, string $key): void
     {
+        $this->resumeNotice = '';
+        unset($this->stepStatuses);
+        $this->resetValidation($key);
         if (in_array($key, ['personal_data.birth_date', 'legal_capacity_declaration'], true)) {
             $this->syncLegalCapacity();
             $this->resetValidation('legal_capacity_declaration');
@@ -520,7 +559,7 @@ new #[Title('Solicitação de estágio')] class extends Component
             $saved = app(ManageStudentInternshipRequest::class)->handle(Auth::user(), $this->affiliationId, $this->record, $operation,
                 $operation === 'withdraw' ? ['current_password' => $this->withdrawalPassword] : $this->payload($section), $this->termsAccepted, $this->savedUpdatedAt);
             $this->savedUpdatedAt = $saved->getRawOriginal('updated_at');
-            unset($this->record, $this->editableSections);
+            unset($this->record, $this->editableSections, $this->stepStatuses);
             $this->resetValidation();
             $this->dispatch('form-saved', scope: 'internship-request', savedAt: formatDateTime(now()));
             return true;
@@ -552,6 +591,7 @@ new #[Title('Solicitação de estágio')] class extends Component
     public function goTo(int $step): void
     {
         abort_unless($step >= 0 && $step < count(self::STEPS), 404);
+        $this->resumeNotice = '';
         if (($this->matchedRegistrationStep !== null && $step > $this->matchedRegistrationStep)
             || ($step > $this->step && $this->resolveExistingRegistration())) {
             return;
@@ -579,11 +619,13 @@ new #[Title('Solicitação de estágio')] class extends Component
         $this->resetValidation();
     }
 
-    private function validateSection(string $section): void
+    private function validateSection(string $section, bool $synchronize = true): void
     {
-        $this->syncLegalCapacity();
+        if ($synchronize) {
+            $this->syncLegalCapacity();
+        }
         $editable = $this->editableSections;
-        if (! in_array($section, $editable, true) && ! ($section === 'schedule' && in_array('planned_start_date', $editable, true))) {
+        if (! $this->isSectionEditable($section)) {
             return;
         }
         $data = $this->normalizeInternshipInput($this->values);
@@ -599,6 +641,9 @@ new #[Title('Solicitação de estágio')] class extends Component
                 }
             }
             Validator::make($data, $this->supervisorRequestStepRules($data), attributes: $this->internshipFieldLabels())->validate();
+            if (($data['supervisor_mode'] ?? null) !== 'pending' && $this->choices['selectedSupervisor'] === null) {
+                throw ValidationException::withMessages(['supervisor_affiliation_id' => 'Escolha um supervisor ativo do seu campus.']);
+            }
             return;
         }
         $required = match ($section) {
@@ -625,6 +670,9 @@ new #[Title('Solicitação de estágio')] class extends Component
             $completeRules['planned_start_date'][] = 'after_or_equal:'.now(config('app.timezone'))->addDays(7)->toDateString();
         }
         Validator::make($data, $completeRules, ['planned_start_date.after_or_equal' => 'Escolha uma data com pelo menos sete dias corridos de antecedência.'], $this->internshipFieldLabels())->validate();
+        if ($section === 'granting_party' && ($data['granting_party_mode'] ?? null) !== 'pending' && $this->choices['selectedParty'] === null) {
+            throw ValidationException::withMessages(['granting_party_id' => 'Escolha uma concedente ativa do seu campus.']);
+        }
         if ($section === 'internship') {
             Validator::make($data, ['advisor_affiliation_id' => ['required', \Illuminate\Validation\Rule::in($this->choices['advisors']->pluck('id')->all())]],
                 ['advisor_affiliation_id.in' => 'Selecione um orientador ativo do seu campus.'], $this->internshipFieldLabels())->validate();
@@ -792,6 +840,7 @@ new #[Title('Solicitação de estágio')] class extends Component
     $pendingParty = ($values['granting_party_mode'] ?? '') === 'pending';
     $pendingSupervisor = ($values['supervisor_mode'] ?? '') === 'pending';
     $canUpdateRequest = auth()->user()->can('update', $request);
+    $stepStatuses = $this->stepStatuses;
 @endphp
 
 <div class="w-full space-y-8" data-unsaved-changes="internship-request" data-unsaved-models='["values", "evidence"]' data-unsaved-actions='["save", "goTo", "submit", "withdraw"]' data-unsaved-enabled="{{ $canUpdateRequest ? 'true' : 'false' }}">
@@ -865,33 +914,13 @@ new #[Title('Solicitação de estágio')] class extends Component
         <flux:callout variant="warning">{{ $request->decision_reason }}</flux:callout>
     @endif
 
-    <div class="space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-            <flux:text class="font-medium text-brand!">Etapa {{ $step + 1 }} de {{ count(self::STEPS) }} · {{ self::STEPS[$step]['title'] }}</flux:text>
-            <flux:text size="sm">O envio para análise acontece somente na revisão final.</flux:text>
-        </div>
-        <flux:progress wire:key="request-progress-{{ $step }}" :value="$step + 1" :max="count(self::STEPS)" :aria-valuenow="$step + 1" :aria-valuemax="count(self::STEPS)" style="--flux-progress-color: var(--color-brand)" aria-label="Etapa atual da solicitação" />
-    </div>
+    <x-form-step-progress :steps="$stepStatuses" :current="$step" :editable="$canUpdateRequest" context="solicitação" />
+    @if ($resumeNotice)
+        <flux:callout icon="information-circle" heading="Continue o preenchimento"><flux:callout.text>{{ $resumeNotice }}</flux:callout.text></flux:callout>
+    @endif
 
     <div class="grid items-start gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <nav aria-label="Etapas da solicitação" class="lg:sticky lg:top-6">
-            <div class="lg:hidden">
-                <x-select label="Ir para uma etapa" wire:model.live="navigationStep" :value="$navigationStep" :options="collect(self::STEPS)->mapWithKeys(fn ($item, $index) => [$index => ($index + 1).'. '.$item['title']])->all()" />
-            </div>
-            <ol class="hidden space-y-1 lg:block">
-                @foreach (self::STEPS as $index => $item)
-                    <li wire:key="step-{{ $index }}">
-                        <flux:button variant="ghost" wire:click="goTo({{ $index }})" wire:loading.attr="disabled" :aria-current="$step === $index ? 'step' : null"
-                            @class(['h-auto! w-full justify-start! whitespace-normal! py-2.5! text-left', 'bg-brand/10! text-brand!' => $step === $index])>
-                            <span class="flex items-center gap-3">
-                                <span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-current/20 text-xs">{{ $index + 1 }}</span>
-                                <span>{{ $item['title'] }}{{ $request->status === InternshipRequestStatus::PendingCorrection && in_array($item['section'], $this->editableSections, true) ? ' · Corrigir' : '' }}</span>
-                            </span>
-                        </flux:button>
-                    </li>
-                @endforeach
-            </ol>
-        </nav>
+        <x-form-step-navigation :steps="$stepStatuses" :current="$step" label="Etapas da solicitação" />
 
         <div class="min-w-0 space-y-6">
     @if ($errors->any() && ! $showWithdrawal)

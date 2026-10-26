@@ -6,6 +6,7 @@ use App\Concerns\SupervisorProfessionalDataValidationRules;
 use App\Enums\AffiliationType;
 use App\Enums\EducationLevel;
 use App\Enums\EvaluationConcept;
+use App\Enums\EvaluationStatus;
 use App\Models\SupervisorEvaluation;
 use App\Support\StudentInternshipContext;
 use App\Support\ActivityAccess;
@@ -34,6 +35,8 @@ new class extends Component
     public int $step = 0;
 
     public int $navigationStep = 0;
+    #[Locked]
+    public string $resumeNotice = '';
 
     public bool $showCancellation = false;
     #[Locked]
@@ -57,6 +60,14 @@ new class extends Component
         $this->loadValues();
         if (! Gate::allows('update', $this->record)) {
             $this->step = $this->navigationStep = 4;
+        } else {
+            $statuses = $this->stepStatuses;
+            $unfinished = array_keys(array_filter($statuses, fn (array $status): bool => ! $status['review'] && ! $status['complete']));
+            $returned = $this->record->status === EvaluationStatus::Returned;
+            $this->step = $this->navigationStep = $unfinished[0] ?? ($returned ? 0 : 4);
+            $this->resumeNotice = $returned ? 'Esta avaliação foi devolvida. Confira a orientação do Setor e revise suas respostas antes de reenviar.'
+                : ($this->step === 4 ? 'As etapas obrigatórias estão preenchidas. Confira a revisão antes de enviar a avaliação.'
+                    : 'Abrimos na primeira etapa incompleta, considerando as respostas salvas. Seu preenchimento anterior foi mantido.');
         }
     }
 
@@ -91,6 +102,8 @@ new class extends Component
     public function updatedValues(mixed $value, string $key): void
     {
         Gate::authorize('update', $this->record);
+        $this->resumeNotice = '';
+        unset($this->stepStatuses);
         $this->resetValidation($key);
         if ($key === 'hours_requirement_met') {
             $this->values['estimated_hours_remaining'] = null;
@@ -152,6 +165,33 @@ new class extends Component
             ? array_intersect_key(self::STEPS, [0 => true, 4 => true]) : self::STEPS;
     }
 
+    /** @return array<int, array{title: string, editable: bool, complete: bool, needsCorrection: bool, optional: bool, review: bool, ready: bool}> */
+    #[Computed]
+    public function stepStatuses(): array
+    {
+        $editable = Gate::allows('update', $this->record);
+        $statuses = [];
+        foreach ($this->steps as $index => $title) {
+            $review = $index === 4;
+            $complete = false;
+            if ($editable && ! $review) {
+                try {
+                    $this->validateStep($index);
+                    $complete = true;
+                } catch (ValidationException) {
+                    $complete = false;
+                }
+            }
+            $statuses[$index] = ['title' => $title, 'editable' => $editable, 'complete' => $complete,
+                'needsCorrection' => $editable && ! $review && $this->record->status === EvaluationStatus::Returned,
+                'optional' => $index === 3, 'review' => $review, 'ready' => false];
+        }
+        $statuses[4]['ready'] = $editable && ! collect($statuses)
+            ->contains(fn (array $status): bool => ! $status['review'] && ! $status['complete']);
+
+        return $statuses;
+    }
+
     /** @return array<string, string> */
     #[Computed]
     public function conceptOptions(): array
@@ -174,6 +214,7 @@ new class extends Component
     {
         Gate::authorize('view', $this->record);
         abort_unless(array_key_exists($step, $this->steps), 404);
+        $this->resumeNotice = '';
         if ($step === $this->step) {
             return;
         }
@@ -273,7 +314,7 @@ new class extends Component
 
             return false;
         }
-        unset($this->record, $this->steps, $this->conceptOptions, $this->activityHistory);
+        unset($this->record, $this->steps, $this->stepStatuses, $this->conceptOptions, $this->activityHistory);
         $this->loadValues();
         $this->resetValidation();
         if (! Gate::allows('update', $this->record)) {
@@ -312,6 +353,7 @@ new class extends Component
         $steps = $this->steps;
         $stepIds = array_keys($steps);
         $position = array_search($step, $stepIds, true);
+        $stepStatuses = $this->stepStatuses;
     @endphp
     @if ($editable || $officeView)<x-form-save-status :saved-at="$evaluation->updated_at" />@endif
     <flux:breadcrumbs><flux:breadcrumbs.item :href="route('supervisor-evaluations.index')" wire:navigate>Avaliações do supervisor</flux:breadcrumbs.item><flux:breadcrumbs.item>Avaliação nº {{ $evaluationId }}</flux:breadcrumbs.item></flux:breadcrumbs>
@@ -381,22 +423,13 @@ new class extends Component
             @include('pages.supervisor-evaluations.partials.review')
         </div>
     @else
-    <div class="space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-            <flux:text class="font-medium text-brand!">Etapa {{ $position + 1 }} de {{ count($steps) }} · {{ $steps[$step] }}</flux:text>
-            <flux:text size="sm">{{ $editable ? 'O envio para análise acontece somente na revisão final.' : 'Respostas registradas na avaliação.' }}</flux:text>
-        </div>
-        <flux:progress wire:key="evaluation-progress-{{ $step }}-{{ count($steps) }}" :value="$position + 1" :max="count($steps)" :aria-valuenow="$position + 1" :aria-valuemax="count($steps)" style="--flux-progress-color: var(--color-brand)" aria-label="Etapa atual da avaliação" />
-    </div>
+    <x-form-step-progress :steps="$stepStatuses" :current="$step" :editable="$editable" context="avaliação" />
+    @if ($resumeNotice)
+        <flux:callout icon="information-circle" heading="Continue o preenchimento"><flux:callout.text>{{ $resumeNotice }}</flux:callout.text></flux:callout>
+    @endif
+
     <div class="grid items-start gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <nav aria-label="Etapas da avaliação" class="lg:sticky lg:top-6">
-            <div class="lg:hidden"><x-select label="Ir para uma etapa" wire:model.live="navigationStep" :value="$navigationStep" :options="collect($steps)->mapWithKeys(fn ($title, $index) => [$index => (array_search($index, $stepIds, true) + 1).'. '.$title])->all()" /></div>
-            <ol class="hidden space-y-1 lg:block">
-                @foreach ($steps as $index => $title)
-                    <li wire:key="evaluation-step-{{ $index }}"><flux:button type="button" variant="ghost" wire:click="goTo({{ $index }})" wire:loading.attr="disabled" :aria-current="$step === $index ? 'step' : null" @class(['h-auto! w-full justify-start! whitespace-normal! py-2.5! text-left', 'bg-brand/10! text-brand!' => $step === $index])><span class="flex items-center gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-current/20 text-xs">{{ $loop->iteration }}</span><span>{{ $title }}</span></span></flux:button></li>
-                @endforeach
-            </ol>
-        </nav>
+        <x-form-step-navigation :steps="$stepStatuses" :current="$step" label="Etapas da avaliação" />
         <form wire:submit="submit" class="min-w-0 space-y-6" novalidate>
             <x-loading-overlay target="goTo,navigationStep,save,submit,values.hours_requirement_met,values.has_academic_background" label="Atualizando avaliação…" :dim-while-loading="true">
                 <section wire:key="evaluation-stage-{{ $step }}" aria-labelledby="evaluation-stage-title" class="space-y-6">
