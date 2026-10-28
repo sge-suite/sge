@@ -16,11 +16,11 @@ use App\Helpers\DigitsHelper;
 use App\Models\Affiliation;
 use App\Models\City;
 use App\Models\EmancipationEvidence;
-use App\Models\InternshipRequest;
 use App\Models\GrantingParty;
+use App\Models\InternshipRequest;
 use App\Models\InternshipType;
-use App\Support\InternshipEndDateCalculator;
 use App\Models\User;
+use App\Support\InternshipEndDateCalculator;
 use App\Support\InternshipPlannedPauses;
 use App\Support\InternshipRegistrationLookup;
 use App\Support\InternshipRequestPersonalData;
@@ -39,6 +39,16 @@ use Livewire\WithFileUploads;
 
 new #[Title('Solicitação de estágio')] class extends Component
 {
+    use \App\Concerns\SearchesSelectOptions;
+
+    protected function selectSearchSource(string $source): array
+    {
+        abort_unless($source === 'advisors', 404);
+
+        return ['model' => Affiliation::class, 'options' => $this->choices['advisors']
+            ->mapWithKeys(fn (Affiliation $advisor): array => [$advisor->id => $advisor->user->name.' - '.$advisor->email])->all()];
+    }
+
     use InternshipRequestValidationRules;
     use InteractsWithAddressLookup;
     use SupervisorProfessionalDataValidationRules;

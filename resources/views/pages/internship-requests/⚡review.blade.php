@@ -25,10 +25,22 @@ use Livewire\WithPagination;
 new #[Title('Análise da solicitação de estágio')] class extends Component
 {
     use WithPagination;
+    use \App\Concerns\SearchesSelectOptions;
 
-    #[Locked] public int $requestId;
+    protected function selectSearchSource(string $source): array
+    {
+        return match ($source) {
+            'parties' => ['model' => GrantingParty::class, 'attributes' => ['name', 'document_number', 'normalized_document_number', 'selection_label'], 'options' => $this->choices['parties']
+                ->mapWithKeys(fn (GrantingParty $party): array => [$party->id => $party->selectionLabel()])->all()],
+            'advisors', 'supervisors' => ['model' => Affiliation::class, 'options' => $this->choices[$source]
+                ->mapWithKeys(fn (Affiliation $affiliation): array => [$affiliation->id => $affiliation->user->name.' - '.$affiliation->email])->all()],
+            default => abort(404),
+        };
+    }
     #[Locked] public int $affiliationId;
     public string $message = '';
+
+    #[Locked] public int $requestId;
     public array $sections = [];
     public array $sectionMessages = [];
     public ?int $advisorId = null;
@@ -233,7 +245,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
                         <flux:button :href="route('granting-parties.create', ['internship_request' => $request->id])" icon="building-office" target="_blank" rel="noopener">Cadastrar concedente com os dados do pedido</flux:button>
                         <flux:text>Ao voltar para esta tela, a lista será atualizada automaticamente. Selecione o cadastro criado e aprove a associação.</flux:text>
                     @endif
-                    <x-select wire:model.live="partyId" :value="$partyId ?? ''" label="Concedente a associar" placeholder="Busque por nome, documento, cidade ou endereço" :options="$this->choices['parties']->mapWithKeys(fn ($party) => [$party->id => $party->selectionLabel()])->all()" :invalid="$errors->has('partyId')" :error="$errors->first('partyId')" :disabled="! $this->canDecide || ! $pendingParty || ! in_array($proposal->status->value, ['submitted', 'under_review'], true)" searchable />
+                    <x-select search-source="parties" wire:model.live="partyId" :value="$partyId ?? ''" label="Concedente a associar" placeholder="Busque por nome, documento, cidade ou endereço" :options="$this->choices['parties']->mapWithKeys(fn ($party) => [$party->id => $party->selectionLabel()])->all()" :invalid="$errors->has('partyId')" :error="$errors->first('partyId')" :disabled="! $this->canDecide || ! $pendingParty || ! in_array($proposal->status->value, ['submitted', 'under_review'], true)" searchable />
                     <flux:text size="sm">Confira a unidade pelo documento e endereço. Selecionar apenas prepara a associação; a aprovação acontece no botão abaixo.</flux:text>
                     @php
                         $selectedParty = $this->choices['parties']->firstWhere('id', $partyId);

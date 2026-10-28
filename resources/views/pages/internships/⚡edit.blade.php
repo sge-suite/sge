@@ -23,8 +23,27 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Editar estágio')] class extends Component
 {
+new #[Title('Editar estágio')] class extends Component
+    use \App\Concerns\SearchesSelectOptions;
+
+    protected function selectSearchSource(string $source): array
+    {
+        $model = match ($source) {
+            'types' => InternshipType::class,
+            'parties' => GrantingParty::class,
+            'advisors', 'supervisors' => Affiliation::class,
+            default => abort(404),
+        };
+
+        $configuration = ['model' => $model, 'options' => $this->choices[$source]];
+        if ($source === 'parties') {
+            $configuration['attributes'] = ['name', 'document_number', 'normalized_document_number'];
+        }
+
+        return $configuration;
+    }
+
     use InteractsWithAddressLookup {
         applyCepLookup as protected applyInternshipCepLookup;
     }
@@ -392,9 +411,9 @@ new #[Title('Editar estágio')] class extends Component
         <section class="border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="edit-data-heading">
             <flux:heading id="edit-data-heading" size="lg" level="2">Dados do estágio</flux:heading>
             <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-                <x-select wire:model.live="values.internship_type_id" :value="$values['internship_type_id']" label="Tipo de estágio" :options="$choices['types']" :error="$errors->first('internship_type_id')" :disabled="! $canEditAgreement" searchable required />
+                <x-select search-source="types" wire:model.live="values.internship_type_id" :value="$values['internship_type_id']" label="Tipo de estágio" :options="$choices['types']" :error="$errors->first('internship_type_id')" :disabled="! $canEditAgreement" searchable required />
                 <flux:input label="Situação" :value="$record->status->label()" readonly />
-                <x-select wire:model.live="values.advisor_affiliation_id" :value="$values['advisor_affiliation_id']" label="Orientador" :options="$choices['advisors']" :error="$errors->first('advisor_affiliation_id')" searchable required />
+                <x-select search-source="advisors" wire:model.live="values.advisor_affiliation_id" :value="$values['advisor_affiliation_id']" label="Orientador" :options="$choices['advisors']" :error="$errors->first('advisor_affiliation_id')" searchable required />
                 <flux:input wire:model="values.co_advisor_name" error:name="co_advisor_name" label="Co-orientador (opcional)" maxlength="255" />
                 <flux:input wire:model="values.internship_sector" error:name="internship_sector" label="Setor ou área de atuação" maxlength="255" />
                 <flux:input wire:model="values.planned_start_date" error:name="planned_start_date" label="Início planejado" type="date" :readonly="! $canEditAgreement" required />
@@ -465,7 +484,7 @@ new #[Title('Editar estágio')] class extends Component
             <flux:heading id="edit-party-heading" size="lg" level="2">Parte concedente</flux:heading>
             <flux:text class="mt-1">Os dados abaixo pertencem a este estágio. O cadastro da concedente permanece preservado.</flux:text>
             <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-                <div class="sm:col-span-2"><x-select wire:model.live="values.granting_party_id" :value="$values['granting_party_id']" label="Concedente" :options="$choices['parties']" :error="$errors->first('granting_party_id')" searchable required /></div>
+                <div class="sm:col-span-2"><x-select search-source="parties" wire:model.live="values.granting_party_id" :value="$values['granting_party_id']" label="Concedente" :options="$choices['parties']" :error="$errors->first('granting_party_id')" searchable required /></div>
                 <flux:input label="CPF/CNPJ" :value="\App\Helpers\BrazilianDocumentHelper::formatCpfCnpj($partyDocument)" readonly />
                 <flux:input wire:model="values.party.name" error:name="party.name" label="Nome ou razão social no estágio" maxlength="255" required />
                 <flux:input wire:model="values.party.phone" error:name="party.phone" label="Telefone" type="tel" />
@@ -495,7 +514,7 @@ new #[Title('Editar estágio')] class extends Component
         <section class="border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="edit-supervisor-heading">
             <flux:heading id="edit-supervisor-heading" size="lg" level="2">Supervisor</flux:heading>
             <div class="mt-5 grid items-start gap-5 sm:grid-cols-2">
-                <x-select wire:model.live="values.supervisor_affiliation_id" :value="$values['supervisor_affiliation_id']" label="Supervisor" :options="$choices['supervisors']" :error="$errors->first('supervisor_affiliation_id')" searchable required />
+                <x-select search-source="supervisors" wire:model.live="values.supervisor_affiliation_id" :value="$values['supervisor_affiliation_id']" label="Supervisor" :options="$choices['supervisors']" :error="$errors->first('supervisor_affiliation_id')" searchable required />
                 <x-select wire:model="values.supervisor_qualification_id" :value="$values['supervisor_qualification_id']" label="Qualificação" :options="$choices['qualifications']" :error="$errors->first('supervisor_qualification_id')" placeholder="Selecione uma qualificação" />
                 <flux:input wire:model="values.supervisor.job_role" error:name="supervisor.job_role" label="Cargo ou função na concedente" maxlength="255" required />
                 <flux:input wire:model="values.supervisor.phone" error:name="supervisor.phone" label="Telefone no estágio" type="tel" />

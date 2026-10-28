@@ -19,6 +19,14 @@ use Livewire\WithPagination;
 new #[Title('Analisar solicitações de estágio')] class extends Component
 {
     use WithPagination;
+    use \App\Concerns\SearchesSelectOptions;
+
+    protected function selectSearchSource(string $source): array
+    {
+        abort_unless($source === 'courses', 404);
+
+        return ['model' => Course::class, 'options' => $this->courseOptions];
+    }
 
     #[Locked]
     public int $affiliationId;
@@ -134,7 +142,7 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_16rem_12rem_9rem] xl:items-end">
         <flux:input wire:model.live.debounce.300ms="search" label="Buscar por discente, matrícula ou número" icon="magnifying-glass" maxlength="255" type="search" />
         <div class="min-w-0">
-            <x-select wire:model.live="courseId" label="Curso" :value="$courseId" :options="$this->courseOptions" searchable />
+            <x-select search-source="courses" wire:model.live="courseId" label="Curso" :value="$courseId" :options="$this->courseOptions" searchable />
         </div>
         <div class="min-w-0">
             <x-select wire:model.live="status" label="Situação" :value="$status" :options="$this->statusOptions" />

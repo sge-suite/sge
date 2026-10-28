@@ -22,6 +22,16 @@ use Livewire\WithPagination;
 new #[Title('Estágios')] class extends Component
 {
     use WithPagination;
+    use \App\Concerns\SearchesSelectOptions;
+
+    protected function selectSearchSource(string $source): array
+    {
+        return match ($source) {
+            'courses' => ['model' => Course::class, 'options' => $this->courseOptions],
+            'advisors' => ['model' => Affiliation::class, 'options' => $this->advisorOptions],
+            default => abort(404),
+        };
+    }
 
     #[Locked] public int $affiliationId;
     #[Url(except: '')] public string $search = '';
@@ -183,9 +193,9 @@ new #[Title('Estágios')] class extends Component
     </div>
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_14rem_14rem] xl:items-end">
         <flux:input wire:model.live.debounce.300ms="search" :label="app(StudentInternshipContext::class)->selected(auth()->user())->type === AffiliationType::InternshipOffice ? 'Buscar por discente, matrícula, protocolo do documento ou número' : 'Buscar por discente, matrícula ou número'" icon="magnifying-glass" maxlength="255" type="search" />
-        <div class="min-w-0"><x-select wire:model.live="courseId" label="Curso" :value="$courseId" :options="$this->courseOptions" searchable /></div>
+        <div class="min-w-0"><x-select search-source="courses" wire:model.live="courseId" label="Curso" :value="$courseId" :options="$this->courseOptions" searchable /></div>
         <div class="min-w-0"><x-select wire:model.live="status" label="Situação" :value="$status" :options="$this->statusOptions" /></div>
-        <div class="min-w-0"><x-select wire:model.live="advisorId" label="Orientador" :value="$advisorId" :options="$this->advisorOptions" searchable /></div>
+        <div class="min-w-0"><x-select search-source="advisors" wire:model.live="advisorId" label="Orientador" :value="$advisorId" :options="$this->advisorOptions" searchable /></div>
         <div>
             @if ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '' || $pendingCancellations)
                 <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
