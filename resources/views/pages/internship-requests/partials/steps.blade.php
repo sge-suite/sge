@@ -30,6 +30,13 @@
     @endif
     @php
         $selectedType = $choices['types']->firstWhere('id', (int) ($values['internship_type_id'] ?? 0));
+        $academicPeriodOptions = $selectedType?->academicPeriodOptions() ?? [];
+        $academicPeriods = collect(array_keys($academicPeriodOptions));
+        $academicPeriodUnit = match (true) {
+            $academicPeriods->isNotEmpty() && $academicPeriods->every(fn (string $period): bool => \Illuminate\Support\Str::endsWith($period, ' ano')) => 'ano',
+            $academicPeriods->isNotEmpty() && $academicPeriods->every(fn (string $period): bool => \Illuminate\Support\Str::endsWith($period, ' semestre')) => 'semestre',
+            default => 'ano ou semestre',
+        };
     @endphp
     @if ($selectedType)
         <flux:callout :heading="$selectedType->name">
@@ -38,7 +45,7 @@
     @endif
     @if ($choices['types']->count() <= 1)<flux:error name="internship_type_id" />@endif
     @if ($choices['types']->isEmpty())<flux:callout variant="warning">Seu curso ainda não possui um tipo ativo. Salve o rascunho e procure o Setor de Estágio.</flux:callout>@endif
-    <x-select wire:model="values.student_year_semester" :value="$values['student_year_semester'] ?? ''" label="Ano ou semestre em que você está matriculado" placeholder="Selecione seu ano ou semestre" :options="$selectedType?->academicPeriodOptions() ?? []" :disabled="$selectedType === null || empty($selectedType->allowed_academic_periods)" :error="$errors->first('student_year_semester')" required />
+    <x-select wire:model="values.student_year_semester" :value="$values['student_year_semester'] ?? ''" :label="\Illuminate\Support\Str::ucfirst($academicPeriodUnit).' em que você está matriculado'" :placeholder="'Selecione seu '.$academicPeriodUnit" :options="$academicPeriodOptions" :disabled="$academicPeriodOptions === []" :error="$errors->first('student_year_semester')" required />
     @if ($selectedType && empty($selectedType->allowed_academic_periods))
         <flux:callout variant="warning">O Setor de Estágio precisa configurar os anos ou semestres permitidos para este tipo. Salve o rascunho e entre em contato com o Setor.</flux:callout>
     @endif
