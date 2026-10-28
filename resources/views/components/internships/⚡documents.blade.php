@@ -8,9 +8,11 @@ use App\Actions\RequestExpiredDocumentCorrection;
 use App\Enums\AffiliationType;
 use App\Enums\GeneratedDocumentStatus;
 use App\Enums\GeneratedDocumentType;
+use App\Enums\InternshipRequestStatus;
 use App\Models\DocumentTemplate;
 use App\Models\GeneratedDocument;
 use App\Models\Internship;
+use App\Models\InternshipRequest;
 use App\Support\PageSize;
 use App\Support\StudentInternshipContext;
 use App\Support\InternshipRecipients;
@@ -104,6 +106,12 @@ new class extends Component
         $this->dateCorrectionDocumentId = $id;
         $this->dateCorrectionReason = '';
         $this->showDateCorrection = true;
+    }
+
+    #[Computed]
+    public function dateCorrectionRequest(): ?InternshipRequest
+    {
+        return $this->internship->internshipRequest()->first();
     }
 
     public function requestDateCorrection(RequestExpiredDocumentCorrection $correction): void
@@ -558,8 +566,16 @@ new class extends Component
             <x-form-save-status />
             <flux:heading size="lg" level="2">Solicitar correção da data inicial</flux:heading>
             <flux:text>A seção de estágio será devolvida ao discente para corrigir a data. Os documentos de formalização pendentes serão cancelados, preservando o histórico. O novo envio precisará da análise e do aceite do Setor.</flux:text>
-            <flux:textarea wire:model="dateCorrectionReason" label="Orientação para a correção" maxlength="5000" required /><flux:error name="reason" />
-            <div class="flex flex-wrap justify-end gap-3"><flux:button type="button" wire:click="$set('showDateCorrection', false)">Voltar</flux:button><flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="requestDateCorrection">Solicitar correção</flux:button></div>
+            @if ($this->dateCorrectionRequest?->status !== InternshipRequestStatus::UnderReview)
+                <flux:callout heading="Retome a análise antes de devolver">
+                    <flux:callout.text>A solicitação precisa estar em análise para registrar a devolução ao discente.</flux:callout.text>
+                    @if ($this->dateCorrectionRequest !== null)
+                        <flux:button :href="route('internship-review.show', $this->dateCorrectionRequest)" wire:navigate>Abrir análise da solicitação</flux:button>
+                    @endif
+                </flux:callout>
+            @endif
+            <flux:textarea wire:model="dateCorrectionReason" label="Orientação para a correção" maxlength="5000" required :disabled="$this->dateCorrectionRequest?->status !== InternshipRequestStatus::UnderReview" /><flux:error name="reason" /><flux:error name="status" />
+            <div class="flex flex-wrap justify-end gap-3"><flux:button type="button" wire:click="$set('showDateCorrection', false)">Voltar</flux:button><flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="requestDateCorrection" :disabled="$this->dateCorrectionRequest?->status !== InternshipRequestStatus::UnderReview">Solicitar correção</flux:button></div>
         </form>
     </flux:modal>
 </section>

@@ -224,6 +224,20 @@ class InternshipRequest extends Model
         return $this->belongsTo(Address::class, 'workplace_address_id');
     }
 
+    public function assertUnderReview(): void
+    {
+        if ($this->status !== InternshipRequestStatus::UnderReview) {
+            throw ValidationException::withMessages([
+                'status' => match ($this->status) {
+                    InternshipRequestStatus::Submitted => 'Inicie a análise da solicitação antes de registrar uma decisão.',
+                    InternshipRequestStatus::Accepted => 'Retome a análise da solicitação antes de registrar uma nova decisão.',
+                    InternshipRequestStatus::PendingCorrection => 'Aguarde o reenvio do discente e inicie a análise antes de registrar uma decisão.',
+                    default => 'Só é possível registrar decisões quando a solicitação está em análise.',
+                },
+            ]);
+        }
+    }
+
     protected static function booted(): void
     {
         static::saved(function (self $request): void {

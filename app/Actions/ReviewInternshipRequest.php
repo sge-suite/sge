@@ -50,12 +50,20 @@ class ReviewInternshipRequest
             Gate::forUser($actor)->authorize('review', $request);
             $campus->assertWritable();
             $internship = $request->internship_id === null ? null : Internship::query()->lockForUpdate()->findOrFail($request->internship_id);
+            if ($operation === 'begin') {
+                $allowedStatuses = [InternshipRequestStatus::Submitted->value];
+                if ($internship !== null) {
+                    $allowedStatuses[] = InternshipRequestStatus::Accepted->value;
+                }
+                Validator::make(['status' => $request->status->value], ['status' => [Rule::in($allowedStatuses)]], [
+                    'status.in' => 'A análise só pode ser iniciada para uma solicitação enviada ou retomada após o aceite, antes da liberação do estágio.',
+                ])->validate();
+            } else {
+                $request->assertUnderReview();
+            }
             abort_if($internship?->released_at !== null, 409);
             abort_unless($internship === null || in_array($internship->status, [InternshipStatus::PendingFormalization, InternshipStatus::AwaitingSignatures, InternshipStatus::PendingCorrection], true), 409);
             abort_if($operation === 'reject' && $internship !== null, 409);
-            abort_unless(in_array($request->status, [InternshipRequestStatus::Submitted, InternshipRequestStatus::UnderReview], true)
-                || ($operation === 'return' && $request->status === InternshipRequestStatus::PendingCorrection)
-                || ($operation === 'return' && $request->status === InternshipRequestStatus::Accepted && $internship !== null), 409);
             $sectionMessages = array_map(fn (mixed $value): mixed => is_string($value) ? trim($value) : $value, $sectionMessages);
             $rules = [
                 'message' => [$operation === 'reject' ? 'required' : 'nullable', 'string', 'max:5000'],

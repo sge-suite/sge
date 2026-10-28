@@ -31,7 +31,7 @@ class ReviewInternshipRegistration
             $request = InternshipRequest::query()->lockForUpdate()->findOrFail($target->id);
             Gate::forUser($actor)->authorize('review', $request);
             $campus->assertWritable();
-            abort_unless(in_array($request->status->value, ['submitted', 'under_review', 'pending_correction'], true), 409);
+            $request->assertUnderReview();
             $relation = $kind === 'granting_party' ? 'grantingPartyRegistrationRequest' : 'supervisorRegistrationRequest';
             $pending = $request->{$relation}()->lockForUpdate()->firstOrFail();
             abort_unless(in_array($pending->status, [RegistrationRequestStatus::Submitted, RegistrationRequestStatus::UnderReview], true), 409);
