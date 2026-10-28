@@ -235,7 +235,9 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
                     @endif
                     <x-select wire:model.live="partyId" :value="$partyId ?? ''" label="Concedente a associar" placeholder="Busque por nome, documento, cidade ou endereço" :options="$this->choices['parties']->mapWithKeys(fn ($party) => [$party->id => $party->selectionLabel()])->all()" :invalid="$errors->has('partyId')" :error="$errors->first('partyId')" :disabled="! $this->canDecide || ! $pendingParty || ! in_array($proposal->status->value, ['submitted', 'under_review'], true)" searchable />
                     <flux:text size="sm">Confira a unidade pelo documento e endereço. Selecionar apenas prepara a associação; a aprovação acontece no botão abaixo.</flux:text>
-                    @php($selectedParty = $this->choices['parties']->firstWhere('id', $partyId))
+                    @php
+                        $selectedParty = $this->choices['parties']->firstWhere('id', $partyId);
+                    @endphp
                     @if ($selectedParty !== null)
                         <div wire:key="review-selected-party-{{ $selectedParty->id }}" role="status" class="space-y-3 rounded-xl border border-brand/30 bg-brand/5 p-4">
                             <flux:heading level="3">Confira a unidade selecionada · nº {{ $selectedParty->id }}</flux:heading>
