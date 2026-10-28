@@ -219,7 +219,8 @@ function syncUnloadGuard() {
 function registerLivewire() {
     if (livewireRegistered || !window.Livewire) return;
     livewireRegistered = true;
-    window.Livewire.interceptMessage(({ component, message, onSend, onSuccess, onFinish }) => {
+    window.Livewire.interceptMessage(({ message, onSend, onSuccess, onFinish }) => {
+        const component = message.component;
         const revisions = new Map();
         const saving = new Set();
         onSend(() => {
