@@ -341,6 +341,7 @@ new class extends Component
         $this->showGeneration = false;
         $this->resetPage('documentsPage');
         unset($this->documents, $this->downloadStates);
+        $this->dispatch('form-saved', scope: 'dialog-generate', savedAt: formatDateTime(now()));
         $this->dispatch('document-generated', internshipId: $this->internshipId,
             url: route('internships.documents.download', [$this->internshipId, $document->id, 'format' => $this->format]));
         $this->generationToken = (string) Str::uuid();
@@ -390,7 +391,19 @@ new class extends Component
 }; ?>
 
 <section id="internship-documents" class="space-y-5 border-t border-zinc-200 pt-6 dark:border-zinc-700" aria-labelledby="documents-heading"
-    x-data x-on:document-generated.window="if ($event.detail.internshipId === {{ $internshipId }}) window.location.assign($event.detail.url)">
+    x-data x-on:document-generated.window="
+        if ($event.detail.internshipId !== {{ $internshipId }}) return;
+        const url = $event.detail.url;
+        $nextTick(() => {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '';
+            link.hidden = true;
+            $el.appendChild(link);
+            link.click();
+            link.remove();
+        });
+    ">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div><flux:heading id="documents-heading" size="lg" level="2">Documentos</flux:heading><flux:text class="mt-1">Cada emissão preserva os dados e a versão do template. Baixe em DOCX ou PDF.</flux:text></div>
         <div class="flex flex-wrap gap-2">
