@@ -68,10 +68,6 @@ new #[Title('Minhas solicitações de estágio')] class extends Component
     </div>
     <x-loading-overlay target="start,gotoPage,nextPage,previousPage" label="Atualizando solicitações…" :dim-while-loading="true">
         @if ($requests->isNotEmpty())
-            <div class="mb-4 flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                <flux:icon.clipboard-document-list class="size-5" />
-                <flux:text size="sm">{{ $requests->total() }} {{ $requests->total() === 1 ? 'solicitação registrada' : 'solicitações registradas' }}</flux:text>
-            </div>
             <x-student-requests-table :$requests :can-edit="$canEditRequests" :paginated="true" />
         @else
             <flux:card class="flex flex-col items-center gap-3 border-dashed px-6 py-12 text-center">
