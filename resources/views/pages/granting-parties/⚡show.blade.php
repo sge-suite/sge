@@ -206,7 +206,7 @@ new #[Title('Detalhes da parte concedente')] class extends Component
             </section>
         @endif
         <flux:modal name="delete-grantingParty" wire:model.self="showDeletion" class="md:w-md">
-            <form wire:submit="deleteGrantingParty" class="space-y-6">
+            <form wire:submit="deleteGrantingParty" class="flex flex-col gap-6">
                 <div>
                     <flux:heading size="lg" level="2">Excluir parte concedente</flux:heading>
                     <flux:text class="mt-2">Esta ação excluirá permanentemente {{ $grantingParty->name }} e seu endereço próprio, somente se não houver vínculos ou registros associados. Confirme sua senha para continuar.</flux:text>
@@ -222,7 +222,7 @@ new #[Title('Detalhes da parte concedente')] class extends Component
     @endcan
     @can('deactivate', $grantingParty)
     <flux:modal name="deactivate-grantingParty" wire:model.self="showDeactivation" class="md:w-md">
-        <form wire:submit="deactivateGrantingParty" class="space-y-6">
+        <form wire:submit="deactivateGrantingParty" class="flex flex-col gap-6">
             <div>
                 <flux:heading size="lg" level="2">Desativar parte concedente</flux:heading>
                 <flux:text class="mt-2">Confirme sua senha para desativar {{ $grantingParty->name }}. Novas atribuições serão impedidas e os vínculos existentes serão preservados.</flux:text>
@@ -240,7 +240,7 @@ new #[Title('Detalhes da parte concedente')] class extends Component
     @endcan
     @can('reactivate', $grantingParty)
     <flux:modal wire:model="showReactivation" class="md:w-96">
-        <div class="space-y-6">
+        <div class="flex flex-col gap-6">
             <div><flux:heading size="lg">Reativar parte concedente</flux:heading><flux:text class="mt-2">Deseja reativar {{ $grantingParty->name }} para permitir novas atribuições?</flux:text></div>
             <div class="flex justify-end gap-3">
                 <flux:button variant="ghost" wire:click="$set('showReactivation', false)">Cancelar</flux:button>

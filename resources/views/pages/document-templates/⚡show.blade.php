@@ -391,7 +391,7 @@ new #[Title('Versões do template DOCX')] class extends Component
         </section>
     @endcan
     <flux:modal wire:model="showTemplateDeletion" class="md:w-md">
-        <form wire:submit="deleteTemplate" class="space-y-6">
+        <form wire:submit="deleteTemplate" class="flex flex-col gap-6">
             <div><flux:heading size="lg">Excluir template</flux:heading><flux:text class="mt-2">Deseja excluir {{ $template->name }} e todos os seus arquivos? Esta ação não pode ser desfeita. O histórico de auditoria será preservado.</flux:text></div>
             <flux:error name="template" />
             <flux:input wire:model="deletionPassword" label="Sua senha atual" type="password" autocomplete="current-password" required viewable />
@@ -402,21 +402,21 @@ new #[Title('Versões do template DOCX')] class extends Component
         <x-audit.activity-history :activities="$this->activityHistory" description="Alterações no template, envios, validações e exclusões de versões deste campus." />
     @endcan
     <flux:modal wire:model="showAvailability" class="md:w-md">
-        <form wire:submit="toggleAvailability" class="space-y-6">
+        <form wire:submit="toggleAvailability" class="flex flex-col gap-6">
             <div><flux:heading size="lg">{{ $template->deactivated_at === null ? 'Desativar template' : 'Reativar template' }}</flux:heading><flux:text class="mt-2">Confirme a alteração de disponibilidade de {{ $template->name }}. As versões e o histórico serão preservados.</flux:text></div>
             @if ($template->deactivated_at === null)<flux:input wire:model="currentPassword" label="Sua senha atual" type="password" autocomplete="current-password" required viewable />@endif
             <div class="flex flex-wrap justify-end gap-3"><flux:modal.close><flux:button variant="outline">Cancelar</flux:button></flux:modal.close><flux:button type="submit" :variant="$template->deactivated_at === null ? 'danger' : 'primary'" wire:loading.attr="disabled">Confirmar</flux:button></div>
         </form>
     </flux:modal>
     <flux:modal wire:model="showCurrentVersion" class="md:w-md">
-        <form wire:submit="makeCurrentVersion" class="space-y-6">
+        <form wire:submit="makeCurrentVersion" class="flex flex-col gap-6">
             <div><flux:heading size="lg">Alterar versão vigente</flux:heading><flux:text class="mt-2">A versão v{{ $currentVersionCandidateNumber }} passará a ser a vigente deste template. Todos os arquivos e documentos já vinculados serão preservados. Novos uploads válidos assumem a vigência automaticamente.</flux:text></div>
             <flux:error name="version" />
             <div class="flex flex-wrap justify-end gap-3"><flux:modal.close><flux:button type="button" variant="outline">Cancelar</flux:button></flux:modal.close><flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="makeCurrentVersion">Tornar vigente</flux:button></div>
         </form>
     </flux:modal>
     <flux:modal wire:model.self="showDeletion" class="md:w-md">
-        <form wire:submit="deleteVersion" class="space-y-6">
+        <form wire:submit="deleteVersion" class="flex flex-col gap-6">
             <div><flux:heading size="lg">Excluir versão sem uso</flux:heading><flux:text class="mt-2">A versão e seu original privado serão removidos. Se for a vigente, a versão restante de maior número voltará a vigorar. O histórico e a numeração serão preservados.</flux:text></div>
             <flux:error name="version" />
             <flux:input wire:model="versionDeletionPassword" label="Sua senha atual" type="password" autocomplete="current-password" required viewable />
@@ -424,7 +424,7 @@ new #[Title('Versões do template DOCX')] class extends Component
         </form>
     </flux:modal>
     <flux:modal wire:model.self="showPreview" class="w-[calc(100vw-2rem)] max-w-7xl!">
-        <div class="space-y-4">
+        <div class="flex flex-col gap-4">
             <flux:heading size="lg">Visualização do template</flux:heading>
             <flux:text>Prévia aproximada do original, com os marcadores preservados. A paginação, as fontes e alguns detalhes de formatação podem diferir do Word.</flux:text>
             @if ($showPreview && $previewVersionId !== null)
@@ -437,7 +437,7 @@ new #[Title('Versões do template DOCX')] class extends Component
         @if ($this->reportVersion)
             @php($reportVersion = $this->reportVersion)
             @php($report = $reportVersion->validation_report ?? [])
-            <div class="space-y-6">
+            <div class="flex flex-col gap-6">
                 <div><flux:heading size="lg">Inspeção da versão {{ $reportVersion->version }}</flux:heading><flux:text class="mt-2">{{ number_format($reportVersion->file_size / 1024, 1, ',', '.') }} KiB · enviada em {{ formatDateTime($reportVersion->created_at) }}</flux:text></div>
                 @if (($report['errors'] ?? []) !== [])
                     <flux:callout variant="danger" heading="Erros na inspeção"><flux:callout.text>O original precisa de correção. Envie o arquivo corrigido como uma nova versão.</flux:callout.text></flux:callout>

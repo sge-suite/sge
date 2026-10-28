@@ -378,7 +378,7 @@ new #[Title('Detalhes do estágio')] class extends Component
     @if ($this->isOffice)
     <x-internship-calendar-preview wire:model.self="showCalendar" :result="$calendarResult" />
     <flux:modal wire:model.self="showPause" class="md:w-lg">
-        <form wire:submit="savePause" class="space-y-6" data-unsaved-changes="dialog-savePause" data-unsaved-models='["pauseStart", "pauseEnd", "pauseReason"]' data-unsaved-actions='["savePause"]'>
+        <form wire:submit="savePause" class="flex flex-col gap-6" data-unsaved-changes="dialog-savePause" data-unsaved-models='["pauseStart", "pauseEnd", "pauseReason"]' data-unsaved-actions='["savePause"]'>
             <flux:heading size="lg" level="2">{{ $pauseId === null ? 'Registrar pausa' : 'Editar pausa' }}</flux:heading>
             <flux:input type="date" wire:model="pauseStart" label="Início da pausa" required /><flux:error name="starts_at" />
             <flux:input type="date" wire:model="pauseEnd" label="Último dia da pausa" required /><flux:error name="ends_at" />
@@ -387,7 +387,7 @@ new #[Title('Detalhes do estágio')] class extends Component
         </form>
     </flux:modal>
     <flux:modal wire:model.self="showRemoval" class="md:w-md">
-        <form wire:submit="removePause" class="space-y-6">
+        <form wire:submit="removePause" class="flex flex-col gap-6">
             <flux:heading size="lg" level="2">Remover pausa</flux:heading><flux:text>O período voltará a contar conforme a jornada e o calendário. A remoção permanecerá no histórico.</flux:text><flux:error name="projected_end_date" />
             <div class="flex flex-wrap justify-end gap-3"><flux:button type="button" variant="outline" wire:click="$set('showRemoval', false)">Cancelar</flux:button><flux:button type="submit" variant="danger" icon="trash" wire:loading.attr="disabled" wire:target="removePause">Remover pausa</flux:button></div>
         </form>

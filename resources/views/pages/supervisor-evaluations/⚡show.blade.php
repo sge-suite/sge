@@ -468,7 +468,7 @@ new class extends Component
     @if ($officeView)<x-audit.activity-history :activities="$this->activityHistory" description="Solicitação, preenchimento, envio e decisões registradas nesta avaliação." />@endif
     @can('cancel', $evaluation)
     <flux:modal wire:model.self="showCancellation" class="md:w-xl">
-        <form wire:submit="cancel" class="space-y-6" data-unsaved-changes="dialog-cancel" data-unsaved-models='["cancellationReason"]' data-unsaved-actions='["cancel"]'>
+        <form wire:submit="cancel" class="flex flex-col gap-6" data-unsaved-changes="dialog-cancel" data-unsaved-models='["cancellationReason"]' data-unsaved-actions='["cancel"]'>
             <flux:heading size="lg" level="2">Cancelar avaliação</flux:heading><flux:text>O registro e suas respostas permanecem no histórico. Informe o motivo para confirmar.</flux:text>
             <flux:textarea wire:model="cancellationReason" label="Motivo do cancelamento" maxlength="5000" required /><flux:error name="cancellation_reason" />
             <div class="flex flex-wrap justify-end gap-3"><flux:button type="button" wire:click="$set('showCancellation', false)">Voltar</flux:button><flux:button type="submit" variant="danger" wire:loading.attr="disabled">Cancelar avaliação</flux:button></div>

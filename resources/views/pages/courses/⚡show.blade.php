@@ -212,7 +212,7 @@ new #[Title('Detalhes do curso')] class extends Component
             </section>
         @endif
         <flux:modal name="delete-course" wire:model.self="showDeletion" class="md:w-md">
-            <form wire:submit="deleteCourse" class="space-y-6">
+            <form wire:submit="deleteCourse" class="flex flex-col gap-6">
                 <div>
                     <flux:heading size="lg" level="2">Apagar curso</flux:heading>
                     <flux:text class="mt-2">Esta ação é permanente e apagará {{ $course->name }} somente se não houver vínculos ou registros associados. Confirme sua senha para continuar.</flux:text>
@@ -228,7 +228,7 @@ new #[Title('Detalhes do curso')] class extends Component
     @endcan
     @can('deactivate', $course)
     <flux:modal name="deactivate-course" wire:model.self="showDeactivation" class="md:w-md">
-        <form wire:submit="deactivateCourse" class="space-y-6">
+        <form wire:submit="deactivateCourse" class="flex flex-col gap-6">
             <div>
                 <flux:heading size="lg" level="2">Desativar curso</flux:heading>
                 <flux:text class="mt-2">Confirme sua senha para desativar {{ $course->name }}. Novas atribuições serão impedidas e os vínculos existentes serão preservados.</flux:text>
@@ -246,7 +246,7 @@ new #[Title('Detalhes do curso')] class extends Component
     @endcan
     @can('reactivate', $course)
     <flux:modal wire:model="showReactivation" class="md:w-96">
-        <div class="space-y-6">
+        <div class="flex flex-col gap-6">
             <div><flux:heading size="lg">Reativar curso</flux:heading><flux:text class="mt-2">Deseja reativar {{ $course->name }} para permitir novas atribuições?</flux:text></div>
             <div class="flex justify-end gap-3">
                 <flux:button variant="ghost" wire:click="$set('showReactivation', false)">Cancelar</flux:button>

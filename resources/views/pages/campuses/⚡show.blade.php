@@ -246,7 +246,7 @@ new #[Title('Detalhes do campus')] class extends Component
 
     @if ($campus->deactivated_at === null)
         <flux:modal name="deactivate-campus" wire:model.self="showDeactivation" class="md:w-md">
-            <form wire:submit="deactivateCampus" class="space-y-6">
+            <form wire:submit="deactivateCampus" class="flex flex-col gap-6">
                 <div>
                     <flux:heading size="lg" level="2">Desativar campus</flux:heading>
                     <flux:text class="mt-2">Confirme sua senha para desativar {{ $campus->name }}. O campus ficará somente para leitura.</flux:text>
@@ -263,7 +263,7 @@ new #[Title('Detalhes do campus')] class extends Component
         </flux:modal>
     @else
         <flux:modal name="reactivate-campus" wire:model.self="showReactivation" class="md:w-md">
-            <form method="POST" action="{{ route('campuses.reactivate', $campus) }}" class="space-y-6" x-data="{ submitting: false }" x-on:submit="submitting = true">
+            <form method="POST" action="{{ route('campuses.reactivate', $campus) }}" class="flex flex-col gap-6" x-data="{ submitting: false }" x-on:submit="submitting = true">
                 @csrf
                 @method('PATCH')
                 <div>
@@ -279,7 +279,7 @@ new #[Title('Detalhes do campus')] class extends Component
     @endif
 
     <flux:modal name="delete-campus" wire:model.self="showDeletion" class="md:w-md">
-        <form wire:submit="deleteCampus" class="space-y-6">
+        <form wire:submit="deleteCampus" class="flex flex-col gap-6">
             <div>
                 <flux:heading size="lg" level="2">Apagar campus</flux:heading>
                 <flux:text class="mt-2">Esta ação é permanente e também apagará o endereço de {{ $campus->name }}. Confirme sua senha para continuar.</flux:text>

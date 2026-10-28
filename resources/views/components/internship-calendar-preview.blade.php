@@ -1,7 +1,7 @@
 @props(['result' => null, 'editing' => false, 'saved' => false, 'historical' => false])
 
 <flux:modal {{ $attributes->class(['w-[calc(100vw-2rem)] max-w-5xl! max-h-[calc(100dvh-2rem)]']) }}>
-    <div class="space-y-6">
+    <div class="flex flex-col gap-6">
         <div>
             <flux:heading size="lg" level="2">Calendário do estágio</flux:heading>
             <flux:text class="mt-2">{{ $historical ? 'Reprodução com os dados e o calendário preservados no cálculo original.' : ($saved ? 'Calendário calculado com os dados salvos do estágio.' : ($editing ? 'Prévia com os dados do formulário. Salve as alterações para atualizar o estágio.' : 'Consulta com o calendário atualmente cadastrado. Esta consulta não altera o término salvo.')) }}</flux:text>

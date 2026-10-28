@@ -965,7 +965,7 @@ new #[Title('Solicitação de estágio')] class extends Component
     </div>
     @can('withdraw', $request)
         <flux:modal name="withdraw-internship-request" wire:model.self="showWithdrawal" wire:close="closeWithdrawal" class="md:w-md">
-            <form wire:submit="withdraw" class="space-y-6">
+            <form wire:submit="withdraw" class="flex flex-col gap-6">
                 <div>
                     <flux:heading size="lg" level="2">Desistir da solicitação nº {{ $request->id }}</flux:heading>
                     <flux:text class="mt-2">A solicitação será encerrada e preservada no histórico. Confirme sua senha para registrar a desistência.</flux:text>

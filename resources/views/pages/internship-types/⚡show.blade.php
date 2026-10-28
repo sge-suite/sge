@@ -239,7 +239,7 @@ new #[Title('Detalhes do tipo de estágio')] class extends Component
             <flux:button variant="danger" icon="trash" x-on:click="$wire.showDeletion = true">Excluir tipo de estágio</flux:button>
         </section>
         <flux:modal wire:model="showDeletion" class="md:w-96">
-            <div class="space-y-6">
+            <div class="flex flex-col gap-6">
                 <div>
                     <flux:heading size="lg">Excluir tipo de estágio</flux:heading>
                     <flux:text class="mt-2">Deseja excluir {{ $internshipType->name }}? Esta ação não pode ser desfeita.</flux:text>
@@ -258,7 +258,7 @@ new #[Title('Detalhes do tipo de estágio')] class extends Component
     @endcan
     @can('deactivate', $internshipType)
     <flux:modal name="deactivate-internship-type" wire:model.self="showDeactivation" class="md:w-md">
-        <form wire:submit="deactivateInternshipType" class="space-y-6">
+        <form wire:submit="deactivateInternshipType" class="flex flex-col gap-6">
             <div>
                 <flux:heading size="lg" level="2">Desativar tipo de estágio</flux:heading>
                 <flux:text class="mt-2">Confirme sua senha para desativar {{ $internshipType->name }}. Novos usos serão impedidos e os estágios existentes serão preservados.</flux:text>
@@ -276,7 +276,7 @@ new #[Title('Detalhes do tipo de estágio')] class extends Component
     @endcan
     @can('reactivate', $internshipType)
     <flux:modal wire:model="showReactivation" class="md:w-96">
-        <div class="space-y-6">
+        <div class="flex flex-col gap-6">
             <div><flux:heading size="lg">Reativar tipo de estágio</flux:heading><flux:text class="mt-2">Deseja reativar {{ $internshipType->name }} para permitir novos usos? O curso precisa estar ativo.</flux:text></div>
             <flux:error name="course_id" />
             <div class="flex justify-end gap-3">

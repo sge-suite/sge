@@ -2,7 +2,7 @@
 
 <flux:modal name="calendar-confirmation" wire:model.self="showConfirmation" class="md:w-md">
     @if ($target)
-        <form method="POST" action="{{ route($kind.'.'.($operation === 'delete' ? 'destroy' : 'restore'), $target) }}" class="space-y-6"
+        <form method="POST" action="{{ route($kind.'.'.($operation === 'delete' ? 'destroy' : 'restore'), $target) }}" class="flex flex-col gap-6"
             x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
             @csrf
             @method($operation === 'delete' ? 'DELETE' : 'PATCH')

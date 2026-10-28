@@ -234,7 +234,7 @@ new #[Title('Detalhes do usuário')] class extends Component
 
     <flux:modal wire:model.self="showConfirmation" class="max-w-lg">
         @if ($showConfirmation)
-            <form method="POST" action="{{ $this->confirmationAction }}" class="space-y-5" x-data="{ submitting: false }" x-on:submit="submitting = true">
+            <form method="POST" action="{{ $this->confirmationAction }}" class="flex flex-col gap-5" x-data="{ submitting: false }" x-on:submit="submitting = true">
                 @csrf
                 @method(in_array($operation, ['delete', 'delete_account'], true) ? 'DELETE' : 'PATCH')
                 <flux:heading size="lg">{{ match ($operation) { 'deactivate' => 'Desativar vínculo', 'reactivate' => 'Reativar vínculo', 'delete' => 'Excluir vínculo', default => 'Excluir conta' } }}</flux:heading>
