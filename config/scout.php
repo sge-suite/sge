@@ -1,9 +1,16 @@
 <?php
 
+use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\City;
+use App\Models\Course;
+use App\Models\DocumentTemplate;
+use App\Models\GrantingParty;
 use App\Models\Holiday;
 use App\Models\HolidayRecurrence;
+use App\Models\Internship;
+use App\Models\InternshipRequest;
+use App\Models\InternshipType;
 use App\Models\User;
 
 return [
@@ -146,19 +153,60 @@ return [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
         'index-settings' => [
+            Affiliation::class => [
+                'searchableAttributes' => ['name', 'email', 'registration_number'],
+                'filterableAttributes' => ['id', 'user_id', 'campus_id', 'course_id', 'type', 'is_active'],
+                'sortableAttributes' => ['name', 'id'],
+                'typoTolerance' => ['disableOnAttributes' => ['email', 'registration_number']],
+            ],
             User::class => [
-                'searchableAttributes' => ['name'],
+                'searchableAttributes' => ['name', 'cpf', 'formatted_cpf', 'email'],
+                'filterableAttributes' => ['affiliation_scopes', 'cpf', 'email'],
+                'typoTolerance' => ['disableOnAttributes' => ['cpf', 'formatted_cpf', 'email']],
                 'sortableAttributes' => ['name', 'id'],
             ],
             Campus::class => [
                 'searchableAttributes' => ['name'],
-                'filterableAttributes' => ['deactivated_at'],
+                'filterableAttributes' => ['id', 'deactivated_at', 'state'],
                 'sortableAttributes' => ['name', 'id'],
             ],
             City::class => [
                 'searchableAttributes' => ['name', 'ibge_code'],
                 'filterableAttributes' => ['state'],
                 'sortableAttributes' => ['name'],
+            ],
+            GrantingParty::class => [
+                'searchableAttributes' => ['name', 'document_number', 'normalized_document_number', 'selection_label'],
+                'filterableAttributes' => ['id', 'campus_id', 'city_id', 'state', 'is_active'],
+                'typoTolerance' => ['disableOnAttributes' => ['document_number', 'normalized_document_number', 'selection_label']],
+                'sortableAttributes' => ['name', 'id'],
+            ],
+            Course::class => [
+                'searchableAttributes' => ['name'],
+                'filterableAttributes' => ['id', 'campus_id', 'is_active'],
+                'sortableAttributes' => ['name', 'id'],
+            ],
+            InternshipType::class => [
+                'searchableAttributes' => ['name'],
+                'filterableAttributes' => ['id', 'campus_id', 'course_id', 'is_active'],
+                'sortableAttributes' => ['name', 'id'],
+            ],
+            DocumentTemplate::class => [
+                'searchableAttributes' => ['name'],
+                'filterableAttributes' => ['campus_id', 'is_active', 'document_type', 'remuneration'],
+                'sortableAttributes' => ['name', 'id'],
+            ],
+            InternshipRequest::class => [
+                'searchableAttributes' => ['student_name', 'registration_number', 'id'],
+                'filterableAttributes' => ['campus_id', 'course_id', 'status'],
+                'sortableAttributes' => ['updated_at', 'id'],
+                'typoTolerance' => ['disableOnAttributes' => ['registration_number', 'id']],
+            ],
+            Internship::class => [
+                'searchableAttributes' => ['student_name', 'registration_number', 'id', 'protocol_numbers'],
+                'filterableAttributes' => ['id', 'campus_id', 'course_id', 'status', 'advisor_affiliation_id', 'advisor_user_id', 'advisor_campus_id', 'student_affiliation_id', 'has_pending_cancellation'],
+                'sortableAttributes' => ['updated_at', 'id'],
+                'typoTolerance' => ['disableOnAttributes' => ['registration_number', 'id', 'protocol_numbers']],
             ],
             Holiday::class => [
                 'searchableAttributes' => ['name'],

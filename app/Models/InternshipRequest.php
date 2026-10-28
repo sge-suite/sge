@@ -15,6 +15,7 @@ use Carbon\CarbonInterface;
 use Database\Factories\InternshipRequestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator as LaravelValidator;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -73,6 +75,30 @@ class InternshipRequest extends Model
 
     use InternshipRequestValidationRules;
     use LogsActivity;
+    use Searchable;
+
+    /** @return array{id: int, student_name: string, registration_number: string, campus_id: int, course_id: int, status: string, updated_at: int} */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'student_name' => (string) ($this->student_snapshot['name'] ?? ''),
+            'registration_number' => (string) ($this->student_snapshot['registration_number'] ?? ''),
+            'campus_id' => (int) $this->affiliation->campus_id,
+            'course_id' => (int) $this->course_id,
+            'status' => $this->status->value,
+            'updated_at' => (int) $this->updated_at?->getTimestamp(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, self>  $models
+     * @return Collection<int, self>
+     */
+    public function makeSearchableUsing(Collection $models): Collection
+    {
+        return $models->load('affiliation');
+    }
 
     /** @var array<string, mixed>|null */
     public ?array $calculationSnapshot = null;

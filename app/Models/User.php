@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Casts\CpfCast;
 use App\Enums\AffiliationType;
+use App\Helpers\BrazilianDocumentHelper;
 use App\Notifications\QueuedPasswordReset;
 use App\Support\EmailRecipientIdentity;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -42,13 +44,50 @@ class User extends Authenticatable
 
     public function shouldBeSearchable(): bool
     {
-        return $this->affiliations()->administrative()->exists();
+        return $this->affiliations()->exists();
     }
 
-    /** @return array{id: int, name: string} */
+    public static function affiliationSearchScope(string $scope, string $role = 'all', string $status = 'all'): string
+    {
+        return implode(':', [$scope, $role, $status]);
+    }
+
+    /** @return array{id: int, name: string, cpf: string, formatted_cpf: string, email: string, affiliation_scopes: list<string>} */
     public function toSearchableArray(): array
     {
-        return ['id' => $this->id, 'name' => $this->name];
+        $this->loadMissing('affiliations');
+        $scopes = [];
+        foreach ($this->affiliations as $affiliation) {
+            $contexts = $affiliation->type === AffiliationType::SystemAdministrator ? [] : ['campus-'.$affiliation->campus_id];
+            if (in_array($affiliation->type, [AffiliationType::SystemAdministrator, AffiliationType::InternshipOffice], true)) {
+                $contexts[] = 'administrative';
+            }
+            foreach ($contexts as $context) {
+                foreach (['all', $affiliation->type->value] as $role) {
+                    foreach (['all', $affiliation->deactivated_at === null ? 'active' : 'inactive'] as $status) {
+                        $scopes[] = self::affiliationSearchScope($context, $role, $status);
+                    }
+                }
+            }
+        }
+
+        return [
+            'id' => (int) $this->id,
+            'name' => $this->name,
+            'cpf' => $this->cpf,
+            'formatted_cpf' => BrazilianDocumentHelper::formatCpf($this->cpf),
+            'email' => $this->email,
+            'affiliation_scopes' => array_values(array_unique($scopes)),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, self>  $models
+     * @return Collection<int, self>
+     */
+    public function makeSearchableUsing(Collection $models): Collection
+    {
+        return $models->load('affiliations');
     }
 
     /**
@@ -57,10 +96,7 @@ class User extends Authenticatable
      */
     protected function makeAllSearchableUsing(Builder $query): Builder
     {
-        return $query->whereHas('affiliations', function (Builder $query): void {
-            /** @var Builder<Affiliation> $query */
-            $query->administrative();
-        });
+        return $query->has('affiliations')->with('affiliations');
     }
 
     public function getActivitylogOptions(): LogOptions
@@ -75,6 +111,14 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::updated(function (self $user): void {
+            if ($user->wasChanged('name')) {
+                $userId = $user->id;
+                DB::afterCommit(function () use ($userId): void {
+                    Affiliation::query()->where('user_id', $userId)->eachById(function (Affiliation $affiliation): void {
+                        $affiliation->searchable();
+                    });
+                });
+            }
             if ($user->wasChanged('password')) {
                 activity()
                     ->performedOn($user)

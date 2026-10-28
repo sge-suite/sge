@@ -8,6 +8,7 @@ use App\Enums\AffiliationType;
 use Database\Factories\AffiliationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -45,6 +47,39 @@ class Affiliation extends Model
 
     use LogsActivity;
     use Notifiable;
+    use Searchable;
+
+    public function searchIndexShouldBeUpdated(): bool
+    {
+        return $this->wasRecentlyCreated || $this->wasChanged([
+            'user_id', 'campus_id', 'course_id', 'type', 'registration_number', 'email', 'deactivated_at',
+        ]);
+    }
+
+    /** @return array{id: int, name: string, email: string, registration_number: string, user_id: int, campus_id: int, course_id: int, type: string, is_active: int} */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'name' => $this->user->name,
+            'email' => $this->email,
+            'registration_number' => (string) $this->registration_number,
+            'user_id' => (int) $this->user_id,
+            'campus_id' => (int) $this->campus_id,
+            'course_id' => (int) $this->course_id,
+            'type' => $this->type->value,
+            'is_active' => (int) ($this->deactivated_at === null),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, self>  $models
+     * @return Collection<int, self>
+     */
+    public function makeSearchableUsing(Collection $models): Collection
+    {
+        return $models->load('user');
+    }
 
     /**
      * @return array<string, string>
@@ -194,14 +229,21 @@ class Affiliation extends Model
     {
         foreach (['saved', 'deleted'] as $event) {
             static::{$event}(function (self $affiliation) use ($event): void {
-                $administrativeTypes = [AffiliationType::SystemAdministrator, AffiliationType::InternshipOffice];
-                if (! in_array($affiliation->type, $administrativeTypes, true) && ! in_array($affiliation->getOriginal('type'), $administrativeTypes, true)) {
-                    return;
-                }
-                if ($event === 'saved' && ! $affiliation->wasRecentlyCreated && ! $affiliation->wasChanged(['type', 'user_id'])) {
+                if ($event === 'saved' && ! $affiliation->wasRecentlyCreated && ! $affiliation->wasChanged(['type', 'user_id', 'campus_id', 'deactivated_at'])) {
                     return;
                 }
                 $userIds = array_unique([$affiliation->user_id, $affiliation->getOriginal('user_id')]);
+                if ($event === 'saved' && $affiliation->wasChanged(['campus_id', 'user_id'])) {
+                    $affiliationId = $affiliation->id;
+                    DB::afterCommit(function () use ($affiliationId): void {
+                        InternshipRequest::query()->where('affiliation_id', $affiliationId)->eachById(function (InternshipRequest $request): void {
+                            $request->searchable();
+                        });
+                        Internship::query()->where('advisor_affiliation_id', $affiliationId)->eachById(function (Internship $internship): void {
+                            $internship->searchable();
+                        });
+                    });
+                }
                 DB::afterCommit(function () use ($userIds): void {
                     foreach ($userIds as $userId) {
                         $user = User::query()->whereKey($userId)->first();

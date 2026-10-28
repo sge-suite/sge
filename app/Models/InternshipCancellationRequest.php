@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -53,6 +54,13 @@ class InternshipCancellationRequest extends Model
 
     protected static function booted(): void
     {
+        static::saved(function (self $request): void {
+            if ($request->wasRecentlyCreated || $request->wasChanged('status')) {
+                $internshipId = $request->internship_id;
+                DB::afterCommit(fn () => Internship::find($internshipId)?->searchable());
+            }
+        });
+
         static::saving(function (self $request): void {
             foreach (['reason', 'decision_reason'] as $field) {
                 if (is_string($request->{$field})) {

@@ -11,8 +11,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -34,6 +36,18 @@ class Course extends Model
     use HasFactory;
 
     use LogsActivity;
+    use Searchable;
+
+    /** @return array{id: int, name: string, campus_id: int, is_active: int} */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'name' => $this->name,
+            'campus_id' => (int) $this->campus_id,
+            'is_active' => (int) ($this->deactivated_at === null),
+        ];
+    }
 
     protected function casts(): array
     {
@@ -152,6 +166,20 @@ class Course extends Model
 
     protected static function booted(): void
     {
+        static::updated(function (self $course): void {
+            if ($course->wasChanged('campus_id')) {
+                $courseId = $course->id;
+                DB::afterCommit(function () use ($courseId): void {
+                    InternshipType::query()->where('course_id', $courseId)->eachById(function (InternshipType $type): void {
+                        $type->searchable();
+                    });
+                    Internship::query()->where('course_id', $courseId)->eachById(function (Internship $internship): void {
+                        $internship->searchable();
+                    });
+                });
+            }
+        });
+
         static::saving(function (self $course): void {
             if (is_string($course->coordination_email)) {
                 $course->coordination_email = mb_strtolower(trim($course->coordination_email));

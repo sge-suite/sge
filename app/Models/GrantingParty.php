@@ -12,6 +12,7 @@ use App\Helpers\BrazilianDocumentHelper;
 use Database\Factories\GrantingPartyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +21,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -44,6 +46,43 @@ class GrantingParty extends Model
 
     use HasOwnedAddresses;
     use LogsActivity;
+    use Searchable;
+
+    /** @return array{id: int, campus_id: int, city_id: int, state: string, is_active: int, name: string, document_number: string, normalized_document_number: string, selection_label: string} */
+    public function toSearchableArray(): array
+    {
+        $this->loadMissing('address.city');
+
+        return [
+            'id' => (int) $this->getKey(),
+            'campus_id' => (int) $this->campus_id,
+            'city_id' => (int) $this->address->city_id,
+            'state' => $this->address->city->state->value,
+            'is_active' => (int) ($this->deactivated_at === null),
+            'name' => $this->name,
+            'document_number' => BrazilianDocumentHelper::formatCpfCnpj($this->document_number),
+            'normalized_document_number' => BrazilianDocumentHelper::normalizeCnpj($this->document_number),
+            'selection_label' => $this->selectionLabel(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, self>  $models
+     * @return Collection<int, self>
+     */
+    public function makeSearchableUsing(Collection $models): Collection
+    {
+        return $models->load('address.city');
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    protected function makeAllSearchableUsing(Builder $query): Builder
+    {
+        return $query->with('address.city');
+    }
 
     /** @return array<string, string> */
     protected function casts(): array

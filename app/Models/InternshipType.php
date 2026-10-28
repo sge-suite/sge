@@ -6,6 +6,7 @@ use App\Concerns\InternshipTypeValidationRules;
 use Database\Factories\InternshipTypeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Validator as LaravelValidator;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -62,6 +64,28 @@ class InternshipType extends Model
 
     use InternshipTypeValidationRules;
     use LogsActivity;
+    use Searchable;
+
+    /** @return array{id: int, name: string, campus_id: int, course_id: int, is_active: int} */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'name' => $this->name,
+            'campus_id' => (int) $this->course->campus_id,
+            'course_id' => (int) $this->course_id,
+            'is_active' => (int) ($this->deactivated_at === null),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, self>  $models
+     * @return Collection<int, self>
+     */
+    public function makeSearchableUsing(Collection $models): Collection
+    {
+        return $models->load('course');
+    }
 
     protected $attributes = [
         'max_daily_hours' => 6,

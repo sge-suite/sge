@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\HasOwnedAddresses;
 use App\Enums\AffiliationType;
+use App\Enums\InternshipCancellationRequestStatus;
 use App\Enums\InternshipStatus;
 use App\Support\InternshipCalculationHistory;
 use App\Support\InternshipPlannedPauses;
@@ -11,6 +12,7 @@ use Carbon\CarbonImmutable;
 use Database\Factories\InternshipFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +22,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as LaravelValidator;
+use Laravel\Scout\Builder as SearchBuilder;
+use Laravel\Scout\Searchable;
+use Meilisearch\Endpoints\Indexes;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -39,6 +44,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property array<string, mixed> $internship_type_snapshot
  * @property array<string, int> $weekly_hours
  * @property array<string|int, array{starts_at: string, ends_at: string, reason: string}>|null $planned_pauses
+ * @property-read int|null $search_pending_cancellations_count
  */
 #[Fillable([
     'student_affiliation_id', 'advisor_affiliation_id', 'co_advisor_name', 'supervisor_affiliation_id',
@@ -61,6 +67,80 @@ class Internship extends Model
 
     use HasOwnedAddresses;
     use LogsActivity;
+    use Searchable;
+
+    /** @return array{id: int, student_name: string, registration_number: string, protocol_numbers: list<string>, campus_id: int, course_id: int, advisor_affiliation_id: int, advisor_user_id: int, advisor_campus_id: int, student_affiliation_id: int, status: string, updated_at: int, has_pending_cancellation: int} */
+    public function toSearchableArray(): array
+    {
+        $this->loadMissing(['course', 'advisorAffiliation', 'generatedDocuments']);
+        $pending = $this->search_pending_cancellations_count ?? $this->cancellationRequests()
+            ->whereIn('status', [InternshipCancellationRequestStatus::Submitted, InternshipCancellationRequestStatus::UnderReview])->count();
+
+        return [
+            'id' => (int) $this->id,
+            'student_name' => (string) ($this->student_snapshot['name'] ?? ''),
+            'registration_number' => (string) ($this->student_snapshot['registration_number'] ?? ''),
+            'protocol_numbers' => array_values(array_filter($this->generatedDocuments->pluck('protocol_number')->all(),
+                fn (mixed $protocol): bool => is_string($protocol) && $protocol !== '')),
+            'campus_id' => (int) $this->course->campus_id,
+            'course_id' => (int) $this->course_id,
+            'advisor_affiliation_id' => (int) $this->advisor_affiliation_id,
+            'advisor_user_id' => (int) $this->advisorAffiliation?->user_id,
+            'advisor_campus_id' => (int) $this->advisorAffiliation?->campus_id,
+            'student_affiliation_id' => (int) $this->student_affiliation_id,
+            'status' => $this->status->value,
+            'updated_at' => (int) $this->updated_at?->getTimestamp(),
+            'has_pending_cancellation' => (int) ($pending > 0),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, self>  $models
+     * @return Collection<int, self>
+     */
+    public function makeSearchableUsing(Collection $models): Collection
+    {
+        return $models->load(['course', 'advisorAffiliation', 'generatedDocuments'])
+            ->loadCount(['cancellationRequests as search_pending_cancellations_count' => fn ($query) => $query
+                ->whereIn('status', [InternshipCancellationRequestStatus::Submitted, InternshipCancellationRequestStatus::UnderReview])]);
+    }
+
+    /** @return SearchBuilder<static> */
+    public static function searchVisibleToAffiliation(string $term, Affiliation $affiliation): SearchBuilder
+    {
+        $coordinatorFilter = null;
+        if ($affiliation->type === AffiliationType::Coordinator) {
+            $courses = Course::query()->where('campus_id', $affiliation->campus_id)
+                ->where(fn (Builder $query) => $query->where('primary_coordinator_affiliation_id', $affiliation->id)
+                    ->orWhere('secondary_coordinator_affiliation_id', $affiliation->id))->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            $coordinatorFilter = '(advisor_user_id = '.(int) $affiliation->user_id.' AND advisor_campus_id = '.(int) $affiliation->campus_id.')';
+            if ($courses !== []) {
+                $coordinatorFilter = '(course_id IN ['.implode(',', $courses).'] OR '.$coordinatorFilter.')';
+            }
+        }
+
+        $query = static::search($term, function (Indexes $index, string $query, array $options) use ($coordinatorFilter): array {
+            if ($coordinatorFilter !== null) {
+                $options['filter'] = array_values(array_filter([$options['filter'] ?? null, $coordinatorFilter]));
+            }
+
+            return $index->rawSearch($query, $options);
+        })->where('campus_id', (int) $affiliation->campus_id);
+
+        if ($affiliation->type === AffiliationType::Advisor) {
+            $query->where('advisor_affiliation_id', $affiliation->id);
+        } elseif ($affiliation->type === AffiliationType::Student) {
+            $query->where('student_affiliation_id', $affiliation->id);
+        } elseif (! in_array($affiliation->type, [AffiliationType::InternshipOffice, AffiliationType::TeachingDirection, AffiliationType::Coordinator], true)) {
+            $query->where('id', 0);
+        }
+
+        if ($affiliation->type !== AffiliationType::InternshipOffice) {
+            $query->options(['attributesToSearchOn' => ['id', 'student_name', 'registration_number']]);
+        }
+
+        return $query;
+    }
 
     public ?string $managementChangeReason = null;
 

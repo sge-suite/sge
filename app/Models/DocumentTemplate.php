@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Laravel\Scout\Searchable;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -34,6 +35,20 @@ class DocumentTemplate extends Model
     use HasFactory;
 
     use LogsActivity;
+    use Searchable;
+
+    /** @return array{id: int, name: string, campus_id: int, document_type: string, remuneration: string, is_active: int} */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'name' => $this->name,
+            'campus_id' => (int) $this->campus_id,
+            'document_type' => $this->document_type->value,
+            'remuneration' => $this->remuneration->value,
+            'is_active' => (int) ($this->deactivated_at === null),
+        ];
+    }
 
     protected $attributes = ['remuneration' => 'any'];
 

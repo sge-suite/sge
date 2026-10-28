@@ -82,14 +82,24 @@ class Campus extends Model
         ];
     }
 
-    /** @return array{id: int, name: string, deactivated_at: string|null} */
+    /** @return array{id: int, name: string, state: string, deactivated_at: string|null} */
     public function toSearchableArray(): array
     {
         return [
             'id' => (int) $this->getKey(),
             'name' => $this->name,
+            'state' => $this->address->city->state->value,
             'deactivated_at' => $this->deactivated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * @param  Collection<int, self>  $models
+     * @return Collection<int, self>
+     */
+    public function makeSearchableUsing(Collection $models): Collection
+    {
+        return $models->load('address.city');
     }
 
     /** @return BelongsTo<Address, $this> */

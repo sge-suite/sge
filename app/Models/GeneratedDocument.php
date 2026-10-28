@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -125,6 +126,15 @@ class GeneratedDocument extends Model
 
     protected static function booted(): void
     {
+        foreach (['saved', 'deleted'] as $event) {
+            static::{$event}(function (self $document): void {
+                if ($document->wasRecentlyCreated || $document->wasChanged(['protocol_number', 'internship_id']) || ! $document->exists) {
+                    $internshipId = $document->internship_id;
+                    DB::afterCommit(fn () => Internship::find($internshipId)?->searchable());
+                }
+            });
+        }
+
         static::saving(function (self $document): void {
             foreach (['signature_availability_location', 'protocol_number', 'output_filename', 'cancellation_reason'] as $attribute) {
                 if (is_string($document->{$attribute})) {
