@@ -11,6 +11,15 @@ use Livewire\Component;
 
 new class extends Component
 {
+    use \App\Concerns\SearchesSelectOptions;
+
+    protected function selectSearchSource(string $source): array
+    {
+        abort_unless($source === 'courses', 404);
+
+        return ['model' => Course::class, 'options' => $this->courseOptions];
+    }
+
     #[Locked]
     public ?int $internshipTypeId = null;
 
@@ -106,7 +115,7 @@ new class extends Component
         <flux:heading id="type-data-heading" size="lg" level="2">Dados do tipo de estágio</flux:heading>
         <div class="grid items-start gap-6 md:grid-cols-2">
             <flux:input name="name" :value="$values['name']" wire:model="values.name" label="Nome" required maxlength="255" :invalid="$errors->has('name')" />
-            <x-select name="course_id" required wire:model="values.course_id" label="Curso" :value="$values['course_id']" :options="$this->courseOptions" :searchable="true" :invalid="$errors->has('course_id')" :error="$errors->first('course_id')" />
+            <x-select search-source="courses" name="course_id" required wire:model="values.course_id" label="Curso" :value="$values['course_id']" :options="$this->courseOptions" :searchable="true" :invalid="$errors->has('course_id')" :error="$errors->first('course_id')" />
         </div>
         <flux:input name="required_hours" :value="$values['required_hours']" wire:model="values.required_hours" label="Carga horária obrigatória (horas)" type="number" min="1" step="1" required :invalid="$errors->has('required_hours')" />
         <flux:text>Cadastro e troca de curso exigem curso ativo. Na edição, a associação atual pode ser mantida mesmo se o curso estiver desativado.</flux:text>

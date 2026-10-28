@@ -1,6 +1,6 @@
 @props([
     'label', 'options' => [], 'name' => '', 'value' => '', 'selectedLabel' => '', 'searchModel' => null,
-    'placeholder' => 'Selecione uma opção', 'searchable' => false,
+    'placeholder' => 'Selecione uma opção', 'searchable' => false, 'searchSource' => null,
     'disabled' => false, 'required' => false, 'invalid' => false, 'error' => '', 'openOnMount' => false,
     'empty' => 'Nenhuma opção encontrada.',
     'icon' => null, 'optionIcons' => [], 'creatable' => false, 'maxLength' => 5000,
@@ -17,6 +17,13 @@
         value: String(@js((string) $value)),
         openOnMount: @js($openOnMount),
         query: '',
+        searchSource: @js($searchSource),
+        remoteKeys: null,
+        remoteLoading: false,
+        remoteError: false,
+        remoteHasMore: false,
+        remoteSequence: 0,
+        remoteTimer: null,
         open: false,
         upwards: false,
         activeValue: '',
@@ -28,6 +35,7 @@
         optionsObserver: null,
 
         init() {
+            if (this.searchSource) this.$watch('query', () => this.queueRemoteSearch());
             this.$watch('value', () => {
                 this.missing = false;
                 if (!this.open) this.close(false);
@@ -65,6 +73,8 @@
         },
 
         destroy() {
+            clearTimeout(this.remoteTimer);
+            this.remoteSequence++;
             this.optionsObserver?.disconnect();
             this.labelResizeObserver?.disconnect();
         },
@@ -91,7 +101,38 @@
             return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
         },
 
-        matches(label) {
+        queueRemoteSearch() {
+            clearTimeout(this.remoteTimer);
+            const sequence = ++this.remoteSequence;
+            const term = this.query.trim();
+            this.remoteError = false;
+            this.remoteHasMore = false;
+            this.remoteKeys = term ? [] : null;
+            this.remoteLoading = Boolean(term);
+            if (!term) return;
+            this.remoteTimer = setTimeout(() => this.searchRemoteOptions(term, sequence), 350);
+        },
+
+        async searchRemoteOptions(term, sequence) {
+            try {
+                const result = await this.$wire.searchSelectOptions(this.searchSource, term);
+                if (sequence !== this.remoteSequence || !this.$el.isConnected) return;
+                if (result.unavailable) {
+                    this.remoteError = true;
+                    return;
+                }
+                this.remoteKeys = result.keys.map(String);
+                this.remoteHasMore = result.hasMore;
+                this.optionsRevision++;
+            } catch {
+                if (sequence === this.remoteSequence) this.remoteError = true;
+            } finally {
+                if (sequence === this.remoteSequence) this.remoteLoading = false;
+            }
+        },
+
+        matches(label, optionValue = '') {
+            if (this.searchSource && this.remoteKeys !== null) return this.remoteKeys.includes(String(optionValue));
             return this.normalize(label).includes(this.normalize(this.query.trim()));
         },
 
@@ -102,7 +143,7 @@
         options() {
             this.optionsRevision;
             return Array.from(this.listElement()?.querySelectorAll('[data-select-option]') ?? [])
-                .filter(option => !option.disabled && (!option.hasAttribute('data-select-create') || this.canCreate()) && this.matches(option.dataset.label));
+                .filter(option => !option.disabled && (!option.hasAttribute('data-select-create') || this.canCreate()) && this.matches(option.dataset.label, option.dataset.value));
         },
 
         canCreate() {
@@ -269,19 +310,27 @@
         <div x-cloak x-show="open" x-transition.opacity.duration.100ms
             x-bind:class="upwards ? 'bottom-full mb-1' : 'top-full mt-1'"
             class="select-panel absolute inset-x-0 z-30 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-700 motion-reduce:transition-none">
-            @if ($searchable || isset($search))
+            @if ($searchable || $searchSource || isset($search))
                 <div x-ref="search" wire:key="{{ $selectId }}-search" class="select-search border-b border-zinc-200/80 px-1 py-1 dark:border-zinc-600" x-on:input="activeValue = ''">
                     @isset($search)
                         {{ $search }}
                     @else
                         @if ($searchModel)
                             <flux:input x-model="query" wire:model.live.debounce.400ms="{{ $searchModel }}" wire:ignore.self size="sm" icon="magnifying-glass" placeholder="Buscar opção…" aria-label="Buscar {{ mb_strtolower($label) }}"
-                                role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
+                                role="combobox" aria-autocomplete="list" x-bind:aria-busy="remoteLoading" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
                         @else
-                            <flux:input x-model="query" wire:ignore.self size="sm" icon="magnifying-glass" :maxlength="$creatable ? $maxLength : null" :placeholder="$creatable ? 'Buscar ou digitar uma nova opção…' : 'Buscar opção…'" aria-label="Buscar {{ mb_strtolower($label) }}"
-                                role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
+                            <flux:input x-model="query" wire:ignore.self size="sm" icon="magnifying-glass" :maxlength="$creatable ? $maxLength : ($searchSource ? 255 : null)" :placeholder="$creatable ? 'Buscar ou digitar uma nova opção…' : 'Buscar opção…'" aria-label="Buscar {{ mb_strtolower($label) }}"
+                                role="combobox" aria-autocomplete="list" x-bind:aria-busy="remoteLoading" x-bind:aria-expanded="open" aria-controls="{{ $selectId }}-list" x-bind:aria-activedescendant="activeId()" />
                         @endif
                     @endisset
+                    @if ($searchSource)
+                        <p x-cloak x-show="remoteLoading" class="px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400" role="status">Buscando opções…</p>
+                        <p x-cloak x-show="remoteHasMore && !remoteLoading" class="px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400" role="status">Exibindo até 20 resultados. Continue digitando para refinar.</p>
+                        <div x-cloak x-show="remoteError" class="px-2 py-1 text-xs text-red-600 dark:text-red-400" role="alert">
+                            Não foi possível buscar.
+                            <button type="button" class="underline" x-on:click="queueRemoteSearch()">Tentar novamente</button>
+                        </div>
+                    @endif
                 </div>
             @endif
             <div id="{{ $selectId }}-list" x-ref="list" data-select-list role="listbox" aria-label="{{ $label }}" tabindex="-1"
@@ -290,7 +339,7 @@
                     <button type="button" role="option" tabindex="-1" id="{{ $selectId }}-option-{{ $loop->index }}"
                         wire:key="{{ $name ?: $label }}-option-{{ $optionValue }}" data-select-option data-value="{{ $optionValue }}" data-label="{{ $optionLabel }}"
                         aria-selected="{{ (string) $value === (string) $optionValue ? 'true' : 'false' }}"
-                        x-bind:aria-selected="String(value) === @js((string) $optionValue)" x-show="matches(@js($optionLabel))"
+                        x-bind:aria-selected="String(value) === @js((string) $optionValue)" x-show="matches(@js($optionLabel), @js((string) $optionValue))"
                         x-bind:class="{ 'bg-zinc-200 dark:bg-white/15': activeValue === @js((string) $optionValue) }"
                         class="flex w-full min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-start text-sm text-zinc-800 outline-none hover:bg-zinc-200 focus:outline-none focus-visible:outline-none focus-visible:ring-0 dark:text-zinc-100 dark:hover:bg-white/15"
                         x-on:focus="activeValue = @js((string) $optionValue)" x-on:mouseenter="activeValue = @js((string) $optionValue)" x-on:click="choose($el)">
@@ -317,7 +366,7 @@
                         <flux:icon.plus variant="micro" class="shrink-0" /><span class="min-w-0 wrap-break-word">Usar “<span x-text="query.trim()"></span>”</span>
                     </button>
                 @endif
-                <p x-cloak x-show="options().length === 0" class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
+                <p x-cloak x-show="!remoteLoading && !remoteError && options().length === 0" class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
             </div>
         </div>
         <p x-cloak x-show="missing" class="mt-2 text-sm text-red-500 dark:text-red-400" role="alert">Selecione uma opção.</p>

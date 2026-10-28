@@ -11,6 +11,15 @@ use Livewire\Component;
 
 new class extends Component
 {
+    use \App\Concerns\SearchesSelectOptions;
+
+    protected function selectSearchSource(string $source): array
+    {
+        abort_unless($source === 'coordinators', 404);
+
+        return ['model' => Affiliation::class, 'options' => $this->coordinatorOptions];
+    }
+
     #[Locked]
     public ?int $courseId = null;
 
@@ -78,10 +87,10 @@ new class extends Component
     <flux:input name="name" :value="$values['name']" wire:model="values.name" label="Nome" required maxlength="255" :invalid="$errors->has('name')" />
     <flux:input name="coordination_email" error:name="coordination_email" :value="$values['coordination_email']" wire:model="values.coordination_email" label="E-mail institucional da Coordenação" type="email" required maxlength="254" />
     <div class="grid items-start gap-6 md:grid-cols-2">
-        <x-select name="primary_coordinator_affiliation_id" wire:model="values.primary_coordinator_affiliation_id" label="Coordenador principal (opcional)"
+        <x-select search-source="coordinators" name="primary_coordinator_affiliation_id" wire:model="values.primary_coordinator_affiliation_id" label="Coordenador principal (opcional)"
             :value="$values['primary_coordinator_affiliation_id']" :options="$this->coordinatorOptions" :searchable="true"
             :selected-label="$this->historicalLabels['primary_coordinator_affiliation_id'] ?? ''" :invalid="$errors->has('primary_coordinator_affiliation_id')" :error="$errors->first('primary_coordinator_affiliation_id')" />
-        <x-select name="secondary_coordinator_affiliation_id" wire:model="values.secondary_coordinator_affiliation_id" label="Coordenador secundário (opcional)"
+        <x-select search-source="coordinators" name="secondary_coordinator_affiliation_id" wire:model="values.secondary_coordinator_affiliation_id" label="Coordenador secundário (opcional)"
             :value="$values['secondary_coordinator_affiliation_id']" :options="$this->coordinatorOptions" :searchable="true"
             :selected-label="$this->historicalLabels['secondary_coordinator_affiliation_id'] ?? ''" :invalid="$errors->has('secondary_coordinator_affiliation_id')" :error="$errors->first('secondary_coordinator_affiliation_id')" />
     </div>

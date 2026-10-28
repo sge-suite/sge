@@ -15,6 +15,24 @@ use LaravelLegends\PtBrValidator\Rules\Cpf;
 
 new class extends Component
 {
+    use \App\Concerns\SearchesSelectOptions;
+
+    protected function selectSearchSource(string $source): array
+    {
+        if ($source === 'campuses') {
+            Gate::authorize('viewAdministration', User::class);
+            abort_unless(! $this->campusRegistration && $this->affiliation === null && $this->type === AffiliationType::InternshipOffice->value, 403);
+        } elseif ($source === 'courses') {
+            abort_unless($this->campusRegistration && $this->affiliation === null && $this->type === AffiliationType::Student->value, 403);
+        }
+
+        return match ($source) {
+            'campuses' => ['model' => Campus::class, 'options' => $this->campusOptions],
+            'courses' => ['model' => Course::class, 'options' => $this->courseOptions],
+            default => abort(404),
+        };
+    }
+
     use \App\Concerns\InteractsWithSupervisorQualifications;
     #[Locked]
     public ?int $activeAffiliationId = null;
@@ -292,10 +310,10 @@ new class extends Component
                     <flux:text>Campus: {{ $this->campusName }}</flux:text>
                     <flux:error name="campus_id" />
                     @if ($type === AffiliationType::Student->value)
-                        <x-select name="course_id" required label="Curso" wire:model="courseId" :value="$courseId" :options="$this->courseOptions" :error="$errors->first('course_id')" searchable />
+                        <x-select search-source="courses" name="course_id" required label="Curso" wire:model="courseId" :value="$courseId" :options="$this->courseOptions" :error="$errors->first('course_id')" searchable />
                     @endif
                 @elseif ($type === AffiliationType::InternshipOffice->value)
-                    <x-select name="campus_id" required label="Campus ativo" wire:model="campusId" :value="$campusId" :options="$this->campusOptions" :error="$errors->first('campus_id')" searchable />
+                    <x-select search-source="campuses" name="campus_id" required label="Campus ativo" wire:model="campusId" :value="$campusId" :options="$this->campusOptions" :error="$errors->first('campus_id')" searchable />
                 @endif
             @endif
             @if ($type !== AffiliationType::Supervisor->value)
