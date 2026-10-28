@@ -24,9 +24,6 @@
             </flux:navbar>
 
             <x-desktop-user-menu :affiliations="$navigationAffiliations" :current-affiliation="$activeNavigationAffiliation" />
-            <div class="basis-full">
-                <x-affiliations.active-context :affiliation="$activeNavigationAffiliation" />
-            </div>
         </flux:header>
 
         <!-- Mobile Menu -->

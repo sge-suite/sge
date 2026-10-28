@@ -89,10 +89,8 @@
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" :affiliations="$navigationAffiliations" :current-affiliation="$activeNavigationAffiliation" />
         </flux:sidebar>
 
-        <flux:header class="h-auto! min-h-16 gap-3 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+        <flux:header class="h-auto! min-h-16 gap-3 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 lg:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
-
-            <x-affiliations.active-context :affiliation="$activeNavigationAffiliation" />
 
             <div class="shrink-0 lg:hidden">
                 <flux:dropdown position="top" align="end">
@@ -101,22 +99,29 @@
                         icon-trailing="chevron-down"
                     />
 
-                    <flux:menu>
+                    <flux:menu class="w-80 max-w-[calc(100vw-2rem)]">
                         <flux:menu.radio.group>
                             <div class="p-0 text-sm font-normal">
-                                <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                                <div class="flex min-w-0 items-center gap-2 px-1 py-1.5 text-start text-sm">
                                     <flux:avatar
                                         :name="auth()->user()->name"
                                         :initials="auth()->user()->initials()"
                                     />
 
-                                    <div class="grid flex-1 text-start text-sm leading-tight">
+                                    <div class="grid min-w-0 flex-1 text-start text-sm leading-tight">
                                         <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
                                         <flux:text class="wrap-anywhere">E-mail de acesso: {{ auth()->user()->email }}</flux:text>
                                     </div>
                                 </div>
                             </div>
                         </flux:menu.radio.group>
+
+                        <flux:menu.separator />
+
+                        <div class="px-3 py-2">
+                            <flux:text size="sm" class="font-medium text-zinc-500 dark:text-zinc-400">Contexto atual</flux:text>
+                            <x-affiliations.active-context :affiliation="$activeNavigationAffiliation" />
+                        </div>
 
                         <flux:menu.separator />
 

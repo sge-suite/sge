@@ -8,16 +8,21 @@
         data-test="sidebar-menu-button"
     />
 
-    <flux:menu>
-        <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+    <flux:menu class="w-80 max-w-[calc(100vw-2rem)]">
+        <div class="flex min-w-0 items-center gap-2 px-1 py-1.5 text-start text-sm">
             <flux:avatar
                 :name="auth()->user()->name"
                 :initials="auth()->user()->initials()"
             />
-            <div class="grid flex-1 text-start text-sm leading-tight">
+            <div class="grid min-w-0 flex-1 text-start text-sm leading-tight">
                 <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
                 <flux:text class="wrap-anywhere">E-mail de acesso: {{ auth()->user()->email }}</flux:text>
             </div>
+        </div>
+        <flux:menu.separator />
+        <div class="px-3 py-2">
+            <flux:text size="sm" class="font-medium text-zinc-500 dark:text-zinc-400">Contexto atual</flux:text>
+            <x-affiliations.active-context :affiliation="$currentAffiliation" />
         </div>
         <flux:menu.separator />
         <flux:menu.radio.group>
