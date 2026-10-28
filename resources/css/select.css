@@ -51,43 +51,5 @@
 }
 
 .select-options {
-    --select-scrollbar-thumb: var(--color-zinc-300);
-    --select-scrollbar-hover: var(--color-zinc-500);
     scrollbar-gutter: stable;
-    scrollbar-width: thin;
-    scrollbar-color: var(--select-scrollbar-thumb) transparent;
-}
-
-.dark .select-options {
-    --select-scrollbar-thumb: var(--color-zinc-500);
-    --select-scrollbar-hover: var(--color-zinc-300);
-}
-
-@supports selector(::-webkit-scrollbar) {
-    .select-options {
-        scrollbar-width: auto;
-        scrollbar-color: auto;
-    }
-
-    .select-options::-webkit-scrollbar {
-        width: 4px;
-        height: 4px;
-    }
-
-    .select-options::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .select-options::-webkit-scrollbar-thumb {
-        border-radius: 999px;
-        background: var(--select-scrollbar-thumb);
-    }
-
-    .select-options::-webkit-scrollbar-thumb:hover {
-        background: var(--select-scrollbar-hover);
-    }
-
-    .select-options::-webkit-scrollbar-button {
-        display: none;
-    }
 }
