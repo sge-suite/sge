@@ -17,8 +17,10 @@ use App\Models\Affiliation;
 use App\Models\City;
 use App\Models\EmancipationEvidence;
 use App\Models\InternshipRequest;
+use App\Models\GrantingParty;
 use App\Models\InternshipType;
 use App\Support\InternshipEndDateCalculator;
+use App\Models\User;
 use App\Support\InternshipPlannedPauses;
 use App\Support\InternshipRegistrationLookup;
 use App\Support\InternshipRequestPersonalData;
@@ -184,27 +186,24 @@ new #[Title('Solicitação de estágio')] class extends Component
         $selectedSupervisor = $supervisorKey === null ? null : (clone $supervisorQuery)->with('user.personalData')->find($supervisorKey);
         $partyCityKey = $this->lookupKey($this->partyCityId);
         $partyTerm = mb_substr(trim($this->partySearch), 0, 100);
-        $partyDocument = BrazilianDocumentHelper::normalizeCnpj($partyTerm);
         $supervisorTerm = mb_substr(trim($this->supervisorSearch), 0, 100);
-        $supervisorDigits = DigitsHelper::only($supervisorTerm);
+        $supervisorUserIds = mb_strlen($supervisorTerm) < 2 ? [] : User::search($supervisorTerm)
+            ->options(['attributesToSearchOn' => ['name', 'cpf', 'formatted_cpf']])
+            ->where('affiliation_scopes', User::affiliationSearchScope('campus-'.$owner->campus_id, AffiliationType::Supervisor->value, 'active'))
+            ->take(20)->keys()->all();
         return [
             'proposalCity' => ($proposalCityKey = $this->lookupKey($this->values['granting_party_proposal']['city_id'] ?? null)) === null ? null : City::find($proposalCityKey),
             'advisors' => Affiliation::query()->active()->where('campus_id', $owner->campus_id)->where('type', AffiliationType::Advisor->value)->with('user')->get()->sortBy(fn (Affiliation $advisor): string => $advisor->user->name),
             'types' => InternshipType::query()->active()->where('course_id', $owner->course_id)->orderBy('name')->get(),
-            'parties' => mb_strlen($partyTerm) < 2 && $partyCityKey === null ? collect() : $partyQuery
-                ->when($partyCityKey !== null, fn ($query) => $query->whereHas('address', fn ($address) => $address->where('city_id', $partyCityKey)))
-                ->when(mb_strlen($partyTerm) >= 2, fn ($query) => $query->where(function ($query) use ($partyTerm, $partyDocument): void {
-                    $query->where('name', 'ilike', '%'.$partyTerm.'%');
-                    if ($partyDocument !== '') {
-                        $query->orWhere('document_number', 'like', '%'.$partyDocument.'%');
-                    }
-                }))->with('address.city')->orderBy('name')->orderBy('id')->limit(20)->get(),
-            'supervisors' => mb_strlen($supervisorTerm) < 2 ? collect() : $supervisorQuery->with('user')->whereHas('user', function ($query) use ($supervisorTerm, $supervisorDigits): void {
-                $query->where('name', 'ilike', '%'.$supervisorTerm.'%');
-                if ($supervisorDigits !== '') {
-                    $query->orWhere('cpf', 'like', '%'.$supervisorDigits.'%');
-                }
-            })->orderBy('id')->limit(20)->get(),
+            'parties' => mb_strlen($partyTerm) < 2 && $partyCityKey === null ? collect() : GrantingParty::search($partyTerm)
+                ->options(['attributesToSearchOn' => ['name', 'document_number', 'normalized_document_number']])
+                ->where('campus_id', (int) $owner->campus_id)->where('is_active', 1)
+                ->when($partyCityKey !== null, fn ($query) => $query->where('city_id', $partyCityKey))
+                ->query(fn ($query) => $query->mergeConstraintsFrom($partyQuery)
+                    ->when($partyCityKey !== null, fn ($query) => $query->whereHas('address', fn ($address) => $address->where('city_id', $partyCityKey)))
+                    ->with('address.city'))
+                ->take(20)->get(),
+            'supervisors' => $supervisorQuery->with('user')->whereIn('user_id', $supervisorUserIds)->orderBy('id')->limit(20)->get(),
             'selectedParty' => $selectedParty, 'selectedSupervisor' => $selectedSupervisor,
         ];
     }
