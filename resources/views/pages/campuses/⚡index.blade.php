@@ -68,8 +68,14 @@ new #[Title('Campi')] class extends Component
         $affiliation = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
         abort_if($affiliation === null, 403);
         $search = mb_substr(trim($this->search), 0, 255);
-        if ($search !== '' && $this->state === 'all') {
+        if ($search !== '') {
             $query = Campus::search($search);
+            if ($this->state !== 'all') {
+                $query->where('state', \App\Enums\BrazilianState::tryFrom($this->state)?->value ?? 'invalid');
+            }
+            if ($affiliation->type !== \App\Enums\AffiliationType::SystemAdministrator) {
+                $query->where('id', (int) $affiliation->campus_id);
+            }
 
             if ($this->status === 'active') {
                 $query->where('deactivated_at', null);
@@ -78,7 +84,11 @@ new #[Title('Campi')] class extends Component
             }
 
             return $query
-                ->query(fn (Builder $query) => $query->visibleTo($affiliation)->with('address.city'))
+                ->query(fn (Builder $query) => $query->visibleTo($affiliation)
+                    ->when($this->state !== 'all', fn (Builder $builder) => $builder->whereHas('address.city', fn (Builder $city) => $city->where('state', $this->state)))
+                    ->when($this->status === 'active', fn (Builder $builder) => $builder->whereNull('deactivated_at'))
+                    ->when($this->status === 'inactive', fn (Builder $builder) => $builder->whereNotNull('deactivated_at'))
+                    ->with('address.city'))
                 ->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
         }
 
@@ -86,7 +96,6 @@ new #[Title('Campi')] class extends Component
             ->visibleTo($affiliation)
             ->with('address.city')
             ->when($this->state !== 'all', fn (Builder $query) => $query->whereHas('address.city', fn (Builder $city) => $city->where('state', $this->state)))
-            ->when($search !== '', fn (Builder $query) => $query->whereLike('name', '%'.addcslashes($search, '%_').'%', caseSensitive: false))
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
             ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);

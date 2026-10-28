@@ -107,22 +107,22 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
         $owner = app(StudentInternshipContext::class)->selected(Auth::user());
         $search = mb_substr(trim($this->search), 0, 255);
 
-        return InternshipRequest::query()->whereNotIn('status', ['draft', 'withdrawn'])
+        $query = InternshipRequest::query()->whereNotIn('status', ['draft', 'withdrawn'])
             ->whereHas('affiliation', fn (Builder $query) => $query->where('campus_id', $owner->campus_id))
             ->when($this->status !== 'all', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->courseId !== '', fn (Builder $query) => $query->where('course_id', $this->courseId))
-            ->when($search !== '', function (Builder $query) use ($search): void {
-                $term = '%'.addcslashes($search, '%_').'%';
-                $query->where(function (Builder $query) use ($term, $search): void {
-                    $query->whereLike('student_snapshot->name', $term, caseSensitive: false)
-                        ->orWhereLike('student_snapshot->registration_number', $term, caseSensitive: false);
+            ->with(['course', 'internshipType']);
 
-                    if (ctype_digit($search) && strlen($search) <= 18) {
-                        $query->orWhere('id', (int) $search);
-                    }
-                });
-            })
-            ->with(['course', 'internshipType'])->latest('updated_at')->latest('id')->paginate(PageSize::PER_PAGE);
+        if ($search !== '') {
+            return InternshipRequest::search($search)->where('campus_id', (int) $owner->campus_id)
+                ->whereNotIn('status', ['draft', 'withdrawn'])
+                ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('status', InternshipRequestStatus::tryFrom($this->status)?->value ?? 'invalid'))
+                ->when($this->courseId !== '', fn ($searchQuery) => $searchQuery->where('course_id', (int) $this->courseId))
+                ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with($query->getEagerLoads()))
+                ->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+        }
+
+        return $query->latest('updated_at')->latest('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

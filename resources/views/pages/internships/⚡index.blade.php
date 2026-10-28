@@ -143,7 +143,7 @@ new #[Title('Estágios')] class extends Component
         $owner = app(StudentInternshipContext::class)->selected(Auth::user());
         $search = mb_substr(trim($this->search), 0, 255);
 
-        return Internship::query()->visibleToAffiliation($owner)
+        $query = Internship::query()->visibleToAffiliation($owner)
             ->when($owner->type === AffiliationType::InternshipOffice, function (Builder $query): void {
                 $pending = fn (Builder $requests) => $requests->whereIn('status', [InternshipCancellationRequestStatus::Submitted, InternshipCancellationRequestStatus::UnderReview]);
                 $query->withCount(['cancellationRequests as pending_cancellations_count' => $pending]);
@@ -154,19 +154,25 @@ new #[Title('Estágios')] class extends Component
             ->when($this->status !== 'all', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->advisorId !== '', fn (Builder $query) => $query->where('advisor_affiliation_id', $this->advisorId))
             ->when($this->courseId !== '', fn (Builder $query) => $query->where('course_id', $this->courseId))
-            ->when($search !== '', function (Builder $query) use ($search, $owner): void {
-                $term = '%'.addcslashes($search, '%_').'%';
-                $query->where(function (Builder $query) use ($term, $search, $owner): void {
-                    $query->whereLike('student_snapshot->name', $term, caseSensitive: false)
-                        ->orWhereLike('student_snapshot->registration_number', $term, caseSensitive: false);
+            ->with(['course', 'advisorAffiliation.user']);
+
+        if ($search !== '') {
+            return Internship::searchVisibleToAffiliation($search, $owner)
+                ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('status', InternshipStatus::tryFrom($this->status)?->value ?? 'invalid'))
+                ->when($this->advisorId !== '', fn ($searchQuery) => $searchQuery->where('advisor_affiliation_id', (int) $this->advisorId))
+                ->when($this->courseId !== '', fn ($searchQuery) => $searchQuery->where('course_id', (int) $this->courseId))
+                ->when($owner->type === AffiliationType::InternshipOffice && $this->pendingCancellations, fn ($searchQuery) => $searchQuery->where('has_pending_cancellation', 1))
+                ->query(function (Builder $builder) use ($query, $owner): void {
+                    $builder->mergeConstraintsFrom($query)->with($query->getEagerLoads());
                     if ($owner->type === AffiliationType::InternshipOffice) {
-                        $query->orWhereHas('generatedDocuments', fn (Builder $documents) => $documents->whereLike('protocol_number', $term, caseSensitive: false));
+                        $builder->withCount(['cancellationRequests as pending_cancellations_count' => fn (Builder $requests) => $requests
+                            ->whereIn('status', [InternshipCancellationRequestStatus::Submitted, InternshipCancellationRequestStatus::UnderReview])]);
                     }
-                    if (ctype_digit($search) && strlen($search) <= 18) {
-                        $query->orWhere('id', (int) $search);
-                    }
-                });
-            })->with(['course', 'advisorAffiliation.user'])->latest('updated_at')->latest('id')->paginate(PageSize::PER_PAGE);
+                })
+                ->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+        }
+
+        return $query->latest('updated_at')->latest('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

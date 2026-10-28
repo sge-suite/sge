@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\BrazilianState;
-use App\Helpers\BrazilianDocumentHelper;
 use App\Models\City;
 use App\Models\GrantingParty;
 use App\Support\ActiveAffiliationContext;
@@ -137,7 +136,8 @@ new #[Title('Partes concedentes')] class extends Component
         $state = $this->state === 'all' ? null : BrazilianState::tryFrom($this->state);
         $selectedCity = $this->selectedCity;
 
-        return GrantingParty::query()->where('campus_id', $affiliation->campus_id)
+        $search = mb_substr(trim($this->search), 0, 255);
+        $query = GrantingParty::query()->where('campus_id', $affiliation->campus_id)
             ->with('address.city')
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
@@ -151,11 +151,19 @@ new #[Title('Partes concedentes')] class extends Component
                         $query->whereKey($selectedCity->getKey());
                     }
                 });
-            })
-            ->when(trim($this->search) !== '', function (Builder $query): void {
-                $term = mb_substr(trim($this->search), 0, 255);
-                $query->where(fn (Builder $query) => $query->whereLike('name', '%'.addcslashes($term, '%_').'%', caseSensitive: false)->orWhere('document_number', BrazilianDocumentHelper::normalizeCnpj($term)));
-            })->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
+            });
+
+        if ($search !== '') {
+            return GrantingParty::search($search)->where('campus_id', (int) $affiliation->campus_id)
+                ->options(['attributesToSearchOn' => ['name', 'document_number', 'normalized_document_number']])
+                ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('is_active', (int) ($this->status === 'active')))
+                ->when($state !== null, fn ($searchQuery) => $searchQuery->where('state', $state->value))
+                ->when($selectedCity !== null, fn ($searchQuery) => $searchQuery->where('city_id', (int) $selectedCity->id))
+                ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with('address.city'))
+                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+        }
+
+        return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

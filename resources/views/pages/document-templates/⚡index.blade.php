@@ -57,14 +57,23 @@ new #[Title('Templates DOCX')] class extends Component
         $remuneration = TemplateRemuneration::tryFrom($this->remuneration);
         $search = mb_substr(trim($this->search), 0, 255);
 
-        return DocumentTemplate::query()->availableToCampus($office->campus_id)
+        $query = DocumentTemplate::query()->availableToCampus($office->campus_id)
             ->with('currentVersion')->withCount('templateVersions')
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
             ->when($remuneration !== null, fn (Builder $query) => $query->where('remuneration', $remuneration))
-            ->when($type !== null, fn (Builder $query) => $query->where('document_type', $type))
-            ->when($search !== '', fn (Builder $query) => $query->whereLike('name', '%'.addcslashes($search, '%_').'%', caseSensitive: false))
-            ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
+            ->when($type !== null, fn (Builder $query) => $query->where('document_type', $type));
+
+        if ($search !== '') {
+            return DocumentTemplate::search($search)->where('campus_id', (int) $office->campus_id)
+                ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('is_active', (int) ($this->status === 'active')))
+                ->when($type !== null, fn ($searchQuery) => $searchQuery->where('document_type', $type->value))
+                ->when($remuneration !== null, fn ($searchQuery) => $searchQuery->where('remuneration', $remuneration->value))
+                ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with('currentVersion')->withCount('templateVersions'))
+                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+        }
+
+        return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

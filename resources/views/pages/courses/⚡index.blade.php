@@ -56,12 +56,20 @@ new #[Title('Cursos')] class extends Component
         Gate::authorize('viewAny', Course::class);
         $affiliation = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
 
-        return Course::query()->where('campus_id', $affiliation->campus_id)
+        $search = mb_substr(trim($this->search), 0, 255);
+        $query = Course::query()->where('campus_id', $affiliation->campus_id)
             ->with(['primaryCoordinator.user', 'secondaryCoordinator.user'])
-            ->when(trim($this->search) !== '', fn (Builder $query) => $query->whereLike('name', '%'.addcslashes(mb_substr(trim($this->search), 0, 255), '%_').'%', caseSensitive: false))
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
-            ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
-            ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
+            ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'));
+
+        if ($search !== '') {
+            return Course::search($search)->where('campus_id', (int) $affiliation->campus_id)
+                ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('is_active', (int) ($this->status === 'active')))
+                ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with($query->getEagerLoads()))
+                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+        }
+
+        return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 

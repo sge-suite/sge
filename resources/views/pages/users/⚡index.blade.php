@@ -96,19 +96,28 @@ new #[Title('Usuários')] class extends Component
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'));
         $query = User::query()->whereHas('affiliations', $matchingAffiliations)
             ->with(['affiliations' => fn ($query) => $visibleAffiliations($query->getQuery())->with('campus')]);
-        if ($search !== '' && ! str_contains($search, '@') && ! preg_match('/^[\d.\s-]+$/', $search)) {
-            if (auth()->user()->cannot('viewAdministration', User::class) || $this->role !== 'all' || $this->status !== 'all') {
-                return $query->whereLike('name', '%'.addcslashes($search, '%_\\').'%')->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
-            }
-            return User::search($search)->query(fn (Builder $builder) => $builder
-                ->whereHas('affiliations', $matchingAffiliations)
-                ->with(['affiliations' => fn ($query) => $visibleAffiliations($query->getQuery())->with('campus')]))
-                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
-        }
+        $exactMatch = null;
         if (str_contains($search, '@')) {
             $query->whereRaw('LOWER(email) = ?', [mb_strtolower($search)]);
-        } elseif ($search !== '') {
-            $query->where('cpf', DigitsHelper::only($search));
+            $exactMatch = ['email', mb_strtolower($search)];
+        } elseif ($search !== '' && preg_match('/^[\d.\s-]+$/', $search)) {
+            $search = DigitsHelper::only($search);
+            $query->where('cpf', $search);
+            $exactMatch = ['cpf', $search];
+        }
+
+        if ($search !== '') {
+            return User::search($search, function (\Meilisearch\Endpoints\Indexes $index, string $query, array $options) use ($exactMatch): array {
+                if ($exactMatch !== null) {
+                    $options['filter'] = array_values(array_filter([$options['filter'] ?? null,
+                        $exactMatch[0].' = '.json_encode($exactMatch[1], JSON_THROW_ON_ERROR)]));
+                }
+
+                return $index->rawSearch($query, $options);
+            })
+                ->where('affiliation_scopes', $scope->searchScope(auth()->user(), $this->role, $this->status))
+                ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with($query->getEagerLoads()))
+                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
         }
 
         return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);

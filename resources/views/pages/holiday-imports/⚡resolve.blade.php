@@ -35,14 +35,15 @@ new #[Title('Revisar feriado importado')] class extends Component
     public function candidates(): Collection
     {
         $search = mb_substr(trim($this->holidaySearch), 0, 255);
+        $matchingIds = mb_strlen($search) >= 2 ? Holiday::search($search)->withTrashed()->orderBy('date', 'desc')->take(20)->keys()->all() : [];
 
-        return Holiday::withTrashed()->where(function (Builder $query) use ($search): void {
+        return Holiday::withTrashed()->where(function (Builder $query) use ($matchingIds): void {
             $query->whereIn('id', $this->holidaySource->candidate_ids ?? []);
             if (ctype_digit($this->selectedHolidayId)) {
                 $query->orWhere('id', (int) $this->selectedHolidayId);
             }
-            if (mb_strlen($search) >= 2) {
-                $query->orWhere('name', 'ilike', '%'.addcslashes($search, '%_').'%');
+            if ($matchingIds !== []) {
+                $query->orWhereIn('id', $matchingIds);
             }
         })->orderByDesc('date')->limit(20)->get();
     }
