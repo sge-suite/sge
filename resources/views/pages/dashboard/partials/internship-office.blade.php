@@ -1,14 +1,11 @@
 <div class="w-full space-y-8">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-            <flux:heading level="1" size="xl">Painel do Setor de Estágios</flux:heading>
-            <flux:text class="mt-2">{{ $overview['campus'] }} · Pendências e acompanhamento do dia a dia.</flux:text>
-        </div>
-        <div class="flex flex-wrap gap-3">
+    <x-dashboard-header :description="$overview['campus'].' · Pendências e acompanhamento do Setor de Estágios.'">
+        <x-slot:actions>
             <flux:button variant="primary" icon="clipboard-document-check" :href="route('internship-review.index')" wire:navigate>Solicitações</flux:button>
             <flux:button variant="outline" icon="briefcase" :href="route('internships.index')" wire:navigate>Estágios</flux:button>
-        </div>
-    </div>
+            <flux:button variant="outline" icon="clipboard-document-list" :href="route('supervisor-evaluations.index')" wire:navigate>Avaliações</flux:button>
+        </x-slot:actions>
+    </x-dashboard-header>
     @if ($overview['readOnly'])
         <flux:callout icon="information-circle" heading="Campus somente para leitura">O campus está desativado. Os dados permanecem disponíveis para consulta.</flux:callout>
     @endif
@@ -20,12 +17,7 @@
             ['label' => 'Em pausa', 'value' => $overview['paused'], 'description' => 'Estágios com execução suspensa', 'icon' => 'pause-circle', 'url' => route('internships.index', ['status' => 'paused'])],
             ['label' => 'Concluídos', 'value' => $overview['completed'], 'description' => 'Estágios finalizados no campus', 'icon' => 'check-circle', 'url' => route('internships.index', ['status' => 'completed'])],
         ] as $metric)
-            <a wire:key="office-metric-{{ $loop->index }}" href="{{ $metric['url'] }}" wire:navigate class="group rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand">
-                <flux:card class="flex h-full min-w-0 items-center justify-between gap-3 p-3 transition-colors group-hover:bg-zinc-50 dark:group-hover:bg-zinc-700">
-                    <div class="min-w-0"><flux:text size="sm">{{ $metric['label'] }}</flux:text><flux:heading size="xl">{{ $metric['value'] }}</flux:heading><flux:text size="sm">{{ $metric['description'] }}</flux:text></div>
-                    <flux:avatar :icon="$metric['icon']" icon-variant="outline" size="lg" class="shrink-0 bg-brand/10 text-brand [&>svg]:opacity-100" />
-                </flux:card>
-            </a>
+            <x-dashboard-metric wire:key="office-metric-{{ $loop->index }}" :label="$metric['label']" :value="$metric['value']" :icon="$metric['icon']" :description="$metric['description']" :href="$metric['url']" />
         @endforeach
     </section>
     <div class="flex flex-wrap gap-3">

@@ -32,7 +32,10 @@ class GetSupervisorDashboard
             ];
         }
 
-        return ['groups' => $groups, 'total' => (int) $counts->sum(),
-            'finished' => (int) $counts->get(EvaluationStatus::Approved->value, 0) + (int) $counts->get(EvaluationStatus::Cancelled->value, 0)];
+        return [
+            'groups' => $groups,
+            'total' => (int) $counts->sum(),
+            'approved' => (int) $counts->get(EvaluationStatus::Approved->value, 0),
+        ];
     }
 }

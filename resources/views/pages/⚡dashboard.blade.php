@@ -3,6 +3,7 @@
 use App\Actions\GetAdministrativeDashboardMetrics;
 use App\Actions\GetInternshipOfficeDashboard;
 use App\Actions\GetSupervisorDashboard;
+use App\Enums\AffiliationType;
 use App\Models\User;
 use App\Models\InternshipRequest;
 use App\Models\Internship;
@@ -40,7 +41,13 @@ new #[Title('Painel')] class extends Component
         return [
             'role' => $owner->type->label(),
             'campus' => $owner->campus->name,
-            'isOffice' => $owner->type === \App\Enums\AffiliationType::InternshipOffice,
+            'description' => match ($owner->type) {
+                AffiliationType::Advisor => 'Acompanhe seus orientandos e consulte as notas dos estágios.',
+                AffiliationType::Coordinator => 'Acompanhe os estágios dos cursos que coordena e suas orientações.',
+                AffiliationType::TeachingDirection => 'Consulte a situação dos estágios do campus.',
+                default => 'Acompanhe os estágios disponíveis para você.',
+            },
+            'isOffice' => $owner->type === AffiliationType::InternshipOffice,
             'total' => (int) $counts->sum(),
             'inProgress' => (int) $counts->get('in_progress', 0),
             'paused' => (int) $counts->get('paused', 0),

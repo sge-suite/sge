@@ -1,46 +1,15 @@
-<div class="w-full space-y-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-            <flux:heading size="xl" level="1">Painel administrativo</flux:heading>
-            <flux:text class="mt-2">Indicadores globais de todos os campi.</flux:text>
-        </div>
-        <flux:badge color="zinc">Escopo global</flux:badge>
-    </div>
+<div class="w-full space-y-8">
+    <x-dashboard-header description="Administrador do Sistema · Indicadores globais de todos os campi.">
+        <x-slot:actions>
+            <flux:button variant="primary" icon="users" :href="route('users.index')" wire:navigate>Usuários</flux:button>
+            <flux:button variant="outline" icon="building-office-2" :href="route('campuses.index')" wire:navigate>Campi</flux:button>
+        </x-slot:actions>
+    </x-dashboard-header>
 
-    <section aria-label="Totais do sistema" class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
-        <flux:card class="flex min-w-0 items-center justify-between gap-3 p-3">
-            <div class="min-w-0">
-                <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Usuários cadastrados</flux:text>
-                <flux:heading size="xl">{{ $metrics['usersCount'] }}</flux:heading>
-            </div>
-            <flux:avatar icon="users" icon-variant="outline" size="lg" class="bg-brand/10 text-brand [&>svg]:opacity-100" />
-        </flux:card>
-
-        <flux:card class="flex min-w-0 items-center justify-between gap-3 p-3">
-            <div class="min-w-0">
-                <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Vínculos cadastrados</flux:text>
-                <div class="flex flex-wrap items-baseline gap-x-2">
-                    <flux:heading size="xl">{{ $metrics['affiliationsCount'] }}</flux:heading>
-                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
-                        {{ $metrics['activeAffiliationsCount'] }} {{ $metrics['activeAffiliationsCount'] === 1 ? 'ativo' : 'ativos' }}
-                    </flux:text>
-                </div>
-            </div>
-            <flux:avatar icon="link" icon-variant="outline" size="lg" class="bg-brand/10 text-brand [&>svg]:opacity-100" />
-        </flux:card>
-
-        <flux:card class="flex min-w-0 items-center justify-between gap-3 p-3">
-            <div class="min-w-0">
-                <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Campi cadastrados</flux:text>
-                <div class="flex flex-wrap items-baseline gap-x-2">
-                    <flux:heading size="xl">{{ $metrics['campusesCount'] }}</flux:heading>
-                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
-                        {{ $metrics['activeCampusesCount'] }} {{ $metrics['activeCampusesCount'] === 1 ? 'ativo' : 'ativos' }}
-                    </flux:text>
-                </div>
-            </div>
-            <flux:avatar icon="building-office-2" icon-variant="outline" size="lg" class="bg-brand/10 text-brand [&>svg]:opacity-100" />
-        </flux:card>
+    <section aria-label="Totais do sistema" class="grid min-w-0 gap-3 sm:grid-cols-3">
+        <x-dashboard-metric label="Usuários cadastrados" :value="$metrics['usersCount']" icon="users" :href="route('users.index')" />
+        <x-dashboard-metric label="Vínculos cadastrados" :value="$metrics['affiliationsCount']" icon="link" :description="$metrics['activeAffiliationsCount'].' '.($metrics['activeAffiliationsCount'] === 1 ? 'ativo' : 'ativos')" />
+        <x-dashboard-metric label="Campi cadastrados" :value="$metrics['campusesCount']" icon="building-office-2" :description="$metrics['activeCampusesCount'].' '.($metrics['activeCampusesCount'] === 1 ? 'ativo' : 'ativos')" :href="route('campuses.index')" />
     </section>
 
     <div class="grid min-w-0 gap-x-10 gap-y-6 xl:grid-cols-2">
