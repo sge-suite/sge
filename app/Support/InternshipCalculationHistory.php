@@ -36,6 +36,9 @@ class InternshipCalculationHistory
     {
         $snapshot = $record->calculationSnapshot;
         $record->calculationSnapshot = null;
+        if ($record instanceof Internship) {
+            $record->calculationActivityId = null;
+        }
         if ($snapshot === null) {
             return;
         }
@@ -44,9 +47,12 @@ class InternshipCalculationHistory
         if ($previous?->properties->get('calculation_hash') === $hash) {
             return;
         }
-        activity()->performedOn($record)->event('end_date_calculated')
+        $activity = activity()->performedOn($record)->event('end_date_calculated')
             ->withProperties(['calculation' => $snapshot, 'calculation_hash' => $hash])
             ->log('Previsão de término calculada');
+        if ($record instanceof Internship && $activity instanceof Activity) {
+            $record->calculationActivityId = (int) $activity->getKey();
+        }
     }
 
     /** @return array<string, mixed> */

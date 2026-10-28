@@ -147,6 +147,8 @@ class Internship extends Model
     /** @var array<string, mixed>|null */
     public ?array $calculationSnapshot = null;
 
+    public ?int $calculationActivityId = null;
+
     /** @var array{starts_on: string, weekly_hours: array<string, int>, previous_schedule_id: ?int, projected_end_date: string}|null */
     public ?array $proposedWorkSchedule = null;
 

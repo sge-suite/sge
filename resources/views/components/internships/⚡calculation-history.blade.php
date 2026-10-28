@@ -6,6 +6,7 @@ use App\Support\PageSize;
 use App\Support\StudentInternshipContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -21,11 +22,21 @@ new class extends Component {
     /** @var array<string, mixed>|null */
     #[Locked] public ?array $calculationResult = null;
 
-    public function mount(int $internshipId, StudentInternshipContext $context): void
+    public function mount(int $internshipId, StudentInternshipContext $context, InternshipCalculationHistory $history): void
     {
         $this->internshipId = $internshipId;
         Gate::authorize('viewCalculationHistory', $this->internship);
         $this->affiliationId = $context->selected(auth()->user())->id;
+        $opening = session()->get('open-internship-calculation');
+        if (is_array($opening) && ($opening['internship_id'] ?? null) === $this->internshipId
+            && ($opening['affiliation_id'] ?? null) === $this->affiliationId && is_int($opening['activity_id'] ?? null)) {
+            session()->forget('open-internship-calculation');
+            try {
+                $this->reproduce($opening['activity_id'], $history);
+            } catch (ValidationException $exception) {
+                $this->addError('calculation', $exception->errors()['calculation'][0] ?? 'Não foi possível reproduzir o cálculo registrado.');
+            }
+        }
     }
 
     public function hydrate(StudentInternshipContext $context): void

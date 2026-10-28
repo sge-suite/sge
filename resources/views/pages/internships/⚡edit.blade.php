@@ -13,7 +13,6 @@ use App\Support\InternshipCalendarOverrides;
 use App\Support\InternshipPlannedPauses;
 use App\Support\InternshipRequestSnapshots;
 use App\Support\StudentInternshipContext;
-use Flux\Flux;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -23,8 +22,8 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-{
 new #[Title('Editar estágio')] class extends Component
+{
     use \App\Concerns\SearchesSelectOptions;
 
     protected function selectSearchSource(string $source): array
@@ -55,7 +54,6 @@ new #[Title('Editar estágio')] class extends Component
     #[Locked] public bool $hasProjectionChanges = false;
     /** @var array<string, mixed>|null */
     #[Locked] public ?array $calendarResult = null;
-    #[Locked] public bool $calendarIsSaved = false;
     public bool $showCalendar = false;
     public string $periodNumber = '';
     public string $periodUnit = 'semester';
@@ -291,7 +289,6 @@ new #[Title('Editar estágio')] class extends Component
 
     private function updateProjection(bool $includeCalendar = false): void
     {
-        $this->calendarIsSaved = false;
         $this->hasProjectionChanges = true;
         $this->previewEndDate = null;
         $this->calendarResult = null;
@@ -350,28 +347,14 @@ new #[Title('Editar estágio')] class extends Component
     {
         $this->values['address']['city_id'] = $this->selectedCityId;
         $internship = $update->handle(Auth::user(), $this->record, $this->affiliationId, $this->expectedUpdatedAt, $this->values, recalculate: $this->hasProjectionChanges);
-        $this->fillFromInternship($internship);
-        unset($this->record, $this->choices, $this->typeRules, $this->periodOptions);
-        $this->citySelectionVersion++;
-        $this->cancelCepLookup();
-        $this->periodNumber = '';
-        $this->hasProjectionChanges = false;
-        $this->previewEndDate = null;
-        $this->calendarResult = null;
-        $this->calendarIsSaved = false;
-        $this->showCalendar = false;
-        $this->resetValidation();
-        if ($internship->endDateCalculation !== null) {
-            $result = $internship->endDateCalculation;
-            $city = $this->record->workplaceAddress->city;
-            $this->calendarResult = array_replace($result, ['completion_date' => $result['completion_date']->toDateString(),
-                'projected_end_date' => $result['projected_end_date']->toDateString(), 'saved_projected_end_date' => $internship->projected_end_date->toDateString(),
-                'margin_days' => (int) $internship->internship_type_snapshot['rules']['safety_margin_days'], 'location' => $city->name.' / '.$city->state->value]);
-            $this->calendarIsSaved = true;
-            $this->showCalendar = true;
-        }
-        Flux::toast('Estágio atualizado com sucesso.', variant: 'success');
         $this->dispatch('form-saved', scope: 'internship-edit', savedAt: formatDateTime(now()));
+        if ($internship->calculationActivityId !== null) {
+            session()->flash('open-internship-calculation', [
+                'internship_id' => $internship->id, 'activity_id' => $internship->calculationActivityId, 'affiliation_id' => $this->affiliationId,
+            ]);
+        }
+        session()->flash('status', 'Estágio atualizado com sucesso.');
+        $this->redirectRoute('internships.show', ['internship' => $internship->id], navigate: true);
     }
 }; ?>
 
@@ -599,5 +582,5 @@ new #[Title('Editar estágio')] class extends Component
             <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="save">Salvar alterações</flux:button>
         </div>
     </form>
-    <x-internship-calendar-preview wire:model.self="showCalendar" :result="$calendarResult" :editing="! $calendarIsSaved" :saved="$calendarIsSaved" />
+    <x-internship-calendar-preview wire:model.self="showCalendar" :result="$calendarResult" :editing="true" />
 </div>
