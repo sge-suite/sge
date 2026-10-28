@@ -131,6 +131,7 @@ class ManageStudentInternshipRequest
                     }
                 }
                 $this->assertRelations($request, $owner);
+                $this->project->validateStartDate($request);
                 $request->projected_end_date = null;
                 if ($operation === 'submit') {
                     Validator::make(['terms_accepted' => $termsAccepted], ['terms_accepted' => ['accepted']],

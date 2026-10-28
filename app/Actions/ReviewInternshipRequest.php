@@ -177,7 +177,8 @@ class ReviewInternshipRequest
                     if ($stage->exists) {
                         $projection = clone $stage;
                         $projection->fill($attributes);
-                        $request->projected_end_date = $this->projectInternship->handle($projection);
+                        $request->projected_end_date = $this->projectInternship->handle($projection,
+                            validateStartDate: array_intersect($corrected, ['planned_start_date', 'schedule', 'granting_party']) !== []);
                     } else {
                         $projection = clone $request;
                         $projection->workplace_address_id = $attributes['workplace_address_id'];

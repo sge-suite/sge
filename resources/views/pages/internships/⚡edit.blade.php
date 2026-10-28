@@ -416,7 +416,7 @@ new #[Title('Editar estágio')] class extends Component
                 <x-select search-source="advisors" wire:model.live="values.advisor_affiliation_id" :value="$values['advisor_affiliation_id']" label="Orientador" :options="$choices['advisors']" :error="$errors->first('advisor_affiliation_id')" searchable required />
                 <flux:input wire:model="values.co_advisor_name" error:name="co_advisor_name" label="Co-orientador (opcional)" maxlength="255" />
                 <flux:input wire:model="values.internship_sector" error:name="internship_sector" label="Setor ou área de atuação" maxlength="255" />
-                <flux:input wire:model="values.planned_start_date" error:name="planned_start_date" label="Início planejado" type="date" :readonly="! $canEditAgreement" required />
+                <flux:input wire:model="values.planned_start_date" error:name="planned_start_date" label="Início planejado" type="date" description:trailing="Escolha um dia com horas na jornada, sem feriado, pausa ou bloqueio de expediente." :readonly="! $canEditAgreement" required />
                 <flux:input label="Término previsto" :value="$hasProjectionChanges ? ($previewEndDate ? formatShort($previewEndDate) : 'Prévia pendente') : formatShort($record->projected_end_date)" description:trailing="Consulte o calendário para conferir a prévia. O término é atualizado ao salvar as alterações." readonly />
                 <flux:input wire:model="values.rules.required_hours" error:name="rules.required_hours" label="Carga horária exigida (horas)" type="number" min="1" step="1" required />
             </div>

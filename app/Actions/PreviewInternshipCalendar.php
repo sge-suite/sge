@@ -81,7 +81,8 @@ class PreviewInternshipCalendar
             if ($city === null) {
                 throw ValidationException::withMessages(['city_id' => 'Selecione um município válido para o local de estágio.']);
             }
-            $result = $this->project->details($candidate, $city, $includeCalendar, $overrides);
+            $result = $this->project->details($candidate, $city, $includeCalendar, $overrides,
+                validateStartDate: $data !== null && Gate::forUser($actor)->allows('updateAgreement', $internship));
 
             return ['completion_date' => $result['completion_date']->toDateString(), 'projected_end_date' => $result['projected_end_date']->toDateString(),
                 'saved_projected_end_date' => $internship->projected_end_date->toDateString(), 'credited_hours' => $result['credited_hours'],

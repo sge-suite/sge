@@ -216,7 +216,8 @@ class UpdateInternshipData
             $overridesChanged = $this->overrides->sync($internship, $overrides);
         }
         if ($recalculate || $calendarChanged || $overridesChanged || $internship->isDirty(['internship_type_snapshot', 'planned_start_date', 'weekly_hours', 'planned_pauses'])) {
-            $internship->endDateCalculation = $this->project->details($internship);
+            $internship->endDateCalculation = $this->project->details($internship,
+                validateStartDate: Gate::forUser($actor)->allows('updateAgreement', $internship));
             $internship->projected_end_date = $internship->endDateCalculation['projected_end_date'];
         }
         if ($overridesChanged) {

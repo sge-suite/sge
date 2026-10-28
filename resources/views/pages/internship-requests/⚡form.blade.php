@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\ManageStudentInternshipRequest;
+use App\Actions\ProjectInternshipRequestEndDate;
 use App\Actions\StoreEmancipationEvidence;
 use App\Concerns\InternshipRequestValidationRules;
 use App\Concerns\InteractsWithAddressLookup;
@@ -697,6 +698,9 @@ new #[Title('Solicitação de estágio')] class extends Component
                 throw ValidationException::withMessages(['weekly_hours' => 'Informe uma carga positiva e respeite os limites diários e semanais do tipo de estágio.']);
             }
             app(InternshipPlannedPauses::class)->validate($data['planned_pauses'] ?? [], $data['planned_start_date'] ?? null, complete: true);
+            $candidate = clone $this->record;
+            $candidate->fill(Arr::only($data, ['planned_start_date', 'weekly_hours', 'planned_pauses']));
+            app(ProjectInternshipRequestEndDate::class)->validateStartDate($candidate);
         }
         if ($section === 'legal_capacity') {
             if ($this->isAdult === null || $this->isAdult !== (($data['legal_capacity_declaration'] ?? '') === 'adult')) {

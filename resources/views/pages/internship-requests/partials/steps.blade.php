@@ -253,7 +253,7 @@
     @if (in_array('planned_start_date', $this->editableSections, true))
         <flux:separator />
         <flux:input wire:model.live="values.planned_start_date" type="date" label="Data proposta para iniciar" :min="now(config('app.timezone'))->addDays(7)->toDateString()" error:name="planned_start_date" required />
-        <flux:text size="sm">Escolha pelo menos sete dias corridos após o envio. O início depende da liberação pelo Setor após a documentação.</flux:text>
+        <flux:text size="sm">Escolha um dia com horas na jornada, sem feriado ou pausa, com pelo menos sete dias corridos após o envio. O início depende da liberação pelo Setor após a documentação.</flux:text>
     @endif
     @if (in_array('schedule', $this->editableSections, true))
         <flux:separator />

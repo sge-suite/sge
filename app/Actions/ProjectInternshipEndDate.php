@@ -7,6 +7,7 @@ use App\Models\HolidayImportRun;
 use App\Models\HolidaySource;
 use App\Models\Internship;
 use App\Models\InternshipWorkSchedule;
+use App\Rules\WorkingInternshipStartDate;
 use App\Support\HolidayCalendar;
 use App\Support\InternshipCalculationHistory;
 use App\Support\InternshipEndDateCalculator;
@@ -21,9 +22,9 @@ class ProjectInternshipEndDate
     public function __construct(private HolidayCalendar $calendar, private InternshipEndDateCalculator $calculator,
         private InternshipPlannedPauses $plannedPauses, private InternshipCalculationHistory $history) {}
 
-    public function handle(Internship $internship): CarbonImmutable
+    public function handle(Internship $internship, bool $validateStartDate = false): CarbonImmutable
     {
-        return $this->details($internship, includeCalendar: false)['projected_end_date'];
+        return $this->details($internship, includeCalendar: false, validateStartDate: $validateStartDate)['projected_end_date'];
     }
 
     /**
@@ -31,7 +32,7 @@ class ProjectInternshipEndDate
      * @param  list<array{starts_on: string, ends_on: ?string, weekly_hours: array<string, int>}>|null  $workSchedules
      * @return array{completion_date: CarbonImmutable, projected_end_date: CarbonImmutable, credited_hours: int, calendar: list<array{date: string, scheduled_hours: int, credited_hours: int, accumulated_hours: int, kind: string, reason?: string}>}
      */
-    public function details(Internship $internship, ?City $city = null, bool $includeCalendar = true, ?array $overrides = null, ?array $workSchedules = null): array
+    public function details(Internship $internship, ?City $city = null, bool $includeCalendar = true, ?array $overrides = null, ?array $workSchedules = null, bool $validateStartDate = false): array
     {
         $rules = $internship->internship_type_snapshot['rules'] ?? [];
         $validator = Validator::make($rules, ['required_hours' => ['required', 'integer', 'min:1'], 'safety_margin_days' => ['required', 'integer', 'min:0']]);
@@ -51,6 +52,7 @@ class ProjectInternshipEndDate
             $date = $holiday->date->toDateString();
             $blocked[$date] = isset($blocked[$date]) ? $blocked[$date].'; '.$holiday->name : 'Feriado: '.$holiday->name;
         }
+        $holidays = $blocked;
         $overrides ??= $internship->calendarOverrides()->whereBetween('date', [$start->toDateString(), $horizon])->get()
             ->map(fn ($override): array => ['id' => $override->id, 'date' => $override->date->toDateString(),
                 'is_working_day' => $override->is_working_day, 'reason' => $override->reason])->values()->all();
@@ -69,6 +71,11 @@ class ProjectInternshipEndDate
             for ($day = CarbonImmutable::parse(max($pause->starts_at->toDateString(), $start->toDateString()), config('app.timezone')); $day->toDateString() <= $end; $day = $day->addDay()) {
                 $blocked[$day->toDateString()] = 'Pausa: '.$pause->reason;
             }
+        }
+        if ($validateStartDate) {
+            Validator::make(['planned_start_date' => $start->toDateString()], [
+                'planned_start_date' => [new WorkingInternshipStartDate($internship->weekly_hours, $holidays + $blocked)],
+            ])->validate();
         }
         $schedules = $workSchedules ?? array_values($internship->workSchedules()->orderBy('starts_on')->get()->map(function (InternshipWorkSchedule $schedule): array {
             if ($schedule->starts_on === null) {
