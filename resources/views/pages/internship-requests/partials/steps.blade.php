@@ -58,8 +58,26 @@
     <flux:error name="granting_party_mode" />
     @if ($partyMatchMessage)<div role="status" tabindex="-1" x-data x-init="$el.focus({ preventScroll: true })"><flux:callout :variant="$choices['selectedParty'] ? 'success' : 'warning'" icon="information-circle" :heading="$partyMatchMessage" /></div>@endif
     @if (! $pendingParty)
+        @if (! $choices['selectedParty'])
+        <section class="space-y-3" aria-labelledby="party-city-filter-heading">
+            <flux:heading id="party-city-filter-heading" level="3" size="sm">Filtrar pela cidade (opcional)</flux:heading>
+            <livewire:cities.select wire:model.live="partyCityId" :selected-city-id="$partyCityId" :city-error="''" :personal-data="true" field-name="party_city_id" :required="false" :key="'existing-party-city-'.$requestId.'-'.$partyCityId" />
+            @if (filled($partyCityId))<flux:button size="sm" variant="ghost" wire:click="clearPartyCityFilter" wire:loading.attr="disabled">Limpar filtro de cidade</flux:button>@endif
+        </section>
+        @endif
+        @php
+            $partyOptions = collect([$choices['selectedParty']])->merge($choices['parties'])->filter()->unique('id')->mapWithKeys(function ($party) use ($partyCityId): array {
+                $city = $party->address?->city;
+
+                return [$party->id => implode(' · ', array_filter([
+                    $party->name,
+                    \App\Helpers\BrazilianDocumentHelper::formatCpfCnpj($party->document_number),
+                    blank($partyCityId) && $city !== null ? $city->name.'/'.$city->state->value : null,
+                ], fn (?string $value): bool => filled($value)))];
+            })->all();
+        @endphp
         <x-select wire:model.live="values.granting_party_id" :value="$values['granting_party_id'] ?? ''" label="Onde você fará o estágio?" placeholder="Buscar por nome ou CPF/CNPJ"
-            :options="collect([$choices['selectedParty']])->merge($choices['parties'])->filter()->unique('id')->mapWithKeys(fn ($party) => [$party->id => $party->selectionLabel()])->all()"
+            :options="$partyOptions"
             :empty="mb_strlen(trim($partySearch)) < 2 && blank($partyCityId) ? 'Digite pelo menos dois caracteres para buscar.' : 'Não encontramos uma concedente disponível para seu campus com esses filtros.'"
             :invalid="$errors->has('granting_party_id')" :error="$errors->first('granting_party_id')" required>
             <x-slot:search>
@@ -69,12 +87,6 @@
             </x-slot:search>
         </x-select>
         @if (! $choices['selectedParty'])
-        <x-accordion title="Filtrar pela cidade (opcional)" :open="filled($partyCityId)">
-            <div class="space-y-3">
-                <livewire:cities.select wire:model.live="partyCityId" :selected-city-id="$partyCityId" :city-error="''" :personal-data="true" field-name="party_city_id" :required="false" :key="'existing-party-city-'.$requestId.'-'.$partyCityId" />
-                @if (filled($partyCityId))<flux:button size="sm" variant="ghost" wire:click="clearPartyCityFilter" wire:loading.attr="disabled">Limpar filtro de cidade</flux:button>@endif
-            </div>
-        </x-accordion>
         @if ($choices['parties']->count() === 20)<flux:text size="sm">Exibimos até 20 resultados. Refine a busca pelo nome, documento ou cidade para encontrar a unidade correta.</flux:text>@endif
         @if ($partyMatchMessage)
             <flux:text size="sm">Se a unidade correta não estiver na lista, procure o Setor de Estágio para conferir os cadastros desse documento.</flux:text>
@@ -102,7 +114,7 @@
     @endphp
         <div class="flex flex-wrap items-center justify-between gap-3">
             <flux:heading level="3">Informe os dados da concedente</flux:heading>
-            <flux:button size="sm" variant="ghost" wire:click="searchRegistration('granting_party')" wire:loading.attr="disabled">Voltar para busca</flux:button>
+            <flux:button size="sm" variant="outline" wire:click="searchRegistration('granting_party')" wire:loading.attr="disabled">Voltar para busca</flux:button>
         </div>
         <flux:callout icon="information-circle" heading="Comece pelo CPF ou CNPJ">
             <flux:callout.text>Se encontrarmos um cadastro disponível para seu campus, vamos selecioná-lo para você conferir. Caso contrário, complete os dados e continue: o Setor analisará o cadastro junto com sua solicitação de estágio.</flux:callout.text>
