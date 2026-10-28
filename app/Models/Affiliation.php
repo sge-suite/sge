@@ -124,7 +124,7 @@ class Affiliation extends Model
             $this->course?->name,
             filled($this->registration_number) ? 'Matrícula '.$this->registration_number : null,
             $this->email,
-            'Vínculo #'.$this->id,
+            '#'.$this->id,
         ], fn (?string $value): bool => filled($value)));
     }
 
