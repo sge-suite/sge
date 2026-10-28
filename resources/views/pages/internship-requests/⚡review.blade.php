@@ -269,7 +269,6 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     @foreach (['granting_party' => $request->grantingPartyRegistrationRequest, 'supervisor' => $request->supervisorRegistrationRequest] as $kind => $proposal)
         @if ($proposal)
             <section id="registration-{{ $kind }}" wire:key="registration-{{ $kind }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="registration-{{ $kind }}" data-unsaved-models='@json([$kind === "granting_party" ? "partyId" : "supervisorId"])' data-unsaved-actions='["registration"]' data-unsaved-enabled="{{ $this->canDecide && ($kind === 'granting_party' ? $pendingParty : $pendingSupervisor) && in_array($proposal->status->value, ['submitted', 'under_review'], true) ? 'true' : 'false' }}">
-                <x-form-save-status />
                 <flux:heading level="2">Pedido de cadastro: {{ $kind === 'granting_party' ? 'concedente' : 'supervisor' }} · {{ $proposal->status->label() }}</flux:heading>
                 <flux:text size="lg">Revise a proposta acima. Se necessário, crie o cadastro pela gestão existente e depois associe-o aqui. A associação exige um cadastro ativo do mesmo campus.</flux:text>
                 @if ($kind === 'granting_party')
@@ -317,7 +316,6 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     @endforeach
     @foreach ($request->emancipationEvidences as $evidence)
         <section id="review-evidence-{{ $evidence->id }}" wire:key="review-evidence-{{ $evidence->id }}" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="evidence-review-{{ $evidence->id }}" data-unsaved-models='["evidenceReason"]' data-unsaved-actions='["evidence"]' data-unsaved-enabled="{{ $loop->first && $this->canDecide && $evidence->status->value === 'submitted' ? 'true' : 'false' }}">
-            <x-form-save-status />
             <flux:heading level="2">Comprovante de emancipação · {{ $evidence->status->label() }}</flux:heading>
             <flux:button :href="route('internship-requests.evidence', $evidence)" target="_blank" rel="noopener">Abrir comprovante privado</flux:button>
             @if ($this->canDecide && $loop->first && $evidence->status->value === 'submitted')

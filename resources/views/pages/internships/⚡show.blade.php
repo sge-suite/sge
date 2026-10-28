@@ -379,7 +379,6 @@ new #[Title('Detalhes do estágio')] class extends Component
     <x-internship-calendar-preview wire:model.self="showCalendar" :result="$calendarResult" />
     <flux:modal wire:model.self="showPause" class="md:w-lg">
         <form wire:submit="savePause" class="space-y-6" data-unsaved-changes="dialog-savePause" data-unsaved-models='["pauseStart", "pauseEnd", "pauseReason"]' data-unsaved-actions='["savePause"]'>
-            <x-form-save-status />
             <flux:heading size="lg" level="2">{{ $pauseId === null ? 'Registrar pausa' : 'Editar pausa' }}</flux:heading>
             <flux:input type="date" wire:model="pauseStart" label="Início da pausa" required /><flux:error name="starts_at" />
             <flux:input type="date" wire:model="pauseEnd" label="Último dia da pausa" required /><flux:error name="ends_at" />

@@ -95,8 +95,7 @@ new #[Title('Dados pessoais')] class extends Component
             <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
         @endif
 
-        <form data-unsaved-changes="native-editor" method="POST" action="{{ route('personal-data.update') }}" class="space-y-6" x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
-            <x-form-save-status :initial-dirty="$errors->any()" />
+        <form data-unsaved-changes="native-editor" data-unsaved-initial-dirty="{{ $errors->any() ? 'true' : 'false' }}" method="POST" action="{{ route('personal-data.update') }}" class="space-y-6" x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
             @csrf
             @method('PUT')
             <input type="hidden" name="context_affiliation_id" value="{{ $affiliationId }}" />

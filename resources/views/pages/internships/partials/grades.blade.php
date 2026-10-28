@@ -9,7 +9,6 @@
             <flux:callout variant="warning" icon="information-circle" heading="Pesos das notas não configurados">Solicite a conferência dos pesos registrados neste estágio ao Setor de Estágios.</flux:callout>
         @elseif (auth()->user()->can('updateAdvisorGrades', $internship))
             <form wire:submit="saveGrades" class="space-y-5" data-unsaved-changes="internship-grades" data-unsaved-models='["reportGrade", "presentationGrade"]' data-unsaved-actions='["saveGrades"]'>
-                <x-form-save-status />
                 @php($canUpdateGrades = auth()->user()->can('updateAdvisorGrades', $internship))
                 <div class="grid gap-5 sm:grid-cols-2">
                     <div>

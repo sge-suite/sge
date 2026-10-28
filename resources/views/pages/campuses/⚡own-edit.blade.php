@@ -60,8 +60,7 @@ new #[Title('Editar meu campus')] class extends Component
         <flux:breadcrumbs.item :href="route('campuses.own')" wire:navigate>Meu campus</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Editar</flux:breadcrumbs.item>
     </flux:breadcrumbs>
-        <form data-unsaved-changes="native-editor" method="POST" action="{{ route('campuses.update', $campus) }}" class="space-y-8" x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
-            <x-form-save-status :initial-dirty="$errors->any()" />
+        <form data-unsaved-changes="native-editor" data-unsaved-initial-dirty="{{ $errors->any() ? 'true' : 'false' }}" method="POST" action="{{ route('campuses.update', $campus) }}" class="space-y-8" x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
             @csrf
             @method('PUT')
             <div class="flex flex-wrap items-start justify-between gap-4">

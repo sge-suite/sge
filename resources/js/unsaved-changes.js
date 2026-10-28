@@ -104,11 +104,6 @@ function isActive(state) {
     return !dialog || dialog.open;
 }
 
-function statusFor(root) {
-    return [...root.querySelectorAll('[data-form-save-status]')]
-        .find(status => status.closest('[data-unsaved-changes]') === root);
-}
-
 function update(state) {
     const active = isActive(state);
     if (active && !state.active) {
@@ -118,17 +113,8 @@ function update(state) {
     state.active = active;
     state.dirty = active && (state.forceDirty || state.uploading > 0 || fingerprint(state) !== state.baseline);
     syncUnloadGuard();
-    const status = statusFor(state.root);
-    if (!status) return;
-    const message = state.saving > 0 ? 'Salvando…' : state.dirty ? 'Alterações não salvas' : state.savedAt ? 'Gravação confirmada' : 'Nenhuma alteração pendente nesta tela';
-    const text = status.querySelector('[data-form-save-message]');
-    const timestamp = status.querySelector('[data-form-save-time]');
-    if (text.textContent !== message) text.textContent = message;
-    const time = state.savedAt ? 'Última gravação: ' + state.savedAt : '';
-    if (timestamp.textContent !== time) timestamp.textContent = time;
-    status.dataset.state = state.saving > 0 ? 'saving' : state.dirty ? 'dirty' : 'clean';
-    status.hidden = !active;
-    state.root.setAttribute('aria-busy', state.saving > 0 ? 'true' : 'false');
+    const busy = state.saving > 0 ? 'true' : 'false';
+    if (state.root.getAttribute('aria-busy') !== busy) state.root.setAttribute('aria-busy', busy);
 }
 
 function watchModels(state) {
@@ -158,10 +144,9 @@ function refresh() {
         if (!roots.has(root)) {
             const models = JSON.parse(root.dataset.unsavedModels || '[]');
             if (models.length && !wireFor(owner(root))) return;
-            const status = statusFor(root);
             const state = {
                 root, componentId: owner(root), models, actions: JSON.parse(root.dataset.unsavedActions || '[]'), watchers: new Map(),
-                forceDirty: status?.dataset.initialDirty === 'true', savedAt: status?.dataset.savedAt || '',
+                forceDirty: root.dataset.unsavedInitialDirty === 'true',
                 saving: 0, uploading: 0, revision: 0, skipDomReads: false, active: true,
             };
             state.active = isActive(state);
@@ -244,7 +229,6 @@ function registerLivewire() {
                     if (state.componentId !== component.id || !acknowledgement) continue;
                     state.baseline = fingerprint(state, snapshot);
                     state.forceDirty = false;
-                    state.savedAt = acknowledgement.params.savedAt;
                     if (saving.delete(state)) state.saving = Math.max(0, state.saving - 1);
                     state.skipDomReads = revisions.get(state) === state.revision;
                     update(state);

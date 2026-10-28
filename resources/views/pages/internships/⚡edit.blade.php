@@ -373,7 +373,6 @@ new #[Title('Editar estágio')] class extends Component
         <flux:breadcrumbs.item>Editar</flux:breadcrumbs.item>
     </flux:breadcrumbs>
     <form wire:submit="save" class="space-y-8" novalidate data-unsaved-changes="internship-edit" data-unsaved-models='["values", "selectedCityId"]' data-unsaved-actions='["save"]'>
-        <x-form-save-status :saved-at="$this->record->updated_at" />
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div><flux:heading size="xl" level="1">Editar estágio nº {{ $record->id }}</flux:heading><flux:text class="mt-2">Atualize os dados do estágio de {{ $record->student_snapshot['name'] }}. As alterações só são gravadas ao clicar em Salvar alterações.</flux:text></div>
             <div class="flex flex-wrap items-center gap-3">

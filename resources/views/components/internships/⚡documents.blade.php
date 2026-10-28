@@ -461,7 +461,6 @@ new class extends Component
     </x-loading-overlay>
     <flux:modal wire:model.self="showGeneration" class="md:w-lg">
         <form wire:submit="generate" class="space-y-6" data-unsaved-changes="dialog-generate" data-unsaved-models='["documentType", "templateId", "format", "changesWorkSchedule", "scheduleStartsOn", "scheduleWeeklyHours"]' data-unsaved-actions='["generate"]'>
-            <x-form-save-status />
             <flux:heading size="lg" level="2">{{ $this->isCoordinator ? 'Gerar atestado de orientação' : 'Gerar documento' }}</flux:heading>
             @if (! $this->isCoordinator)
             <x-select label="Tipo documental" wire:model.live="documentType" :value="$documentType" :options="$this->typeOptions" required />
@@ -503,11 +502,10 @@ new class extends Component
     </flux:modal>
     <flux:modal wire:model.self="showCancellation" class="md:w-lg">
         <form wire:submit="cancelDocument" class="space-y-6" data-unsaved-changes="dialog-cancelDocument" data-unsaved-models='["cancellationReason"]' data-unsaved-actions='["cancelDocument"]'>
-            <x-form-save-status /><flux:heading size="lg" level="2">Cancelar documento</flux:heading><flux:text>O registro e os dados originais serão preservados. Esta ação não cancela o estágio.</flux:text><x-select-create label="Motivo" wire:model="cancellationReason" :value="$cancellationReason" :options="$this->cancellationReasons" :error="$errors->first('cancellation_reason')" required /><div class="flex flex-wrap justify-end gap-3"><flux:button type="button" variant="outline" wire:click="$set('showCancellation', false)">Voltar</flux:button><flux:button type="submit" variant="danger" wire:loading.attr="disabled" wire:target="cancelDocument">Cancelar documento</flux:button></div></form>
+            <flux:heading size="lg" level="2">Cancelar documento</flux:heading><flux:text>O registro e os dados originais serão preservados. Esta ação não cancela o estágio.</flux:text><x-select-create label="Motivo" wire:model="cancellationReason" :value="$cancellationReason" :options="$this->cancellationReasons" :error="$errors->first('cancellation_reason')" required /><div class="flex flex-wrap justify-end gap-3"><flux:button type="button" variant="outline" wire:click="$set('showCancellation', false)">Voltar</flux:button><flux:button type="submit" variant="danger" wire:loading.attr="disabled" wire:target="cancelDocument">Cancelar documento</flux:button></div></form>
     </flux:modal>
     <flux:modal wire:model.self="showSignature" class="md:w-2xl">
         <form wire:submit="saveSignature" class="space-y-6" data-unsaved-changes="dialog-saveSignature" data-unsaved-models='["signatureLocation", "signatureDocumentName", "signatureProtocolNumber", "sendSignatureNotice", "signatureRecipientKeys", "signatureMessages", "confirmedSignature", "confirmedExpiredDate"]' data-unsaved-actions='["saveSignature"]'>
-            <x-form-save-status />
             <flux:heading size="lg" level="2">{{ match ($signatureOperation) { 'await_signature' => 'Disponibilizar para assinatura', 'notify_signature' => 'Enviar aviso de assinatura', 'update_protocol' => 'Editar número de protocolo', default => 'Conferir assinaturas' } }}</flux:heading>
             @if (in_array($signatureOperation, ['await_signature', 'notify_signature'], true))
                 <flux:text>Documento nº {{ $signatureDocumentId }}. Informe onde o documento está disponível e escolha quem deve ser avisado. Cada pessoa recebe uma mensagem individual, com seu nome, papel no estágio e a orientação personalizada.</flux:text>
@@ -558,7 +556,6 @@ new class extends Component
     </flux:modal>
     <flux:modal wire:model.self="showExternal" class="md:w-2xl">
         <form wire:submit="registerExternal" class="space-y-6" data-unsaved-changes="dialog-registerExternal" data-unsaved-models='["externalName", "externalType", "externalProtocol", "changesWorkSchedule", "scheduleStartsOn", "scheduleWeeklyHours"]' data-unsaved-actions='["registerExternal"]'>
-            <x-form-save-status />
             <flux:heading size="lg" level="2">Registrar documento externo</flux:heading>
             <flux:text>Registre a existência do documento fornecido pela concedente. O arquivo permanece fora do SGE. Depois, registre o local de disponibilização e confira as assinaturas pelo fluxo de documentos.</flux:text>
             <flux:input wire:model="externalName" label="Nome do documento" maxlength="255" required /><flux:error name="document_name" />
@@ -576,7 +573,6 @@ new class extends Component
     </flux:modal>
     <flux:modal wire:model.self="showDateCorrection" class="md:w-lg">
         <form wire:submit="requestDateCorrection" class="space-y-6" data-unsaved-changes="dialog-requestDateCorrection" data-unsaved-models='["dateCorrectionReason"]' data-unsaved-actions='["requestDateCorrection"]'>
-            <x-form-save-status />
             <flux:heading size="lg" level="2">Solicitar correção da data inicial</flux:heading>
             <flux:text>A seção de estágio será devolvida ao discente para corrigir a data. Os documentos de formalização pendentes serão cancelados, preservando o histórico. O novo envio precisará da análise e do aceite do Setor.</flux:text>
             @if ($this->dateCorrectionRequest?->status !== InternshipRequestStatus::UnderReview)

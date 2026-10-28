@@ -355,7 +355,7 @@ new class extends Component
         $position = array_search($step, $stepIds, true);
         $stepStatuses = $this->stepStatuses;
     @endphp
-    @if ($editable || $officeView)<x-form-save-status :saved-at="$evaluation->updated_at" />@endif
+
     <flux:breadcrumbs><flux:breadcrumbs.item :href="route('supervisor-evaluations.index')" wire:navigate>Avaliações do supervisor</flux:breadcrumbs.item><flux:breadcrumbs.item>Avaliação nº {{ $evaluationId }}</flux:breadcrumbs.item></flux:breadcrumbs>
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="flex min-w-0 items-start gap-3">
@@ -469,7 +469,6 @@ new class extends Component
     @can('cancel', $evaluation)
     <flux:modal wire:model.self="showCancellation" class="md:w-xl">
         <form wire:submit="cancel" class="space-y-6" data-unsaved-changes="dialog-cancel" data-unsaved-models='["cancellationReason"]' data-unsaved-actions='["cancel"]'>
-            <x-form-save-status />
             <flux:heading size="lg" level="2">Cancelar avaliação</flux:heading><flux:text>O registro e suas respostas permanecem no histórico. Informe o motivo para confirmar.</flux:text>
             <flux:textarea wire:model="cancellationReason" label="Motivo do cancelamento" maxlength="5000" required /><flux:error name="cancellation_reason" />
             <div class="flex flex-wrap justify-end gap-3"><flux:button type="button" wire:click="$set('showCancellation', false)">Voltar</flux:button><flux:button type="submit" variant="danger" wire:loading.attr="disabled">Cancelar avaliação</flux:button></div>

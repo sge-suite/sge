@@ -108,7 +108,6 @@ new #[Title('Segurança')] class extends Component {
                 <flux:text class="mt-2">Use uma senha diferente da atual para proteger sua conta.</flux:text>
 
                 <form method="POST" wire:submit="updatePassword" class="mt-6 space-y-5" data-unsaved-changes="account-password" data-unsaved-models='["current_password", "password", "password_confirmation"]' data-unsaved-actions='["updatePassword"]'>
-                    <x-form-save-status />
                     <flux:input
                         wire:model="current_password"
                         label="Senha atual"
@@ -162,7 +161,6 @@ new #[Title('Segurança')] class extends Component {
                 <flux:text class="mt-3 text-sm">E-mail atual: <span class="break-all font-medium text-zinc-900 dark:text-zinc-100">{{ Auth::user()->email }}</span></flux:text>
 
                 <form method="POST" wire:submit="updateEmail" class="mt-6 space-y-5" data-unsaved-changes="account-email" data-unsaved-models='["email", "email_confirmation", "email_current_password"]' data-unsaved-actions='["updateEmail"]'>
-                    <x-form-save-status />
                     <flux:input
                         wire:model="email"
                         label="Novo e-mail"

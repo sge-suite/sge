@@ -21,8 +21,7 @@ new #[Title('Cadastrar usuário')] class extends Component
         <flux:breadcrumbs.item :href="route('users.index')" wire:navigate>Usuários</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>Cadastrar usuário</flux:breadcrumbs.item>
     </flux:breadcrumbs>
-    <form data-unsaved-changes="native-editor" method="POST" action="{{ route('users.store') }}" class="space-y-8" novalidate x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
-        <x-form-save-status :initial-dirty="$errors->any()" />
+    <form data-unsaved-changes="native-editor" data-unsaved-initial-dirty="{{ $errors->any() ? 'true' : 'false' }}" method="POST" action="{{ route('users.store') }}" class="space-y-8" novalidate x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false">
         @csrf
 
         <div class="flex flex-wrap items-start justify-between gap-4">

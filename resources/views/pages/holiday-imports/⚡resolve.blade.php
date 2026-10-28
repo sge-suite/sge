@@ -78,8 +78,7 @@ new #[Title('Revisar feriado importado')] class extends Component
         @endif
     @else
         <flux:callout>{{ $holidaySource->reason }}</flux:callout>
-        <form data-unsaved-changes="native-editor" id="holiday-source-form" method="POST" action="{{ route('holiday-imports.resolve.store', $holidaySource) }}" class="space-y-5" novalidate>
-            <x-form-save-status :initial-dirty="$errors->any()" />
+        <form data-unsaved-changes="native-editor" data-unsaved-initial-dirty="{{ $errors->any() ? 'true' : 'false' }}" id="holiday-source-form" method="POST" action="{{ route('holiday-imports.resolve.store', $holidaySource) }}" class="space-y-5" novalidate>
             @csrf
             <x-select name="resolution" label="Decisão" x-model="resolution" :value="old('resolution', 'link')"
                 :options="['link' => 'Associar a um feriado existente', 'create' => 'Cadastrar como novo feriado', 'ignore' => 'Ignorar este item da fonte']"

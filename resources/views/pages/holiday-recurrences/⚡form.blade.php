@@ -29,9 +29,8 @@ new #[Title('Recorrência municipal')] class extends Component
         <flux:breadcrumbs.item :href="route('holiday-recurrences.index')" wire:navigate>Recorrências municipais</flux:breadcrumbs.item>
         <flux:breadcrumbs.item>{{ $holidayRecurrence ? 'Editar' : 'Cadastrar' }}</flux:breadcrumbs.item>
     </flux:breadcrumbs>
-    <form data-unsaved-changes="native-editor" method="POST" action="{{ $holidayRecurrence ? route('holiday-recurrences.update', $holidayRecurrence) : route('holiday-recurrences.store') }}" class="space-y-8"
+    <form data-unsaved-changes="native-editor" data-unsaved-initial-dirty="{{ $errors->any() ? 'true' : 'false' }}" method="POST" action="{{ $holidayRecurrence ? route('holiday-recurrences.update', $holidayRecurrence) : route('holiday-recurrences.store') }}" class="space-y-8"
         x-data="{ submitting: false }" x-on:submit="submitting = true" x-on:pageshow.window="submitting = false" novalidate>
-        <x-form-save-status :initial-dirty="$errors->any()" />
         @csrf
         @if ($holidayRecurrence)
             @method('PUT')

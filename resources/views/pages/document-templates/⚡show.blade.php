@@ -313,7 +313,6 @@ new #[Title('Versões do template DOCX')] class extends Component
                 <flux:button variant="outline" :href="route('document-templates.guide')" wire:navigate>Guia de variáveis</flux:button>
             </div>
             <form wire:submit="uploadVersion" class="space-y-6" data-unsaved-changes="template-version" data-unsaved-models='["file"]' data-unsaved-actions='["uploadVersion"]'>
-                <x-form-save-status />
                 <x-file-upload wire:model="file" :files="$file" label="Original DOCX" description="Somente DOCX, até 10 MiB. Fontes incorporadas e links para sites e e-mails são permitidos. Sem macros ou arquivos anexados." accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
                 <div class="flex flex-wrap items-center justify-end gap-3">
                     <span wire:loading wire:target="file,uploadVersion" class="text-sm text-zinc-500 dark:text-zinc-400" role="status">Recebendo e inspecionando o arquivo…</span>
