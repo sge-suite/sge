@@ -62,6 +62,10 @@ class InternshipPolicy
     {
         $affiliation = $this->context->selected($user);
 
+        if ($affiliation?->type === AffiliationType::InternshipOffice) {
+            return $this->view($user, $internship);
+        }
+
         return $this->view($user, $internship)
             && in_array($affiliation->type, [AffiliationType::Advisor, AffiliationType::Coordinator], true)
             && $internship->advisorAffiliation?->user_id === $user->id

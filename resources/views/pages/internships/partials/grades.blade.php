@@ -7,7 +7,8 @@
         </dl>
         @if ($weights === null)
             <flux:callout variant="warning" icon="information-circle" heading="Pesos das notas não configurados">Solicite a conferência dos pesos registrados neste estágio ao Setor de Estágios.</flux:callout>
-        @elseif (auth()->user()->can('updateAdvisorGrades', $internship))
+        @endif
+        @if ($weights !== null && auth()->user()->can('updateAdvisorGrades', $internship))
             <form wire:submit="saveGrades" class="space-y-5" data-unsaved-changes="internship-grades" data-unsaved-models='["reportGrade", "presentationGrade"]' data-unsaved-actions='["saveGrades"]'>
                 @php($canUpdateGrades = auth()->user()->can('updateAdvisorGrades', $internship))
                 <div class="grid gap-5 sm:grid-cols-2">
@@ -30,8 +31,8 @@
             </form>
         @else
             <dl class="grid gap-5 sm:grid-cols-2">
-                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Nota do relatório</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $internship->report_grade ?? 'Pendente' }} / {{ $weights['report_weight'] }}</dd></div>
-                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Nota da apresentação</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $internship->presentation_grade ?? 'Pendente' }} / {{ $weights['presentation_weight'] }}</dd></div>
+                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Nota do relatório</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $internship->report_grade ?? 'Pendente' }} / {{ $weights['report_weight'] ?? '—' }}</dd></div>
+                <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Nota da apresentação</dt><dd class="mt-1 text-sm text-zinc-900 dark:text-white">{{ $internship->presentation_grade ?? 'Pendente' }} / {{ $weights['presentation_weight'] ?? '—' }}</dd></div>
             </dl>
         @endif
     @else

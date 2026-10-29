@@ -1,6 +1,6 @@
 @props(['internships', 'paginated' => false, 'isOffice' => false])
 
-@php($showGrades = in_array(app(\App\Support\StudentInternshipContext::class)->selected(auth()->user())->type, [\App\Enums\AffiliationType::Coordinator, \App\Enums\AffiliationType::Advisor], true))
+@php($showGrades = in_array(app(\App\Support\StudentInternshipContext::class)->selected(auth()->user())->type, [\App\Enums\AffiliationType::Coordinator, \App\Enums\AffiliationType::Advisor], true) || $internships->contains(fn ($internship) => auth()->user()->can('viewAdvisorGrades', $internship)))
 
 <flux:table :paginate="$paginated ? $internships : null" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
     <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
@@ -26,7 +26,7 @@
                     @if ($showGrades)
                         <details class="mt-3 xl:hidden">
                             <summary class="cursor-pointer text-sm font-medium text-brand">Ver notas deste estágio</summary>
-                            <div class="mt-2 space-y-1"><x-internship-grade-summary :internship="$internship" :show-components="$internship->advisorAffiliation?->user_id === auth()->id()" /></div>
+                            <div class="mt-2 space-y-1"><x-internship-grade-summary :internship="$internship" :show-components="auth()->user()->can('viewAdvisorGrades', $internship)" /></div>
                         </details>
                     @endif
                 </flux:table.cell>
@@ -37,7 +37,7 @@
                 <flux:table.cell class="hidden lg:table-cell">{{ formatShort($internship->planned_start_date) }}<flux:text size="sm">{{ formatShort($internship->projected_end_date) }}</flux:text></flux:table.cell>
                 @if ($showGrades)
                     <flux:table.cell class="hidden whitespace-normal xl:table-cell">
-                        <x-internship-grade-summary :internship="$internship" :show-components="$internship->advisorAffiliation?->user_id === auth()->id()" />
+                        <x-internship-grade-summary :internship="$internship" :show-components="auth()->user()->can('viewAdvisorGrades', $internship)" />
                     </flux:table.cell>
                 @endif
             </flux:table.row>
