@@ -3,6 +3,7 @@
 use App\Models\Course;
 use App\Models\InternshipType;
 use App\Support\ActiveAffiliationContext;
+use App\Support\SelectOptionSource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -13,11 +14,27 @@ new class extends Component
 {
     use \App\Concerns\SearchesSelectOptions;
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
         abort_unless($source === 'courses', 404);
+        $currentCourseId = null;
+        if ($this->internshipTypeId !== null) {
+            $internshipType = InternshipType::findOrFail($this->internshipTypeId);
+            Gate::authorize('update', $internshipType);
+            $currentCourseId = $internshipType->course_id;
+        }
+        $query = Course::query()->where('campus_id', $this->campusId)
+            ->where(function (Builder $query) use ($currentCourseId): void {
+                $query->whereNull('deactivated_at');
+                if ($currentCourseId !== null) {
+                    $query->orWhere('id', $currentCourseId);
+                }
+            })->orderBy('name')->orderBy('id');
 
-        return ['model' => Course::class, 'options' => $this->courseOptions];
+        return new SelectOptionSource($query,
+            'campus_id = '.(int) $this->campusId.' AND (is_active = 1 OR id = '.(int) $currentCourseId.')',
+            fn (Course $course): string => $course->name.($course->deactivated_at !== null ? ' (curso desativado · associação atual)' : ''),
+        );
     }
 
     #[Locked]
@@ -88,25 +105,17 @@ new class extends Component
         $this->resetValidation('allowed_academic_periods');
     }
 
+    #[Computed]
+    public function hasCourses(): bool
+    {
+        return $this->selectSearchSource('courses')->query->exists();
+    }
+
     /** @return array<int|string, string> */
     #[Computed]
     public function courseOptions(): array
     {
-        $currentCourseId = null;
-        if ($this->internshipTypeId !== null) {
-            $internshipType = InternshipType::findOrFail($this->internshipTypeId);
-            Gate::authorize('update', $internshipType);
-            $currentCourseId = $internshipType->course_id;
-        }
-
-        return ['' => 'Selecione um curso'] + Course::query()->where('campus_id', $this->campusId)
-            ->where(function (Builder $query) use ($currentCourseId): void {
-                $query->whereNull('deactivated_at');
-                if ($currentCourseId !== null) {
-                    $query->orWhere('id', $currentCourseId);
-                }
-            })->orderBy('name')->orderBy('id')->get()
-            ->mapWithKeys(fn (Course $course): array => [$course->id => $course->name.($course->deactivated_at !== null ? ' (curso desativado · associação atual)' : '')])->all();
+        return ['' => 'Selecione um curso'] + $this->selectedSelectOptions('courses', $this->values['course_id'] ?? '');
     }
 }; ?>
 
@@ -119,7 +128,7 @@ new class extends Component
         </div>
         <flux:input name="required_hours" :value="$values['required_hours']" wire:model="values.required_hours" label="Carga horária obrigatória (horas)" type="number" min="1" step="1" required :invalid="$errors->has('required_hours')" />
         <flux:text>Cadastro e troca de curso exigem curso ativo. Na edição, a associação atual pode ser mantida mesmo se o curso estiver desativado.</flux:text>
-        @if (count($this->courseOptions) === 1)
+        @if (! $this->hasCourses)
             <flux:callout icon="information-circle" heading="Nenhum curso elegível">
                 <flux:callout.text>Cadastre ou reative um curso deste campus antes de cadastrar um tipo de estágio.</flux:callout.text>
             </flux:callout>

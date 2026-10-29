@@ -6,8 +6,10 @@ use App\Enums\AffiliationType;
 use App\Models\Course;
 use App\Models\Affiliation;
 use App\Models\Internship;
+use App\Models\User;
 use App\Support\PageSize;
 use App\Support\StudentInternshipContext;
+use App\Support\SelectOptionSource;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
@@ -25,11 +27,21 @@ new #[Title('Estágios')] class extends Component
     use WithPagination;
     use \App\Concerns\SearchesSelectOptions;
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
+        $owner = app(StudentInternshipContext::class)->selected(Auth::user());
+        $visible = Internship::query()->visibleToAffiliation($owner);
+
         return match ($source) {
-            'courses' => ['model' => Course::class, 'options' => $this->courseOptions],
-            'advisors' => ['model' => Affiliation::class, 'options' => $this->advisorOptions],
+            'courses' => new SelectOptionSource(Course::query()->where('campus_id', $owner->campus_id)
+                ->when(in_array($owner->type, [AffiliationType::Coordinator, AffiliationType::Advisor], true),
+                    fn ($query) => $query->whereIn('id', (clone $visible)->select('course_id')))
+                ->orderBy('name')->orderBy('id'),
+                'campus_id = '.(int) $owner->campus_id, fn (Course $course): string => $course->name),
+            'advisors' => new SelectOptionSource(Affiliation::query()
+                ->whereIn('id', (clone $visible)->select('advisor_affiliation_id'))->with('user')
+                ->orderBy(User::query()->select('name')->whereColumn('users.id', 'affiliations.user_id'))->orderBy('id'),
+                '', fn (Affiliation $advisor): string => $advisor->user->name),
             default => abort(404),
         };
     }
@@ -106,10 +118,10 @@ new #[Title('Estágios')] class extends Component
         if (! array_key_exists($this->status, $this->statusOptions)) {
             $this->status = 'all';
         }
-        if (! array_key_exists($this->advisorId, $this->advisorOptions)) {
+        if ($this->advisorId !== '' && ! (ctype_digit($this->advisorId) && $this->selectSearchSource('advisors')->query->whereKey((int) $this->advisorId)->exists())) {
             $this->advisorId = '';
         }
-        if (! array_key_exists($this->courseId, $this->courseOptions)) {
+        if ($this->courseId !== '' && ! (ctype_digit($this->courseId) && $this->selectSearchSource('courses')->query->whereKey((int) $this->courseId)->exists())) {
             $this->courseId = '';
         }
     }
@@ -131,24 +143,14 @@ new #[Title('Estágios')] class extends Component
     #[Computed]
     public function courseOptions(): array
     {
-        $owner = app(StudentInternshipContext::class)->selected(Auth::user());
-
-        return ['' => 'Todos os cursos'] + Course::query()->where('campus_id', $owner->campus_id)
-            ->when(in_array($owner->type, [AffiliationType::Coordinator, AffiliationType::Advisor], true), fn ($query) => $query
-                ->whereIn('id', Internship::query()->visibleToAffiliation($owner)->select('course_id')))
-            ->orderBy('name')->orderBy('id')->pluck('name', 'id')->all();
+        return ['' => 'Todos os cursos'] + $this->selectedSelectOptions('courses', $this->courseId);
     }
 
     /** @return array<int|string, string> */
     #[Computed]
     public function advisorOptions(): array
     {
-        $owner = app(StudentInternshipContext::class)->selected(Auth::user());
-
-        return ['' => 'Todos os orientadores'] + Affiliation::query()
-            ->whereIn('id', Internship::query()->visibleToAffiliation($owner)->select('advisor_affiliation_id'))
-            ->with('user')->get()->sortBy(fn ($advisor) => $advisor->user->name)
-            ->mapWithKeys(fn ($advisor) => [$advisor->id => $advisor->user->name])->all();
+        return ['' => 'Todos os orientadores'] + $this->selectedSelectOptions('advisors', $this->advisorId);
     }
 
     /** @return LengthAwarePaginator<int, Internship> */

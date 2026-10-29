@@ -5,6 +5,7 @@ use App\Models\Course;
 use App\Models\InternshipRequest;
 use App\Support\PageSize;
 use App\Support\StudentInternshipContext;
+use App\Support\SelectOptionSource;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
@@ -22,11 +23,13 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
     use WithPagination;
     use \App\Concerns\SearchesSelectOptions;
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
         abort_unless($source === 'courses', 404);
+        $owner = app(StudentInternshipContext::class)->selected(Auth::user());
 
-        return ['model' => Course::class, 'options' => $this->courseOptions];
+        return new SelectOptionSource(Course::query()->where('campus_id', $owner->campus_id)->orderBy('name')->orderBy('id'),
+            'campus_id = '.(int) $owner->campus_id, fn (Course $course): string => $course->name);
     }
 
     #[Locked]
@@ -59,7 +62,7 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
             $this->status = 'all';
         }
 
-        if (! array_key_exists($this->courseId, $this->courseOptions)) {
+        if ($this->courseId !== '' && ! (ctype_digit($this->courseId) && $this->selectSearchSource('courses')->query->whereKey((int) $this->courseId)->exists())) {
             $this->courseId = '';
         }
     }
@@ -85,7 +88,7 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
 
     public function updatedCourseId(): void
     {
-        if (! array_key_exists($this->courseId, $this->courseOptions)) {
+        if ($this->courseId !== '' && ! (ctype_digit($this->courseId) && $this->selectSearchSource('courses')->query->whereKey((int) $this->courseId)->exists())) {
             $this->courseId = '';
         }
 
@@ -109,10 +112,7 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
     #[Computed]
     public function courseOptions(): array
     {
-        $owner = app(StudentInternshipContext::class)->selected(Auth::user());
-
-        return ['' => 'Todos os cursos'] + Course::query()->where('campus_id', $owner->campus_id)
-            ->orderBy('name')->orderBy('id')->pluck('name', 'id')->all();
+        return ['' => 'Todos os cursos'] + $this->selectedSelectOptions('courses', $this->courseId);
     }
 
     #[Computed]

@@ -4,6 +4,7 @@ use App\Models\InternshipType;
 use App\Models\Course;
 use App\Support\PageSize;
 use App\Support\ActiveAffiliationContext;
+use App\Support\SelectOptionSource;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
@@ -19,11 +20,13 @@ new #[Title('Tipos de estágio')] class extends Component
     use WithPagination;
     use \App\Concerns\SearchesSelectOptions;
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
         abort_unless($source === 'courses', 404);
+        $owner = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
 
-        return ['model' => Course::class, 'options' => $this->courseOptions];
+        return new SelectOptionSource(Course::query()->where('campus_id', $owner->campus_id)->orderBy('name')->orderBy('id'),
+            'campus_id = '.(int) $owner->campus_id, fn (Course $course): string => $course->name);
     }
 
     #[Url(except: 'all')]
@@ -47,7 +50,7 @@ new #[Title('Tipos de estágio')] class extends Component
 
     public function updatedCourseId(): void
     {
-        if ($this->courseId !== 'all' && ! array_key_exists($this->courseId, $this->courseOptions)) {
+        if ($this->courseId !== 'all' && ! (ctype_digit($this->courseId) && $this->selectSearchSource('courses')->query->whereKey((int) $this->courseId)->exists())) {
             $this->courseId = 'all';
         }
         $this->resetPage();
@@ -56,9 +59,7 @@ new #[Title('Tipos de estágio')] class extends Component
     #[Computed]
     public function courseOptions(): array
     {
-        $affiliation = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
-
-        return Course::query()->where('campus_id', $affiliation->campus_id)->orderBy('name')->pluck('name', 'id')->all();
+        return $this->selectedSelectOptions('courses', $this->courseId);
     }
 
     public function boot(): void

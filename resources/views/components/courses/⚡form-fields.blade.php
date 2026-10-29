@@ -4,6 +4,7 @@ use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\Course;
 use App\Support\ActiveAffiliationContext;
+use App\Support\SelectOptionSource;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -13,11 +14,17 @@ new class extends Component
 {
     use \App\Concerns\SearchesSelectOptions;
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
         abort_unless($source === 'coordinators', 404);
 
-        return ['model' => Affiliation::class, 'options' => $this->coordinatorOptions];
+        return new SelectOptionSource(
+            Affiliation::query()->active()->where('campus_id', $this->campusId)->where('type', AffiliationType::Coordinator)
+                ->with('user:id,name')->orderBy('id'),
+            'campus_id = '.(int) $this->campusId.' AND type = "'.AffiliationType::Coordinator->value.'" AND is_active = 1',
+            fn (Affiliation $affiliation): string => $affiliation->user->name.' · '.$affiliation->registration_number,
+            ['id' => 'asc'],
+        );
     }
 
     #[Locked]
@@ -48,15 +55,19 @@ new class extends Component
         }
     }
 
+    #[Computed]
+    public function hasCoordinators(): bool
+    {
+        return $this->selectSearchSource('coordinators')->query->exists();
+    }
+
     /** @return array<int|string, string> */
     #[Computed]
     public function coordinatorOptions(): array
     {
-        return ['' => 'Sem coordenador'] + Affiliation::query()->active()
-            ->where('campus_id', $this->campusId)
-            ->where('type', AffiliationType::Coordinator)
-            ->with('user:id,name')->orderBy('id')->get()
-            ->mapWithKeys(fn (Affiliation $affiliation): array => [$affiliation->id => $affiliation->user->name.' · '.$affiliation->registration_number])->all();
+        return ['' => 'Sem coordenador']
+            + $this->selectedSelectOptions('coordinators', $this->values['primary_coordinator_affiliation_id'] ?? '')
+            + $this->selectedSelectOptions('coordinators', $this->values['secondary_coordinator_affiliation_id'] ?? '');
     }
 
     /** @return array<string, string> */
@@ -95,7 +106,7 @@ new class extends Component
             :selected-label="$this->historicalLabels['secondary_coordinator_affiliation_id'] ?? ''" :invalid="$errors->has('secondary_coordinator_affiliation_id')" :error="$errors->first('secondary_coordinator_affiliation_id')" />
     </div>
     <flux:text>Os coordenadores são vínculos ativos deste campus e devem ser distintos. Você pode cadastrar o curso sem coordenadores.</flux:text>
-    @if (count($this->coordinatorOptions) === 1)
+    @if (! $this->hasCoordinators)
         <flux:callout icon="information-circle" heading="Nenhum coordenador elegível">
             <flux:callout.text>Não há vínculos ativos de Coordenador neste campus. O curso pode ser salvo sem coordenação.</flux:callout.text>
         </flux:callout>

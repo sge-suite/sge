@@ -1,10 +1,11 @@
 <?php
 
-use App\Models\User;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\Course;
+use App\Models\User;
 use App\Support\ActiveAffiliationContext;
+use App\Support\SelectOptionSource;
 use App\Enums\AffiliationType;
 use App\Helpers\DigitsHelper;
 use Illuminate\Support\Facades\Gate;
@@ -17,7 +18,7 @@ new class extends Component
 {
     use \App\Concerns\SearchesSelectOptions;
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
         if ($source === 'campuses') {
             Gate::authorize('viewAdministration', User::class);
@@ -27,8 +28,10 @@ new class extends Component
         }
 
         return match ($source) {
-            'campuses' => ['model' => Campus::class, 'options' => $this->campusOptions],
-            'courses' => ['model' => Course::class, 'options' => $this->courseOptions],
+            'campuses' => new SelectOptionSource(Campus::query()->active()->orderBy('name')->orderBy('id'),
+                'deactivated_at IS NULL', fn (Campus $campus): string => $campus->name),
+            'courses' => new SelectOptionSource(Course::query()->where('campus_id', $this->activeAffiliation->campus_id)->active()->orderBy('name')->orderBy('id'),
+                'campus_id = '.(int) $this->activeAffiliation->campus_id.' AND is_active = 1', fn (Course $course): string => $course->name),
             default => abort(404),
         };
     }
@@ -228,13 +231,7 @@ new class extends Component
     #[Computed]
     public function campusOptions(): array
     {
-        return $this->campuses->pluck('name', 'id')->all();
-    }
-
-    #[Computed]
-    public function campuses(): \Illuminate\Database\Eloquent\Collection
-    {
-        return Campus::query()->whereNull('deactivated_at')->orderBy('name')->get(['id', 'name']);
+        return $this->selectedSelectOptions('campuses', $this->campusId);
     }
 
     #[Computed]
@@ -262,7 +259,7 @@ new class extends Component
     #[Computed]
     public function courseOptions(): array
     {
-        return Course::query()->where('campus_id', $this->activeAffiliation->campus_id)->whereNull('deactivated_at')->orderBy('name')->pluck('name', 'id')->all();
+        return $this->selectedSelectOptions('courses', $this->courseId);
     }
 }; ?>
 
