@@ -9,10 +9,12 @@ use App\Models\GrantingParty;
 use App\Models\Internship;
 use App\Models\InternshipType;
 use App\Models\SupervisorQualification;
+use App\Models\User;
 use App\Support\InternshipCalendarOverrides;
 use App\Support\InternshipPlannedPauses;
 use App\Support\InternshipRequestSnapshots;
 use App\Support\StudentInternshipContext;
+use App\Support\SelectOptionSource;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -26,21 +28,37 @@ new #[Title('Editar estágio')] class extends Component
 {
     use \App\Concerns\SearchesSelectOptions;
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
-        $model = match ($source) {
-            'types' => InternshipType::class,
-            'parties' => GrantingParty::class,
-            'advisors', 'supervisors' => Affiliation::class,
+        $record = $this->record;
+        $campusId = $record->course->campus_id;
+        if ($source === 'types') {
+            return new SelectOptionSource(InternshipType::query()->where('course_id', $record->course_id)
+                ->where(fn ($query) => $query->whereNull('deactivated_at')->orWhere('id', $record->internship_type_id))
+                ->orderBy('name')->orderBy('id'),
+                'course_id = '.(int) $record->course_id.' AND (is_active = 1 OR id = '.(int) $record->internship_type_id.')',
+                fn (InternshipType $type): string => $type->name.($type->deactivated_at !== null ? ' (desativado)' : ''));
+        }
+        if ($source === 'parties') {
+            return new SelectOptionSource(GrantingParty::query()->where('campus_id', $campusId)
+                ->where(fn ($query) => $query->whereNull('deactivated_at')->orWhere('id', $record->granting_party_id))
+                ->orderBy('name')->orderBy('id'),
+                'campus_id = '.(int) $campusId.' AND (is_active = 1 OR id = '.(int) $record->granting_party_id.')',
+                fn (GrantingParty $party): string => $party->name.($party->deactivated_at !== null ? ' (desativada)' : ''),
+                attributes: ['name', 'document_number', 'normalized_document_number']);
+        }
+        $type = match ($source) {
+            'advisors' => AffiliationType::Advisor,
+            'supervisors' => AffiliationType::Supervisor,
             default => abort(404),
         };
+        $historicalIds = [(int) $record->advisor_affiliation_id, (int) $record->supervisor_affiliation_id];
 
-        $configuration = ['model' => $model, 'options' => $this->choices[$source]];
-        if ($source === 'parties') {
-            $configuration['attributes'] = ['name', 'document_number', 'normalized_document_number'];
-        }
-
-        return $configuration;
+        return new SelectOptionSource(Affiliation::query()->where('campus_id', $campusId)->where('type', $type)
+            ->where(fn ($query) => $query->whereNull('deactivated_at')->orWhereIn('id', $historicalIds))->with('user')
+            ->orderBy(User::query()->select('name')->whereColumn('users.id', 'affiliations.user_id'))->orderBy('id'),
+            'campus_id = '.(int) $campusId.' AND type = "'.$type->value.'" AND (is_active = 1 OR id IN ['.implode(',', $historicalIds).'])',
+            fn (Affiliation $affiliation): string => $affiliation->user->name.($affiliation->deactivated_at !== null ? ' (desativado)' : ''));
     }
 
     use InteractsWithAddressLookup {
@@ -107,16 +125,9 @@ new #[Title('Editar estágio')] class extends Component
     #[Computed]
     public function choices(): array
     {
-        $campusId = $this->record->course->campus_id;
-        $affiliations = Affiliation::query()->where('campus_id', $campusId)
-            ->whereIn('type', [AffiliationType::Advisor, AffiliationType::Supervisor])
-            ->where(fn ($query) => $query->whereNull('deactivated_at')->orWhereIn('id', [$this->record->advisor_affiliation_id, $this->record->supervisor_affiliation_id]))
-            ->with('user')->orderBy('id')->get()->sortBy(fn (Affiliation $affiliation) => $affiliation->user->name);
-        $types = InternshipType::query()->where('course_id', $this->record->course_id)
-            ->where(fn ($query) => $query->whereNull('deactivated_at')->orWhere('id', $this->record->internship_type_id))->orderBy('name')->orderBy('id')->get();
-        $parties = GrantingParty::query()->where('campus_id', $campusId)
-            ->where(fn ($query) => $query->whereNull('deactivated_at')->orWhere('id', $this->record->granting_party_id))->orderBy('name')->orderBy('id')->get();
-        $supervisor = $affiliations->firstWhere('id', (int) ($this->values['supervisor_affiliation_id'] ?? 0));
+        $selectedType = $this->selectSearchSource('types')->query->find((int) ($this->values['internship_type_id'] ?? 0));
+        $selectedParty = $this->selectSearchSource('parties')->query->find((int) ($this->values['granting_party_id'] ?? 0));
+        $supervisor = $this->selectSearchSource('supervisors')->query->find((int) ($this->values['supervisor_affiliation_id'] ?? 0));
         $qualifications = $supervisor === null ? collect() : SupervisorQualification::query()->where('user_id', $supervisor->user_id)->orderBy('id')->get();
         $qualificationOptions = $qualifications->mapWithKeys(fn (SupervisorQualification $qualification): array => [$qualification->id => $qualification->label()])->all();
         $recordedQualification = $this->record->supervisor_snapshot['source_qualification_id'] ?? null;
@@ -124,12 +135,11 @@ new #[Title('Editar estágio')] class extends Component
             $qualificationOptions[$recordedQualification] = 'Qualificação registrada na abertura';
         }
 
-        return ['advisors' => $affiliations->where('type', AffiliationType::Advisor)->mapWithKeys(fn (Affiliation $affiliation): array => [$affiliation->id => $affiliation->user->name.($affiliation->deactivated_at !== null ? ' (desativado)' : '')])->all(),
-            'supervisors' => $affiliations->where('type', AffiliationType::Supervisor)->mapWithKeys(fn (Affiliation $affiliation): array => [$affiliation->id => $affiliation->user->name.($affiliation->deactivated_at !== null ? ' (desativado)' : '')])->all(),
-            'types' => $types->mapWithKeys(fn (InternshipType $type): array => [$type->id => $type->name.($type->deactivated_at !== null ? ' (desativado)' : '')])->all(),
-            'parties' => $parties->mapWithKeys(fn (GrantingParty $party): array => [$party->id => $party->name.($party->deactivated_at !== null ? ' (desativada)' : '')])->all(),
-            'selectedType' => $types->firstWhere('id', (int) ($this->values['internship_type_id'] ?? 0)), 'qualifications' => $qualificationOptions,
-            'selectedParty' => $parties->firstWhere('id', (int) ($this->values['granting_party_id'] ?? 0))];
+        return ['advisors' => $this->selectedSelectOptions('advisors', $this->values['advisor_affiliation_id'] ?? ''),
+            'supervisors' => $this->selectedSelectOptions('supervisors', $this->values['supervisor_affiliation_id'] ?? ''),
+            'types' => $this->selectedSelectOptions('types', $this->values['internship_type_id'] ?? ''),
+            'parties' => $this->selectedSelectOptions('parties', $this->values['granting_party_id'] ?? ''),
+            'selectedType' => $selectedType, 'qualifications' => $qualificationOptions, 'selectedParty' => $selectedParty];
     }
 
     /** @return array<string, mixed> */

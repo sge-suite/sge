@@ -15,6 +15,7 @@ use App\Models\InternshipRequest;
 use App\Support\ActivityAccess;
 use App\Support\ActivityHistory;
 use App\Support\StudentInternshipContext;
+use App\Support\SelectOptionSource;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -29,15 +30,27 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     use WithPagination;
     use \App\Concerns\SearchesSelectOptions;
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
-        return match ($source) {
-            'parties' => ['model' => GrantingParty::class, 'attributes' => ['name', 'document_number', 'normalized_document_number', 'selection_label'], 'options' => $this->choices['parties']
-                ->mapWithKeys(fn (GrantingParty $party): array => [$party->id => $party->selectionLabel()])->all()],
-            'advisors', 'supervisors' => ['model' => Affiliation::class, 'options' => $this->choices[$source]
-                ->mapWithKeys(fn (Affiliation $affiliation): array => [$affiliation->id => $affiliation->user->name.' - '.$affiliation->email])->all()],
+        $campusId = app(StudentInternshipContext::class)->selected(Auth::user())->campus_id;
+        if ($source === 'parties') {
+            return new SelectOptionSource(GrantingParty::query()->active()->where('campus_id', $campusId)
+                ->with('address.city')->orderBy('name')->orderBy('id'),
+                'campus_id = '.(int) $campusId.' AND is_active = 1',
+                fn (GrantingParty $party): string => $party->selectionLabel(),
+                attributes: ['name', 'document_number', 'normalized_document_number', 'selection_label']);
+        }
+        $type = match ($source) {
+            'advisors' => AffiliationType::Advisor,
+            'supervisors' => AffiliationType::Supervisor,
             default => abort(404),
         };
+
+        return new SelectOptionSource(Affiliation::query()->active()->where('campus_id', $campusId)
+            ->where('type', $type)->with('user')->orderBy('id'),
+            'campus_id = '.(int) $campusId.' AND type = "'.$type->value.'" AND is_active = 1',
+            fn (Affiliation $affiliation): string => $affiliation->user->name.' - '.$affiliation->email,
+            ['id' => 'asc']);
     }
 
     #[Locked] public int $requestId;
@@ -102,11 +115,11 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     #[Computed]
     public function choices(): array
     {
-        $campusId = app(StudentInternshipContext::class)->selected(Auth::user())->campus_id;
         return ['qualifications' => \App\Models\SupervisorQualification::query()->where('user_id', $this->record->supervisorAffiliation?->user_id)->get(),
-            'parties' => GrantingParty::query()->active()->where('campus_id', $campusId)->with('address.city')->orderBy('name')->orderBy('id')->get(),
-            'supervisors' => Affiliation::query()->active()->where('campus_id', $campusId)->where('type', AffiliationType::Supervisor->value)->with('user')->get(),
-            'advisors' => Affiliation::query()->active()->where('campus_id', $campusId)->where('type', AffiliationType::Advisor->value)->with('user')->get()];
+            'parties' => $this->selectedSelectOptions('parties', $this->partyId),
+            'supervisors' => $this->selectedSelectOptions('supervisors', $this->supervisorId),
+            'advisors' => $this->selectedSelectOptions('advisors', $this->advisorId),
+            'selectedParty' => $this->selectSearchSource('parties')->query->find($this->partyId ?? 0)];
     }
 
     #[Computed]
@@ -153,7 +166,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
                 'description' => 'Aprove e associe o pedido de concedente, quando houver, a um cadastro ativo do campus.', 'href' => $request->grantingPartyRegistrationRequest === null ? '#request-data' : '#registration-granting_party', 'action' => 'Conferir concedente'],
             ['label' => 'Supervisor associado', 'met' => $request->supervisor_registration_request_id === null && $supervisor?->type === AffiliationType::Supervisor && $supervisor->deactivated_at === null && $supervisor->campus_id === $owner?->campus_id,
                 'description' => 'Aprove e associe o pedido de supervisor, quando houver, a um vínculo ativo desse papel no campus.', 'href' => $request->supervisorRegistrationRequest === null ? '#review-decision' : '#registration-supervisor', 'action' => 'Conferir supervisor'],
-            ['label' => 'Orientador', 'met' => $this->choices['advisors']->contains('id', $advisorId),
+            ['label' => 'Orientador', 'met' => $this->selectSearchSource('advisors')->query->whereKey($advisorId ?? 0)->exists(),
                 'description' => 'Selecione um vínculo ativo de orientador do campus para este estágio.', 'href' => '#review-decision', 'action' => 'Escolher orientador'],
             ['label' => 'Qualificação do supervisor', 'met' => ! $needsQualification || $this->choices['qualifications']->contains('id', $this->supervisorQualificationId),
                 'description' => $needsQualification ? 'Escolha a formação ou experiência cadastrada do supervisor que será congelada no estágio.' : 'A qualificação histórica será preservada porque a seção de supervisor não foi corrigida.', 'href' => '#review-decision', 'action' => 'Conferir qualificação'],
@@ -276,10 +289,10 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
                         <flux:button :href="route('granting-parties.create', ['internship_request' => $request->id])" icon="building-office" target="_blank" rel="noopener">Cadastrar concedente com os dados do pedido</flux:button>
                         <flux:text>Ao voltar para esta tela, a lista será atualizada automaticamente. Selecione o cadastro criado e aprove a associação.</flux:text>
                     @endif
-                    <x-select search-source="parties" wire:model.live="partyId" :value="$partyId ?? ''" label="Concedente a associar" placeholder="Busque por nome, documento, cidade ou endereço" :options="$this->choices['parties']->mapWithKeys(fn ($party) => [$party->id => $party->selectionLabel()])->all()" :invalid="$errors->has('partyId')" :error="$errors->first('partyId')" :disabled="! $this->canDecide || ! $pendingParty || ! in_array($proposal->status->value, ['submitted', 'under_review'], true)" searchable />
+                    <x-select search-source="parties" wire:model.live="partyId" :value="$partyId ?? ''" label="Concedente a associar" placeholder="Busque por nome, documento, cidade ou endereço" :options="$this->choices['parties']" :invalid="$errors->has('partyId')" :error="$errors->first('partyId')" :disabled="! $this->canDecide || ! $pendingParty || ! in_array($proposal->status->value, ['submitted', 'under_review'], true)" searchable />
                     <flux:text size="sm">Confira a unidade pelo documento e endereço. Selecionar apenas prepara a associação; a aprovação acontece no botão abaixo.</flux:text>
                     @php
-                        $selectedParty = $this->choices['parties']->firstWhere('id', $partyId);
+                        $selectedParty = $this->choices['selectedParty'];
                     @endphp
                     @if ($selectedParty !== null)
                         <div wire:key="review-selected-party-{{ $selectedParty->id }}" role="status" class="space-y-3 rounded-xl border border-brand/30 bg-brand/5 p-4">
@@ -302,13 +315,13 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
                         <flux:button :href="route('users.create', ['internship_request' => $request->id])" icon="user-plus" target="_blank" rel="noopener">Cadastrar supervisor com os dados do pedido</flux:button>
                         <flux:text>O CPF será consultado e os dados do pedido preencherão o cadastro para revisão. Ao voltar para esta tela, a lista será atualizada automaticamente; selecione o vínculo criado e aprove a associação.</flux:text>
                     @endif
-                    <x-select search-source="supervisors" wire:model="supervisorId" :value="$supervisorId ?? ''" label="Vínculo de supervisor aprovado" placeholder="Selecione" :options="$this->choices['supervisors']->mapWithKeys(fn ($supervisor) => [$supervisor->id => $supervisor->user->name.' - '.$supervisor->email])->all()" :invalid="$errors->has('supervisorId')" :error="$errors->first('supervisorId')" :disabled="! $this->canDecide || ! $pendingSupervisor || ! in_array($proposal->status->value, ['submitted', 'under_review'], true)" searchable />
+                    <x-select search-source="supervisors" wire:model="supervisorId" :value="$supervisorId ?? ''" label="Vínculo de supervisor aprovado" placeholder="Selecione" :options="$this->choices['supervisors']" :invalid="$errors->has('supervisorId')" :error="$errors->first('supervisorId')" :disabled="! $this->canDecide || ! $pendingSupervisor || ! in_array($proposal->status->value, ['submitted', 'under_review'], true)" searchable />
                     @if ($pendingSupervisor && $this->canDecide && in_array($proposal->status->value, ['submitted', 'under_review'], true))
                         <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="refreshChoices">Atualizar lista de supervisores</flux:button>
                     @endif
                 @endif
                 @if ($this->canDecide && in_array($proposal->status->value, ['submitted', 'under_review'], true))
-                    <div class="flex flex-wrap gap-3"><flux:button wire:click="registration('{{ $kind }}', true)" wire:loading.attr="disabled" :disabled="$kind === 'granting_party' && ! $this->choices['parties']->contains('id', $partyId)">Aprovar e associar cadastro</flux:button><flux:button variant="danger" wire:click="registration('{{ $kind }}', false)" wire:loading.attr="disabled">Recusar pedido com o motivo abaixo</flux:button></div>
+                    <div class="flex flex-wrap gap-3"><flux:button wire:click="registration('{{ $kind }}', true)" wire:loading.attr="disabled" :disabled="$kind === 'granting_party' && $this->choices['selectedParty'] === null">Aprovar e associar cadastro</flux:button><flux:button variant="danger" wire:click="registration('{{ $kind }}', false)" wire:loading.attr="disabled">Recusar pedido com o motivo abaixo</flux:button></div>
                 @endif
                 @if($proposal->decision_reason)<flux:text>{{ $proposal->decision_reason }}</flux:text>@endif
             </section>
@@ -328,7 +341,7 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
     <section id="review-decision" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700" data-unsaved-changes="request-review" data-unsaved-models='["message", "sections", "sectionMessages", "advisorId", "supervisorQualificationId"]' data-unsaved-actions='["decide"]' data-unsaved-enabled="true">
         <flux:heading level="2">Decisão do Setor de Estágio</flux:heading>
         <flux:text>Confira o orientador e a qualificação do supervisor antes de aceitar e formalizar.</flux:text>
-        <x-select search-source="advisors" wire:model.live="advisorId" :value="$advisorId ?? ''" label="Orientador" placeholder="Selecione" :options="$this->choices['advisors']->mapWithKeys(fn ($advisor) => [$advisor->id => $advisor->user->name.' - '.$advisor->email])->all()" :invalid="$errors->has('advisorId') || $errors->has('advisor_affiliation_id')" :error="$errors->first('advisorId') ?: $errors->first('advisor_affiliation_id')" searchable />
+        <x-select search-source="advisors" wire:model.live="advisorId" :value="$advisorId ?? ''" label="Orientador" placeholder="Selecione" :options="$this->choices['advisors']" :invalid="$errors->has('advisorId') || $errors->has('advisor_affiliation_id')" :error="$errors->first('advisorId') ?: $errors->first('advisor_affiliation_id')" searchable />
         @if ($request->internship !== null)
             @php
                 $historicalQualification = $request->internship->supervisor_snapshot ?? [];

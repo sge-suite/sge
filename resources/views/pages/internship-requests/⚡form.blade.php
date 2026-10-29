@@ -26,6 +26,7 @@ use App\Support\InternshipPlannedPauses;
 use App\Support\InternshipRegistrationLookup;
 use App\Support\InternshipRequestPersonalData;
 use App\Support\StudentInternshipContext;
+use App\Support\SelectOptionSource;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -48,12 +49,16 @@ new #[Title('Solicitação de estágio')] class extends Component
         return ['parties' => ['partyResults', 'choices'], 'supervisors' => ['supervisorResults', 'choices']];
     }
 
-    protected function selectSearchSource(string $source): array
+    protected function selectSearchSource(string $source): SelectOptionSource
     {
         abort_unless($source === 'advisors', 404);
+        $owner = $this->personal['owner'];
 
-        return ['model' => Affiliation::class, 'options' => $this->choices['advisors']
-            ->mapWithKeys(fn (Affiliation $advisor): array => [$advisor->id => $advisor->user->name.' - '.$advisor->email])->all()];
+        return new SelectOptionSource(Affiliation::query()->active()->where('campus_id', $owner->campus_id)
+            ->where('type', AffiliationType::Advisor)->with('user')
+            ->orderBy(User::query()->select('name')->whereColumn('users.id', 'affiliations.user_id'))->orderBy('id'),
+            'campus_id = '.(int) $owner->campus_id.' AND type = "'.AffiliationType::Advisor->value.'" AND is_active = 1',
+            fn (Affiliation $advisor): string => $advisor->user->name.' - '.$advisor->email);
     }
 
     use InternshipRequestValidationRules;
@@ -203,7 +208,9 @@ new #[Title('Solicitação de estágio')] class extends Component
         $selectedSupervisor = $supervisorKey === null ? null : (clone $supervisorQuery)->with('user.personalData')->find($supervisorKey);
         return [
             'proposalCity' => ($proposalCityKey = $this->lookupKey($this->values['granting_party_proposal']['city_id'] ?? null)) === null ? null : City::find($proposalCityKey),
-            'advisors' => Affiliation::query()->active()->where('campus_id', $owner->campus_id)->where('type', AffiliationType::Advisor->value)->with('user')->get()->sortBy(fn (Affiliation $advisor): string => $advisor->user->name),
+            'advisorOptions' => $this->selectedSelectOptions('advisors', $this->values['advisor_affiliation_id'] ?? ''),
+            'selectedAdvisor' => $this->selectSearchSource('advisors')->query->find((int) ($this->values['advisor_affiliation_id'] ?? 0)),
+            'hasAdvisors' => $this->selectSearchSource('advisors')->query->exists(),
             'types' => InternshipType::query()->active()->where('course_id', $owner->course_id)->orderBy('name')->get(),
             'parties' => $this->partyResults,
             'supervisors' => $this->supervisorResults,
@@ -731,8 +738,9 @@ new #[Title('Solicitação de estágio')] class extends Component
             throw ValidationException::withMessages(['granting_party_id' => 'Escolha uma concedente ativa do seu campus.']);
         }
         if ($section === 'internship') {
-            Validator::make($data, ['advisor_affiliation_id' => ['required', \Illuminate\Validation\Rule::in($this->choices['advisors']->pluck('id')->all())]],
-                ['advisor_affiliation_id.in' => 'Selecione um orientador ativo do seu campus.'], $this->internshipFieldLabels())->validate();
+            if (! $this->selectSearchSource('advisors')->query->whereKey((int) ($data['advisor_affiliation_id'] ?? 0))->exists()) {
+                throw ValidationException::withMessages(['advisor_affiliation_id' => 'Selecione um orientador ativo do seu campus.']);
+            }
             $type = $this->choices['types']->firstWhere('id', (int) ($data['internship_type_id'] ?? 0));
             Validator::make($data, ['student_year_semester' => ['required', \Illuminate\Validation\Rule::in(array_keys($type?->academicPeriodOptions() ?? []))]],
                 ['student_year_semester.in' => 'Selecione um ano ou semestre permitido para este tipo de estágio.'])->validate();
