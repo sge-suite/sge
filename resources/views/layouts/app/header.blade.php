@@ -13,6 +13,11 @@
                 <flux:navbar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     Painel
                 </flux:navbar.item>
+                @if ($activeNavigationAffiliation !== null)
+                    @can('viewNotifications', $activeNavigationAffiliation)
+                        <livewire:notifications.navigation placement="navbar" :key="'notifications-navbar-'.$activeNavigationAffiliation->id" />
+                    @endcan
+                @endif
             </flux:navbar>
 
             <flux:spacer />
@@ -38,6 +43,11 @@
                     <flux:sidebar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         Painel
                     </flux:sidebar.item>
+                    @if ($activeNavigationAffiliation !== null)
+                        @can('viewNotifications', $activeNavigationAffiliation)
+                            <livewire:notifications.navigation :key="'notifications-mobile-'.$activeNavigationAffiliation->id" />
+                        @endcan
+                    @endif
                 </flux:sidebar.group>
             </flux:sidebar.nav>
         </flux:sidebar>

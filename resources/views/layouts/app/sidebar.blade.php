@@ -15,6 +15,12 @@
                     Painel
                 </flux:sidebar.item>
 
+                @if ($activeNavigationAffiliation !== null)
+                    @can('viewNotifications', $activeNavigationAffiliation)
+                        <livewire:notifications.navigation :key="'notifications-sidebar-'.$activeNavigationAffiliation->id" />
+                    @endcan
+                @endif
+
                 @can('viewAny', \App\Models\InternshipRequest::class)
                     <flux:sidebar.item icon="clipboard-document-list" :href="route('internship-requests.index')" :current="request()->routeIs('internship-requests.*')" wire:navigate>Minhas solicitações</flux:sidebar.item>
                 @endcan
