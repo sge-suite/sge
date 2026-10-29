@@ -19,7 +19,8 @@
         openOnMount: @js($openOnMount),
         query: '',
         searchSource: @js($searchSource),
-        remoteKeys: null,
+        remoteOptions: [],
+        selectedOption: { value: String(@js((string) $value)), label: @js($selectedLabel ?: ($options[$value] ?? '')) },
         remoteLoading: false,
         remoteError: false,
         remoteHasMore: false,
@@ -41,6 +42,7 @@
                 this.missing = false;
                 if (!this.open) this.close(false);
                 this.measureLabel();
+                this.syncNativeValue();
             });
             this.$nextTick(() => {
                 const owner = document.documentElement;
@@ -69,6 +71,7 @@
                 this.labelResizeObserver.observe(this.$refs.labelViewport);
                 this.labelResizeObserver.observe(this.$refs.labelText);
                 this.measureLabel();
+                this.syncNativeValue();
                 if (this.openOnMount) this.show(true);
             });
         },
@@ -78,6 +81,12 @@
             this.remoteSequence++;
             this.optionsObserver?.disconnect();
             this.labelResizeObserver?.disconnect();
+        },
+
+        syncNativeValue() {
+            if (this.searchSource) this.$nextTick(() => {
+                if (this.$refs.native) this.$refs.native.value = String(this.value);
+            });
         },
 
         measureLabel() {
@@ -108,9 +117,8 @@
             const term = this.query.trim();
             this.remoteError = false;
             this.remoteHasMore = false;
-            this.remoteKeys = term ? [] : null;
-            this.remoteLoading = Boolean(term);
-            if (!term) return;
+            this.remoteOptions = [];
+            this.remoteLoading = true;
             this.remoteTimer = setTimeout(() => this.searchRemoteOptions(term, sequence), 350);
         },
 
@@ -122,7 +130,7 @@
                     this.remoteError = true;
                     return;
                 }
-                this.remoteKeys = result.keys.map(String);
+                this.remoteOptions = result.options;
                 this.remoteHasMore = result.hasMore;
                 this.optionsRevision++;
             } catch {
@@ -133,7 +141,7 @@
         },
 
         matches(label, optionValue = '') {
-            if (this.searchSource && this.remoteKeys !== null) return this.remoteKeys.includes(String(optionValue));
+            if (this.searchSource) return !/^\d+$/.test(String(optionValue)) || this.remoteOptions.some(option => option.value === String(optionValue));
             return this.normalize(label).includes(this.normalize(this.query.trim()));
         },
 
@@ -160,6 +168,7 @@
                 .find(option => option.dataset.value === String(this.value));
 
             if (option) return option.dataset.label;
+            if (this.searchSource && String(this.value) === this.selectedOption.value && this.selectedOption.label) return this.selectedOption.label;
             if (@js($creatable) && this.value) return String(this.value);
             if (this.value && String(this.value) === this.$root.dataset.selectedValue) {
                 return this.$root.dataset.selectedLabel;
@@ -173,6 +182,7 @@
             this.upwards = this.$refs.trigger.getBoundingClientRect().bottom + 320 > window.innerHeight
                 && this.$refs.trigger.getBoundingClientRect().top > 320;
             this.open = true;
+            if (this.searchSource) this.queueRemoteSearch();
             this.$nextTick(() => {
                 const options = this.options();
                 this.activeValue = options.find(option => option.dataset.value === String(this.value))?.dataset.value
@@ -232,6 +242,7 @@
             if (@js($attributes->wire('model')->hasModifier('live')) && String(this.value) !== option.dataset.value) {
                 document.documentElement.dataset.selectRefocus = this.$refs.trigger.id;
             }
+            this.selectedOption = { value: option.dataset.value, label: option.dataset.label };
             this.value = option.dataset.value;
             this.query = '';
             this.missing = false;
@@ -260,15 +271,24 @@
         @if ($creatable)
             <input type="hidden" name="{{ $name }}" x-bind:value="value" @disabled($disabled) />
         @else
-        <select name="{{ $name }}" x-model="value" tabindex="-1" aria-hidden="true" class="sr-only" @required($required) @disabled($disabled)
+        @if ($searchSource)
+            <input type="hidden" name="{{ $name }}" x-bind:value="value" @disabled($disabled) />
+        @endif
+        <select name="{{ $searchSource ? '' : $name }}" x-ref="native" x-model="value" tabindex="-1" aria-hidden="true" class="sr-only" @required($required) @disabled($disabled)
             x-on:invalid.prevent="missing = true; show()">
             <option value=""></option>
-            @if ($value !== '' && ! array_key_exists($value, $options))
+            @if (! $searchSource && $value !== '' && ! array_key_exists($value, $options))
                 <option value="{{ $value }}" selected>{{ $selectedLabel }}</option>
             @endif
             @foreach ($options as $optionValue => $optionLabel)
+                @continue($searchSource && ctype_digit((string) $optionValue))
                 <option wire:key="{{ $selectId }}-native-{{ $optionValue }}" value="{{ $optionValue }}" @selected((string) $value === (string) $optionValue)>{{ $optionLabel }}</option>
             @endforeach
+            @if ($searchSource)
+                <template x-if="value && /^\d+$/.test(String(value))">
+                    <option x-bind:value="value" x-text="label()" selected></option>
+                </template>
+            @endif
         </select>
         @endif
         <button type="button" id="{{ $selectId }}" x-ref="trigger" data-flux-control
@@ -337,6 +357,7 @@
             <div id="{{ $selectId }}-list" x-ref="list" data-select-list role="listbox" aria-label="{{ $label }}" tabindex="-1"
                 x-bind:aria-activedescendant="activeId()" class="select-options max-h-60 overflow-y-auto p-1 outline-hidden">
                 @foreach ($options as $optionValue => $optionLabel)
+                    @continue($searchSource && ctype_digit((string) $optionValue))
                     <button type="button" role="option" tabindex="-1" id="{{ $selectId }}-option-{{ $loop->index }}"
                         wire:key="{{ $name ?: $label }}-option-{{ $optionValue }}" data-select-option data-value="{{ $optionValue }}" data-label="{{ $optionLabel }}"
                         aria-selected="{{ (string) $value === (string) $optionValue ? 'true' : 'false' }}"
@@ -357,6 +378,20 @@
                         </span>
                     </button>
                 @endforeach
+                @if ($searchSource)
+                    <template x-for="option in remoteOptions" :key="option.value">
+                        <button type="button" role="option" tabindex="-1" data-select-option
+                            x-bind:id="@js($selectId) + '-remote-' + option.value"
+                            x-bind:data-value="option.value" x-bind:data-label="option.label"
+                            x-bind:aria-selected="String(value) === option.value"
+                            x-bind:class="{ 'bg-zinc-200 dark:bg-white/15': activeValue === option.value }"
+                            class="flex w-full min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-start text-sm text-zinc-800 outline-none hover:bg-zinc-200 focus:outline-none focus-visible:outline-none focus-visible:ring-0 dark:text-zinc-100 dark:hover:bg-white/15"
+                            x-on:focus="activeValue = option.value" x-on:mouseenter="activeValue = option.value" x-on:click="choose($el)">
+                            <span class="min-w-0 whitespace-normal wrap-break-word" x-text="option.label"></span>
+                            <span class="flex size-4 shrink-0 items-center justify-center"><span x-show="String(value) === option.value"><flux:icon.check variant="micro" /></span></span>
+                        </button>
+                    </template>
+                @endif
                 @if ($creatable)
                     <button type="button" role="option" tabindex="-1" id="{{ $selectId }}-create" data-select-option data-select-create
                         x-cloak x-show="canCreate()" x-bind:data-value="query.trim()" x-bind:data-label="query.trim()"
@@ -368,7 +403,7 @@
                     </button>
                 @endif
                 @if (! $searchUnavailable)
-                    <p x-cloak x-show="!remoteLoading && !remoteError && options().length === 0" @if ($searchTarget) wire:loading.remove wire:target="{{ $searchTarget }}" @endif class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
+                    <p x-cloak x-show="!remoteLoading && !remoteError && (searchSource ? remoteOptions.length === 0 : options().length === 0)" @if ($searchTarget) wire:loading.remove wire:target="{{ $searchTarget }}" @endif class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
                 @endif
             </div>
         </div>
