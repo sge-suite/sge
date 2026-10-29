@@ -9,6 +9,7 @@ use App\Models\Internship;
 use App\Models\SupervisorEvaluation;
 use App\Models\User;
 use App\Support\StudentInternshipContext;
+use Illuminate\Database\Eloquent\Builder;
 
 class SupervisorEvaluationPolicy
 {
@@ -24,15 +25,26 @@ class SupervisorEvaluationPolicy
 
     public function view(User $user, SupervisorEvaluation $evaluation): bool
     {
+        return $this->viewableQuery($user)->whereKey($evaluation->id)->exists();
+    }
+
+    /** @return Builder<SupervisorEvaluation> */
+    public function viewableQuery(User $user): Builder
+    {
         $selected = $this->context->selected($user);
-        $internship = $evaluation->internship;
-        if (! $this->viewAny($user) || $internship->evaluation_released_at === null) {
-            return false;
+        $query = SupervisorEvaluation::query();
+
+        if ($selected?->type !== AffiliationType::Supervisor
+            && ! ($selected?->type === AffiliationType::InternshipOffice && $selected->campus !== null)) {
+            return $query->whereRaw('1 = 0');
         }
 
-        return $selected->type === AffiliationType::Supervisor
-            ? $evaluation->supervisor_affiliation_id === $selected->id && $internship->supervisor_affiliation_id === $selected->id
-            : $internship->course()->where('campus_id', $selected->campus_id)->exists();
+        return $query->whereHas('internship', fn (Builder $query): Builder => $query->whereNotNull('evaluation_released_at')
+            ->when($selected->type === AffiliationType::Supervisor,
+                fn (Builder $query): Builder => $query->where('supervisor_affiliation_id', $selected->id),
+                fn (Builder $query): Builder => $query->whereHas('course', fn (Builder $query): Builder => $query->where('campus_id', $selected->campus_id))))
+            ->when($selected->type === AffiliationType::Supervisor,
+                fn (Builder $query): Builder => $query->where('supervisor_affiliation_id', $selected->id));
     }
 
     public function release(User $user, Internship $internship): bool

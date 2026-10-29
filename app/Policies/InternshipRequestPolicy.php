@@ -7,6 +7,7 @@ use App\Enums\InternshipRequestStatus;
 use App\Models\InternshipRequest;
 use App\Models\User;
 use App\Support\StudentInternshipContext;
+use Illuminate\Database\Eloquent\Builder;
 
 class InternshipRequestPolicy
 {
@@ -19,9 +20,16 @@ class InternshipRequestPolicy
 
     public function view(User $user, InternshipRequest $request): bool
     {
+        return $this->viewableQuery($user)->whereKey($request->id)->exists();
+    }
+
+    /** @return Builder<InternshipRequest> */
+    public function viewableQuery(User $user): Builder
+    {
         $affiliation = $this->context->student($user);
 
-        return $affiliation !== null && $request->affiliation_id === $affiliation->id;
+        return InternshipRequest::query()->where('affiliation_id', $affiliation?->id)->when($affiliation === null,
+            fn (Builder $query): Builder => $query->whereRaw('1 = 0'));
     }
 
     public function create(User $user): bool
