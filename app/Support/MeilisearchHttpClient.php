@@ -27,8 +27,10 @@ final class MeilisearchHttpClient implements ClientInterface
 
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
-        $isSearch = $request->getMethod() === 'POST'
-            && preg_match('~/(?:indexes/[^/]+/(?:search|facet-search)|multi-search)$~', $request->getUri()->getPath()) === 1;
+        $path = $request->getUri()->getPath();
+        $isSearch = ($request->getMethod() === 'POST'
+            && preg_match('~/(?:indexes/[^/]+/(?:search|facet-search)|multi-search)$~', $path) === 1)
+            || ($request->getMethod() === 'GET' && preg_match('~/indexes/[^/]+/settings/pagination$~', $path) === 1);
 
         return ($isSearch ? $this->search : $this->operations)->sendRequest($request);
     }

@@ -17,7 +17,7 @@ trait SearchesSelectOptions
         return $this->selectSearchSource($source)->selected($id);
     }
 
-    /** @return array{options: list<array{value: string, label: string}>, hasMore: bool, unavailable?: bool} */
+    /** @return array{options: list<array{value: string, label: string}>, hasMore: bool, unavailable?: bool, incomplete?: bool} */
     #[Renderless]
     public function searchSelectOptions(string $source, string $term): array
     {

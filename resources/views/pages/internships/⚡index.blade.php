@@ -41,7 +41,8 @@ new #[Title('Estágios')] class extends Component
             'advisors' => new SelectOptionSource(Affiliation::query()
                 ->whereIn('id', (clone $visible)->select('advisor_affiliation_id'))->with('user')
                 ->orderBy(User::query()->select('name')->whereColumn('users.id', 'affiliations.user_id'))->orderBy('id'),
-                '', fn (Affiliation $advisor): string => $advisor->user->name),
+                $owner->type === AffiliationType::Advisor ? 'id = '.(int) $owner->id : '',
+                fn (Affiliation $advisor): string => $advisor->user->name),
             default => abort(404),
         };
     }

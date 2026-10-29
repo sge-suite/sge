@@ -24,6 +24,7 @@
         remoteLoading: false,
         remoteError: false,
         remoteHasMore: false,
+        remoteIncomplete: false,
         remoteSequence: 0,
         remoteTimer: null,
         open: false,
@@ -117,6 +118,7 @@
             const term = this.query.trim();
             this.remoteError = false;
             this.remoteHasMore = false;
+            this.remoteIncomplete = false;
             this.remoteOptions = [];
             this.remoteLoading = true;
             this.remoteTimer = setTimeout(() => this.searchRemoteOptions(term, sequence), 350);
@@ -132,6 +134,7 @@
                 }
                 this.remoteOptions = result.options;
                 this.remoteHasMore = result.hasMore;
+                this.remoteIncomplete = Boolean(result.incomplete);
                 this.optionsRevision++;
             } catch {
                 if (sequence === this.remoteSequence) this.remoteError = true;
@@ -346,7 +349,8 @@
                     @endisset
                     @if ($searchSource)
                         <p x-cloak x-show="remoteLoading" class="px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400" role="status">Buscando opções…</p>
-                        <p x-cloak x-show="remoteHasMore && !remoteLoading" class="px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400" role="status">Exibindo até 20 resultados. Continue digitando para refinar.</p>
+                        <p x-cloak x-show="remoteHasMore && !remoteIncomplete && !remoteLoading" class="px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400" role="status">Exibindo até 20 resultados. Continue digitando para refinar.</p>
+                        <p x-cloak x-show="remoteIncomplete && !remoteLoading" class="px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400" role="status">A busca foi limitada. Refine o termo para confirmar as opções disponíveis.</p>
                         <div x-cloak x-show="remoteError" class="px-2 py-1 text-xs text-red-600 dark:text-red-400" role="alert">
                             Não foi possível buscar.
                             <button type="button" class="underline" x-on:click="queueRemoteSearch()">Tentar novamente</button>
@@ -403,7 +407,7 @@
                     </button>
                 @endif
                 @if (! $searchUnavailable)
-                    <p x-cloak x-show="!remoteLoading && !remoteError && (searchSource ? remoteOptions.length === 0 : options().length === 0)" @if ($searchTarget) wire:loading.remove wire:target="{{ $searchTarget }}" @endif class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
+                    <p x-cloak x-show="!remoteLoading && !remoteError && !remoteIncomplete && (searchSource ? remoteOptions.length === 0 : options().length === 0)" @if ($searchTarget) wire:loading.remove wire:target="{{ $searchTarget }}" @endif class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
                 @endif
             </div>
         </div>

@@ -10,6 +10,7 @@ use App\Models\InternshipType;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Meilisearch\Client;
 use Meilisearch\Endpoints\Indexes;
 
 /** @template TModel of Affiliation|Campus|Course|GrantingParty|InternshipType */
@@ -41,7 +42,7 @@ final class SelectOptionSource
         return $record === null ? [] : [$record->id => ($this->label)($record)];
     }
 
-    /** @return array{options: list<array{value: string, label: string}>, hasMore: bool} */
+    /** @return array{options: list<array{value: string, label: string}>, hasMore: bool, incomplete?: bool} */
     public function results(string $term): array
     {
         if ($term === '') {
@@ -82,7 +83,20 @@ final class SelectOptionSource
             $page++;
         } while ($records->count() < 21 && $ids !== [] && $page <= ($result['totalPages'] ?? 1));
 
-        return $this->present($records);
+        $incomplete = false;
+        if ($records->count() < 21 && ($result['totalHits'] ?? 0) > $records->count()) {
+            try {
+                $pagination = app(SearchQuery::class)->run(fn () => app(Client::class)->index($model->searchableAs())->getPagination());
+                $incomplete = $result['totalHits'] >= $pagination['maxTotalHits'];
+            } catch (SearchUnavailable) {
+                $incomplete = true;
+            }
+        }
+
+        $response = $this->present($records);
+        $response['hasMore'] = $response['hasMore'] || $incomplete;
+
+        return $response + ['incomplete' => $incomplete];
     }
 
     /**
