@@ -2,7 +2,7 @@
 
 use App\Models\Holiday;
 use App\Models\HolidaySource;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\HolidayAccess;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -42,19 +42,18 @@ new #[Title('Revisar feriado importado')] class extends Component
     public function candidates(): Collection
     {
         $search = mb_substr(trim($this->holidaySearch), 0, 255);
-        $matchingIds = mb_strlen($search) >= 2 ? $this->searchWithRecovery('candidates', fn () => Holiday::search($search)->withTrashed()->orderBy('date', 'desc')->take(20)->keys()->all(), fn () => []) : [];
+        $query = app(HolidayAccess::class)->query(auth()->user(), true);
+        $suggestions = fn (): Collection => (clone $query)->whereIn('id', $this->holidaySource->candidate_ids ?? [])
+            ->orderByDesc('date')->orderByDesc('id')->limit(20)->get();
 
-        $candidates = Holiday::withTrashed()->where(function (Builder $query) use ($matchingIds): void {
-            $query->whereIn('id', $this->holidaySource->candidate_ids ?? []);
-            if (ctype_digit($this->selectedHolidayId)) {
-                $query->orWhere('id', (int) $this->selectedHolidayId);
-            }
-            if ($matchingIds !== []) {
-                $query->orWhereIn('id', $matchingIds);
-            }
-        })->orderByDesc('date')->limit(20)->get();
+        $candidates = mb_strlen($search) < 2 ? $suggestions() : $this->searchWithRecovery('candidates', function () use ($search, $query): Collection {
+            $ids = Holiday::search($search)->withTrashed()->orderBy('date', 'desc')->orderBy('id', 'desc')->take(20)->keys();
+            $records = (clone $query)->whereKey($ids->all())->limit(20)->get()->keyBy('id');
 
-        $selected = ctype_digit($this->selectedHolidayId) ? Holiday::withTrashed()->find((int) $this->selectedHolidayId) : null;
+            return new Collection($ids->map(fn ($id) => $records->get($id))->filter()->values()->all());
+        }, $suggestions);
+
+        $selected = ctype_digit($this->selectedHolidayId) ? (clone $query)->find((int) $this->selectedHolidayId) : null;
 
         return $selected === null ? $candidates : $candidates->prepend($selected)->unique('id')->values();
     }
@@ -96,13 +95,18 @@ new #[Title('Revisar feriado importado')] class extends Component
                 :invalid="$errors->has('resolution')" :error="$errors->first('resolution')" required />
             <fieldset x-cloak x-show="resolution === 'link'" x-bind:disabled="resolution !== 'link'" class="space-y-3">
                 <x-select name="holiday_id" wire:model.live="selectedHolidayId" label="Feriado existente" placeholder="Selecione o feriado" :value="$selectedHolidayId"
-                    :options="$this->candidates->mapWithKeys(fn ($candidate) => [$candidate->id => $candidate->name.' · '.formatShort($candidate->date).($candidate->trashed() ? ' · Na lixeira' : '')])->all()"
+                    :options="$this->candidates->mapWithKeys(fn ($candidate) => [$candidate->id => ((string) $candidate->id === $selectedHolidayId ? 'Seleção atual · ' : '').$candidate->name.' · '.formatShort($candidate->date).($candidate->trashed() ? ' · Na lixeira' : '')])->all()"
                     :search-unavailable="$this->searchFailed('candidates')" search-retry="retrySearch('candidates')" search-target="holidaySearch,retrySearch"
                     :invalid="$errors->has('holiday_id')" :error="$errors->first('holiday_id')"
                     :empty="mb_strlen(trim($holidaySearch)) < 2 ? 'Digite pelo menos 2 caracteres ou selecione uma sugestão.' : 'Nenhum feriado encontrado.'" searchable required>
                     <x-slot:search>
                         <flux:input name="" wire:model.live.debounce.500ms="holidaySearch" wire:ignore.self placeholder="Buscar feriado…" aria-label="Buscar feriado" icon="magnifying-glass" size="sm" maxlength="255"
                             role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="$refs.list.id" x-bind:aria-activedescendant="activeId()" />
+                        <p class="px-2 py-1 text-xs text-zinc-500 dark:text-zinc-400" role="status">
+                            {{ mb_strlen(trim($holidaySearch)) >= 2 && ! $this->searchFailed('candidates')
+                                ? 'Resultados da pesquisa: até 20 feriados. A seleção atual é mantida mesmo fora da busca. Refine o termo para encontrar outros.'
+                                : 'Sugestões da importação: até 20 feriados, além da seleção atual.' }}
+                        </p>
                         <span wire:loading wire:target="holidaySearch" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando feriados…</span>
                     </x-slot:search>
                 </x-select>
