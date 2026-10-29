@@ -14,14 +14,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-new
-/**
- * @property-read LengthAwarePaginator<int, DatabaseNotification> $notifications
- * @property-read array<string, string|null> $destinations
- * @property-read int $unreadCount
- */
-#[Title('Notificações')]
-class extends Component
+new #[Title('Notificações')] class extends Component
 {
     use WithPagination;
 
