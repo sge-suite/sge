@@ -181,8 +181,10 @@ class Course extends Model
         });
 
         static::saving(function (self $course): void {
-            if (is_string($course->coordination_email)) {
-                $course->coordination_email = mb_strtolower(trim($course->coordination_email));
+            $email = $course->getAttributes()['coordination_email'] ?? null;
+
+            if (is_string($email)) {
+                $course->coordination_email = mb_strtolower(trim($email));
             }
 
             foreach (['primary_coordinator_affiliation_id', 'secondary_coordinator_affiliation_id', 'deactivated_at'] as $attribute) {
