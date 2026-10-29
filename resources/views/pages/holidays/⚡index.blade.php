@@ -20,6 +20,7 @@ use Livewire\WithPagination;
 
 new #[Title('Feriados')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use WithPagination;
 
     #[Url(except: '')]
@@ -52,6 +53,11 @@ new #[Title('Feriados')] class extends Component
     public string $confirmationOperation = 'delete';
 
     public bool $showConfirmation = false;
+
+    protected function searchRetryProperties(): array
+    {
+        return ['holidays' => ['holidays'], 'cities' => ['cities']];
+    }
 
     public function openConfirmation(int $id, string $operation): void
     {
@@ -153,7 +159,7 @@ new #[Title('Feriados')] class extends Component
             $query->where('state', $state->value);
         }
 
-        return $query->take(20)->get();
+        return $this->searchWithRecovery('cities', fn () => $query->take(20)->get(), fn () => new Collection);
     }
 
     /** @return Collection<int, HolidaySource> */
@@ -223,9 +229,10 @@ new #[Title('Feriados')] class extends Component
                 $searchQuery->whereIn('city_id', [0, (int) $city->id]);
             }
 
-            return $searchQuery->orderBy('date')->orderBy('name')->orderBy('id')
+            return $this->searchWithRecovery('holidays', fn () => $searchQuery->orderBy('date')->orderBy('name')->orderBy('id')
                 ->query(fn (Builder $query) => $query->with('city'))
-                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage()),
+                fn () => $this->unavailableSearchPage());
         }
 
         return $query->with('city')->orderBy('date')->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
@@ -260,6 +267,7 @@ new #[Title('Feriados')] class extends Component
             <x-select wire:model.live="cityId" label="Cidade" icon="map-pin" placeholder="Todas as cidades"
                 :value="$cityId" :selected-label="$this->selectedCity ? $this->selectedCity->name.' / '.$this->selectedCity->state->value : ''"
                 :options="($cityId !== '' ? ['' => 'Todas as cidades'] : []) + $this->cities->mapWithKeys(fn ($city) => [$city->id => $city->name.' / '.$city->state->value])->all()"
+                :search-unavailable="$this->searchFailed('cities')" search-retry="retrySearch('cities')" search-target="citySearch,retrySearch"
                 :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
                 searchable wire:key="holiday-city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId">
                 <x-slot:search>
@@ -282,8 +290,10 @@ new #[Title('Feriados')] class extends Component
         </div>
     </div>
     @php($holidays = $this->holidays)
-    <x-loading-overlay target="search,year,scope,state,cityId,origin,clearFilters,gotoPage,nextPage,previousPage,resetPage,openConfirmation" label="Atualizando calendário…" :dim-while-loading="true">
-        @if ($holidays->isNotEmpty())
+    <x-loading-overlay target="retrySearch,search,year,scope,state,cityId,origin,clearFilters,gotoPage,nextPage,previousPage,resetPage,openConfirmation" label="Atualizando calendário…" :dim-while-loading="true">
+        @if ($this->searchFailed('holidays'))
+            <x-search-unavailable retry="retrySearch('holidays')" />
+        @elseif ($holidays->isNotEmpty())
             <flux:table :paginate="$holidays">
                 <flux:table.columns>
                     <flux:table.column>Data</flux:table.column>

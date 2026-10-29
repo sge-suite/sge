@@ -15,6 +15,7 @@ use Livewire\WithPagination;
 
 new #[Title('Campi')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use WithPagination;
 
     #[Url(except: '')]
@@ -25,6 +26,11 @@ new #[Title('Campi')] class extends Component
 
     #[Url(except: 'all')]
     public string $state = 'all';
+
+    protected function searchRetryProperties(): array
+    {
+        return ['campuses' => ['campuses']];
+    }
 
     public function updatedState(): void
     {
@@ -83,13 +89,14 @@ new #[Title('Campi')] class extends Component
                 $query->where('deactivated_at', '!=', null);
             }
 
-            return $query
+            return $this->searchWithRecovery('campuses', fn () => $query
                 ->query(fn (Builder $query) => $query->visibleTo($affiliation)
                     ->when($this->state !== 'all', fn (Builder $builder) => $builder->whereHas('address.city', fn (Builder $city) => $city->where('state', $this->state)))
                     ->when($this->status === 'active', fn (Builder $builder) => $builder->whereNull('deactivated_at'))
                     ->when($this->status === 'inactive', fn (Builder $builder) => $builder->whereNotNull('deactivated_at'))
                     ->with('address.city'))
-                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage()),
+                fn () => $this->unavailableSearchPage());
         }
 
         return Campus::query()
@@ -130,8 +137,10 @@ new #[Title('Campi')] class extends Component
         </div>
     </div>
     @php($campuses = $this->campuses)
-    <x-loading-overlay target="search,state,status,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando lista…" :dim-while-loading="true">
-        @if ($campuses->isNotEmpty())
+    <x-loading-overlay target="retrySearch,search,state,status,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando lista…" :dim-while-loading="true">
+        @if ($this->searchFailed('campuses'))
+            <x-search-unavailable retry="retrySearch('campuses')" />
+        @elseif ($campuses->isNotEmpty())
             <flux:table :paginate="$campuses" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
                     <flux:table.column>Campus</flux:table.column>

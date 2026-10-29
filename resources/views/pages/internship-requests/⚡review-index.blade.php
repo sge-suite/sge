@@ -18,6 +18,7 @@ use Livewire\WithPagination;
 
 new #[Title('Analisar solicitações de estágio')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use WithPagination;
     use \App\Concerns\SearchesSelectOptions;
 
@@ -39,6 +40,11 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
 
     #[Url(except: '', as: 'course')]
     public string $courseId = '';
+
+    protected function searchRetryProperties(): array
+    {
+        return ['requests' => ['requests']];
+    }
 
     public function boot(): void
     {
@@ -122,12 +128,13 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
             ->with(['course', 'internshipType']);
 
         if ($search !== '') {
-            return InternshipRequest::search($search)->where('campus_id', (int) $owner->campus_id)
+            return $this->searchWithRecovery('requests', fn () => InternshipRequest::search($search)->where('campus_id', (int) $owner->campus_id)
                 ->whereNotIn('status', ['draft', 'withdrawn'])
                 ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('status', InternshipRequestStatus::tryFrom($this->status)?->value ?? 'invalid'))
                 ->when($this->courseId !== '', fn ($searchQuery) => $searchQuery->where('course_id', (int) $this->courseId))
                 ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with($query->getEagerLoads()))
-                ->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+                ->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->paginate(PageSize::PER_PAGE, 'page', $this->getPage()),
+                fn () => $this->unavailableSearchPage());
         }
 
         return $query->latest('updated_at')->latest('id')->paginate(PageSize::PER_PAGE);
@@ -156,8 +163,10 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
         </div>
     </div>
     @php($requests = $this->requests)
-    <x-loading-overlay target="search,courseId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
-        @if ($requests->isNotEmpty())
+    <x-loading-overlay target="retrySearch,search,courseId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+        @if ($this->searchFailed('requests'))
+            <x-search-unavailable retry="retrySearch('requests')" />
+        @elseif ($requests->isNotEmpty())
             <flux:table :paginate="$requests" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
                     <flux:table.column>Solicitação / Discente</flux:table.column>

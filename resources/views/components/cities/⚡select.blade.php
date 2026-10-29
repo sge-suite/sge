@@ -14,6 +14,13 @@ use Livewire\Component;
 
 new class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
+
+    protected function searchRetryProperties(): array
+    {
+        return ['cities' => ['cities']];
+    }
+
     #[Locked]
     public ?int $campusId = null;
 
@@ -123,7 +130,7 @@ new class extends Component
             return new Collection;
         }
 
-        return City::search($search)->where('state', $state->value)->take(20)->get();
+        return $this->searchWithRecovery('cities', fn () => City::search($search)->where('state', $state->value)->take(20)->get(), fn () => new Collection);
     }
 }; ?>
 
@@ -133,7 +140,8 @@ new class extends Component
     <div>
         <x-select wire:model.live="cityId" :name="$fieldName" label="Cidade" icon="map-pin" placeholder="{{ $state === '' ? 'Selecione primeiro a UF' : 'Selecione a cidade' }}"
             :value="$cityId" :selected-label="$this->selectedCity?->name ?? ''" :options="$this->cities->pluck('name', 'id')->all()"
-            :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
+            :search-unavailable="$this->searchFailed('cities')" search-retry="retrySearch('cities')" search-target="citySearch,retrySearch"
+                :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
             :disabled="$state === ''" :invalid="filled($selectionError) || filled($cityError)" :error="$selectionError ?: ($cityError ?? '')" :required="$required" wire:key="city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId">
             <x-slot:search>
                 <flux:input name="" wire:model.live.debounce.500ms="citySearch" wire:ignore.self placeholder="Buscar cidade…" aria-label="Buscar cidade" icon="magnifying-glass" size="sm" maxlength="255"

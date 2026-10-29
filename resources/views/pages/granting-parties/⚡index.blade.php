@@ -17,6 +17,7 @@ use Livewire\WithPagination;
 
 new #[Title('Partes concedentes')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use WithPagination;
 
     #[Url(except: 'all')]
@@ -32,6 +33,11 @@ new #[Title('Partes concedentes')] class extends Component
     public string $cityId = '';
 
     public string $citySearch = '';
+
+    protected function searchRetryProperties(): array
+    {
+        return ['grantingParties' => ['grantingParties'], 'cities' => ['cities']];
+    }
 
     public function updatedSearch(): void
     {
@@ -125,7 +131,7 @@ new #[Title('Partes concedentes')] class extends Component
             $query->where('state', $state->value);
         }
 
-        return $query->take(20)->get();
+        return $this->searchWithRecovery('cities', fn () => $query->take(20)->get(), fn () => new Collection);
     }
 
     #[Computed]
@@ -154,13 +160,14 @@ new #[Title('Partes concedentes')] class extends Component
             });
 
         if ($search !== '') {
-            return GrantingParty::search($search)->where('campus_id', (int) $affiliation->campus_id)
+            return $this->searchWithRecovery('grantingParties', fn () => GrantingParty::search($search)->where('campus_id', (int) $affiliation->campus_id)
                 ->options(['attributesToSearchOn' => ['name', 'document_number', 'normalized_document_number']])
                 ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('is_active', (int) ($this->status === 'active')))
                 ->when($state !== null, fn ($searchQuery) => $searchQuery->where('state', $state->value))
                 ->when($selectedCity !== null, fn ($searchQuery) => $searchQuery->where('city_id', (int) $selectedCity->id))
                 ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with('address.city'))
-                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage()),
+                fn () => $this->unavailableSearchPage());
         }
 
         return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
@@ -195,6 +202,7 @@ new #[Title('Partes concedentes')] class extends Component
         <div class="min-w-0">
             <x-select wire:model.live="cityId" label="Cidade" icon="map-pin" placeholder="Todas as cidades"
                 :value="$cityId" :selected-label="$this->selectedCity ? $this->selectedCity->name.' / '.$this->selectedCity->state->value : ''" :options="($cityId !== '' ? ['' => 'Todas as cidades'] : []) + $this->cities->mapWithKeys(fn ($city) => [$city->id => $city->name.' / '.$city->state->value])->all()"
+                :search-unavailable="$this->searchFailed('cities')" search-retry="retrySearch('cities')" search-target="citySearch,retrySearch"
                 :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
                 searchable wire:key="granting-party-city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId,citySearch">
                 <x-slot:search>
@@ -216,8 +224,10 @@ new #[Title('Partes concedentes')] class extends Component
         </div>
     </div>
     @php($grantingParties = $this->grantingParties)
-    <x-loading-overlay target="search,state,cityId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
-        @if ($grantingParties->isNotEmpty())
+    <x-loading-overlay target="retrySearch,search,state,cityId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+        @if ($this->searchFailed('grantingParties'))
+            <x-search-unavailable retry="retrySearch('grantingParties')" />
+        @elseif ($grantingParties->isNotEmpty())
             <flux:table :paginate="$grantingParties">
                 <flux:table.columns class="bg-white dark:bg-zinc-800">
                     <flux:table.column>Parte concedente</flux:table.column>

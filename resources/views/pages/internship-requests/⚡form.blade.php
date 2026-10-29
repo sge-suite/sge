@@ -40,7 +40,13 @@ use Livewire\WithFileUploads;
 
 new #[Title('Solicitação de estágio')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use \App\Concerns\SearchesSelectOptions;
+
+    protected function searchRetryProperties(): array
+    {
+        return ['parties' => ['partyResults', 'choices'], 'supervisors' => ['supervisorResults', 'choices']];
+    }
 
     protected function selectSearchSource(string $source): array
     {
@@ -195,28 +201,54 @@ new #[Title('Solicitação de estágio')] class extends Component
         $supervisorKey = $this->lookupKey($this->values['supervisor_affiliation_id'] ?? null);
         $selectedParty = $partyKey === null ? null : (clone $partyQuery)->with('address.city')->find($partyKey);
         $selectedSupervisor = $supervisorKey === null ? null : (clone $supervisorQuery)->with('user.personalData')->find($supervisorKey);
-        $partyCityKey = $this->lookupKey($this->partyCityId);
-        $partyTerm = mb_substr(trim($this->partySearch), 0, 100);
-        $supervisorTerm = mb_substr(trim($this->supervisorSearch), 0, 100);
-        $supervisorUserIds = mb_strlen($supervisorTerm) < 2 ? [] : User::search($supervisorTerm)
-            ->options(['attributesToSearchOn' => ['name', 'cpf', 'formatted_cpf']])
-            ->where('affiliation_scopes', User::affiliationSearchScope('campus-'.$owner->campus_id, AffiliationType::Supervisor->value, 'active'))
-            ->take(20)->keys()->all();
         return [
             'proposalCity' => ($proposalCityKey = $this->lookupKey($this->values['granting_party_proposal']['city_id'] ?? null)) === null ? null : City::find($proposalCityKey),
             'advisors' => Affiliation::query()->active()->where('campus_id', $owner->campus_id)->where('type', AffiliationType::Advisor->value)->with('user')->get()->sortBy(fn (Affiliation $advisor): string => $advisor->user->name),
             'types' => InternshipType::query()->active()->where('course_id', $owner->course_id)->orderBy('name')->get(),
-            'parties' => mb_strlen($partyTerm) < 2 && $partyCityKey === null ? collect() : GrantingParty::search($partyTerm)
+            'parties' => $this->partyResults,
+            'supervisors' => $this->supervisorResults,
+            'selectedParty' => $selectedParty, 'selectedSupervisor' => $selectedSupervisor,
+        ];
+    }
+
+    /** @return \Illuminate\Support\Collection<int, GrantingParty> */
+    #[Computed]
+    public function partyResults(): \Illuminate\Support\Collection
+    {
+        $owner = $this->personal['owner'];
+        $partyQuery = app(InternshipRegistrationLookup::class)->grantingParties($owner);
+        $partyCityKey = $this->lookupKey($this->partyCityId);
+        $partyTerm = mb_substr(trim($this->partySearch), 0, 100);
+        if (mb_strlen($partyTerm) < 2 && $partyCityKey === null) {
+            return collect();
+        }
+
+        return $this->searchWithRecovery('parties', fn () => GrantingParty::search($partyTerm)
                 ->options(['attributesToSearchOn' => ['name', 'document_number', 'normalized_document_number']])
                 ->where('campus_id', (int) $owner->campus_id)->where('is_active', 1)
                 ->when($partyCityKey !== null, fn ($query) => $query->where('city_id', $partyCityKey))
                 ->query(fn ($query) => $query->mergeConstraintsFrom($partyQuery)
                     ->when($partyCityKey !== null, fn ($query) => $query->whereHas('address', fn ($address) => $address->where('city_id', $partyCityKey)))
                     ->with('address.city'))
-                ->take(20)->get(),
-            'supervisors' => $supervisorQuery->with('user')->whereIn('user_id', $supervisorUserIds)->orderBy('id')->limit(20)->get(),
-            'selectedParty' => $selectedParty, 'selectedSupervisor' => $selectedSupervisor,
-        ];
+                ->take(20)->get(), fn () => collect());
+    }
+
+    /** @return \Illuminate\Support\Collection<int, Affiliation> */
+    #[Computed]
+    public function supervisorResults(): \Illuminate\Support\Collection
+    {
+        $owner = $this->personal['owner'];
+        $supervisorQuery = app(InternshipRegistrationLookup::class)->supervisors($owner);
+        $supervisorTerm = mb_substr(trim($this->supervisorSearch), 0, 100);
+        if (mb_strlen($supervisorTerm) < 2) {
+            return collect();
+        }
+        $supervisorUserIds = $this->searchWithRecovery('supervisors', fn () => User::search($supervisorTerm)
+            ->options(['attributesToSearchOn' => ['name', 'cpf', 'formatted_cpf']])
+            ->where('affiliation_scopes', User::affiliationSearchScope('campus-'.$owner->campus_id, AffiliationType::Supervisor->value, 'active'))
+            ->take(20)->keys()->all(), fn () => []);
+
+        return $supervisorQuery->with('user')->whereIn('user_id', $supervisorUserIds)->orderBy('id')->limit(20)->get();
     }
 
     private function lookupKey(mixed $value): ?int
@@ -231,7 +263,7 @@ new #[Title('Solicitação de estágio')] class extends Component
 
     private function loadValues(): void
     {
-        unset($this->record, $this->editableSections, $this->choices, $this->stepStatuses);
+        unset($this->record, $this->editableSections, $this->choices, $this->partyResults, $this->supervisorResults, $this->stepStatuses);
         $request = $this->record;
         $this->savedUpdatedAt = $request->getRawOriginal('updated_at');
         foreach (array_merge(...array_values(self::internshipSections())) as $field) {
@@ -313,13 +345,19 @@ new #[Title('Solicitação de estágio')] class extends Component
         $this->values['granting_party_change_note'] = '';
         $this->partyMatchMessage = '';
         $this->termsAccepted = false;
-        unset($this->choices);
+        unset($this->choices, $this->partyResults);
         $this->resetValidation('granting_party_id');
     }
 
     public function updatedPartySearch(): void
     {
         $this->partyMatchMessage = '';
+        unset($this->choices, $this->partyResults);
+    }
+
+    public function updatedSupervisorSearch(): void
+    {
+        unset($this->choices, $this->supervisorResults);
     }
 
     public function updatedValues(mixed $value, string $key): void
@@ -385,6 +423,15 @@ new #[Title('Solicitação de estágio')] class extends Component
     public function completeRegistration(string $kind): void
     {
         $this->authorizeRegistrationSection($kind);
+        $source = $kind === 'granting_party' ? 'parties' : 'supervisors';
+        if ($kind === 'granting_party') {
+            $this->partyResults;
+        } else {
+            $this->supervisorResults;
+        }
+        if ($this->searchFailed($source)) {
+            return;
+        }
         $this->values[$kind.'_mode'] = 'pending';
         $this->values[$kind === 'granting_party' ? 'granting_party_id' : 'supervisor_affiliation_id'] = '';
         $term = trim($kind === 'granting_party' ? $this->partySearch : $this->supervisorSearch);
@@ -436,14 +483,14 @@ new #[Title('Solicitação de estágio')] class extends Component
         }
         $this->termsAccepted = false;
         $this->resetValidation();
-        unset($this->choices);
+        unset($this->choices, $this->partyResults, $this->supervisorResults);
     }
 
     public function clearPartyCityFilter(): void
     {
         $this->authorizeRegistrationSection('granting_party');
         $this->partyCityId = '';
-        unset($this->choices);
+        unset($this->choices, $this->partyResults);
     }
 
     private function authorizeRegistrationSection(string $kind): void
@@ -497,7 +544,7 @@ new #[Title('Solicitação de estágio')] class extends Component
             $this->termsAccepted = false;
             $this->cancelCepLookup();
             $this->resetValidation();
-            unset($this->choices);
+            unset($this->choices, $this->partyResults, $this->supervisorResults);
             return true;
         }
         return false;

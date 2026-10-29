@@ -16,6 +16,7 @@ use Livewire\WithPagination;
 
 new #[Title('Templates DOCX')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use WithPagination;
 
     #[Url(except: '')]
@@ -26,6 +27,11 @@ new #[Title('Templates DOCX')] class extends Component
 
     #[Url(except: '')]
     public string $remuneration = '';
+
+    protected function searchRetryProperties(): array
+    {
+        return ['templates' => ['templates']];
+    }
 
     public function boot(): void
     {
@@ -65,12 +71,13 @@ new #[Title('Templates DOCX')] class extends Component
             ->when($type !== null, fn (Builder $query) => $query->where('document_type', $type));
 
         if ($search !== '') {
-            return DocumentTemplate::search($search)->where('campus_id', (int) $office->campus_id)
+            return $this->searchWithRecovery('templates', fn () => DocumentTemplate::search($search)->where('campus_id', (int) $office->campus_id)
                 ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('is_active', (int) ($this->status === 'active')))
                 ->when($type !== null, fn ($searchQuery) => $searchQuery->where('document_type', $type->value))
                 ->when($remuneration !== null, fn ($searchQuery) => $searchQuery->where('remuneration', $remuneration->value))
                 ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with('currentVersion')->withCount('templateVersions'))
-                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage()),
+                fn () => $this->unavailableSearchPage());
         }
 
         return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
@@ -109,8 +116,10 @@ new #[Title('Templates DOCX')] class extends Component
         </div>
     </div>
     @php($templates = $this->templates)
-    <x-loading-overlay target="search,documentType,remuneration,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
-        @if ($templates->isNotEmpty())
+    <x-loading-overlay target="retrySearch,search,documentType,remuneration,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+        @if ($this->searchFailed('templates'))
+            <x-search-unavailable retry="retrySearch('templates')" />
+        @elseif ($templates->isNotEmpty())
             <flux:table :paginate="$templates" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
                     <flux:table.column>Template</flux:table.column>

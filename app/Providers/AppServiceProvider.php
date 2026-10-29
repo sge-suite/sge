@@ -9,7 +9,9 @@ use App\Policies\ActivityPolicy;
 use App\Policies\CampusPolicy;
 use App\Support\ActiveAffiliationContext;
 use App\Support\AuditInfrastructureModel;
+use App\Support\MeilisearchHttpClient;
 use App\Support\ProtectTemplateMedia;
+use App\Support\SearchQuery;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\DatabaseNotification;
@@ -21,6 +23,8 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View as BladeView;
+use Laravel\Scout\Scout;
+use Meilisearch\Client;
 use RuntimeException;
 use Spatie\Activitylog\Actions\LogActivityAction;
 use Spatie\Activitylog\Contracts\Activity as ActivityContract;
@@ -34,7 +38,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(SearchQuery::class);
+        $this->app->singleton(Client::class, fn (): Client => new Client(
+            config('scout.meilisearch.host'),
+            config('scout.meilisearch.key'),
+            httpClient: new MeilisearchHttpClient,
+            clientAgents: [sprintf('Meilisearch Laravel Scout (v%s)', Scout::VERSION)],
+        ));
     }
 
     /**

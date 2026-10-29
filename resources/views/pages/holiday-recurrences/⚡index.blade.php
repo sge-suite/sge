@@ -15,10 +15,16 @@ use Livewire\WithPagination;
 
 new #[Title('Recorrências municipais')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use WithPagination;
 
     #[Url(except: '')]
     public string $search = '';
+
+    protected function searchRetryProperties(): array
+    {
+        return ['recurrences' => ['recurrences']];
+    }
 
     public function updatedSearch(): void
     {
@@ -99,9 +105,10 @@ new #[Title('Recorrências municipais')] class extends Component
                 $query->onlyTrashed();
             }
 
-            return $query->orderBy('name')->orderBy('id')
+            return $this->searchWithRecovery('recurrences', fn () => $query->orderBy('name')->orderBy('id')
                 ->query(fn (Builder $query) => $query->with('city'))
-                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+                ->paginate(PageSize::PER_PAGE, 'page', $this->getPage()),
+                fn () => $this->unavailableSearchPage());
         }
 
         return app(HolidayAccess::class)->recurrences(auth()->user(), $this->trash)
@@ -142,8 +149,10 @@ new #[Title('Recorrências municipais')] class extends Component
         </div>
     </div>
     @php($recurrences = $this->recurrences)
-    <x-loading-overlay target="search,clearFilters,gotoPage,nextPage,previousPage,resetPage,openConfirmation" label="Atualizando lista…" :dim-while-loading="true">
-        @if ($recurrences->isNotEmpty())
+    <x-loading-overlay target="retrySearch,search,clearFilters,gotoPage,nextPage,previousPage,resetPage,openConfirmation" label="Atualizando lista…" :dim-while-loading="true">
+        @if ($this->searchFailed('recurrences'))
+            <x-search-unavailable retry="retrySearch('recurrences')" />
+        @elseif ($recurrences->isNotEmpty())
             <flux:table :paginate="$recurrences">
                 <flux:table.columns>
                     <flux:table.column>Nome</flux:table.column>

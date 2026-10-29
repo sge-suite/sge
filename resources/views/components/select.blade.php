@@ -3,6 +3,7 @@
     'placeholder' => 'Selecione uma opção', 'searchable' => false, 'searchSource' => null,
     'disabled' => false, 'required' => false, 'invalid' => false, 'error' => '', 'openOnMount' => false,
     'empty' => 'Nenhuma opção encontrada.',
+    'searchUnavailable' => false, 'searchRetry' => null, 'searchTarget' => null,
     'icon' => null, 'optionIcons' => [], 'creatable' => false, 'maxLength' => 5000,
 ])
 
@@ -366,11 +367,16 @@
                         <flux:icon.plus variant="micro" class="shrink-0" /><span class="min-w-0 wrap-break-word">Usar “<span x-text="query.trim()"></span>”</span>
                     </button>
                 @endif
-                <p x-cloak x-show="!remoteLoading && !remoteError && options().length === 0" class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
+                @if (! $searchUnavailable)
+                    <p x-cloak x-show="!remoteLoading && !remoteError && options().length === 0" @if ($searchTarget) wire:loading.remove wire:target="{{ $searchTarget }}" @endif class="px-2 py-3 text-sm text-zinc-500 dark:text-zinc-400" role="status">{{ $empty }}</p>
+                @endif
             </div>
         </div>
         <p x-cloak x-show="missing" class="mt-2 text-sm text-red-500 dark:text-red-400" role="alert">Selecione uma opção.</p>
     </div>
+    @if ($searchUnavailable && $searchRetry)
+        <x-search-unavailable :retry="$searchRetry" />
+    @endif
     @if ($error !== '')
         <flux:error id="{{ $selectId }}-error" :message="$error" />
     @endif

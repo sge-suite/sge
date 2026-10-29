@@ -12,6 +12,13 @@ use Livewire\Component;
 
 new #[Title('Revisar feriado importado')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
+
+    protected function searchRetryProperties(): array
+    {
+        return ['candidates' => ['candidates']];
+    }
+
     #[Locked]
     public HolidaySource $holidaySource;
 
@@ -35,9 +42,9 @@ new #[Title('Revisar feriado importado')] class extends Component
     public function candidates(): Collection
     {
         $search = mb_substr(trim($this->holidaySearch), 0, 255);
-        $matchingIds = mb_strlen($search) >= 2 ? Holiday::search($search)->withTrashed()->orderBy('date', 'desc')->take(20)->keys()->all() : [];
+        $matchingIds = mb_strlen($search) >= 2 ? $this->searchWithRecovery('candidates', fn () => Holiday::search($search)->withTrashed()->orderBy('date', 'desc')->take(20)->keys()->all(), fn () => []) : [];
 
-        return Holiday::withTrashed()->where(function (Builder $query) use ($matchingIds): void {
+        $candidates = Holiday::withTrashed()->where(function (Builder $query) use ($matchingIds): void {
             $query->whereIn('id', $this->holidaySource->candidate_ids ?? []);
             if (ctype_digit($this->selectedHolidayId)) {
                 $query->orWhere('id', (int) $this->selectedHolidayId);
@@ -46,6 +53,10 @@ new #[Title('Revisar feriado importado')] class extends Component
                 $query->orWhereIn('id', $matchingIds);
             }
         })->orderByDesc('date')->limit(20)->get();
+
+        $selected = ctype_digit($this->selectedHolidayId) ? Holiday::withTrashed()->find((int) $this->selectedHolidayId) : null;
+
+        return $selected === null ? $candidates : $candidates->prepend($selected)->unique('id')->values();
     }
 }; ?>
 
@@ -86,8 +97,9 @@ new #[Title('Revisar feriado importado')] class extends Component
             <fieldset x-cloak x-show="resolution === 'link'" x-bind:disabled="resolution !== 'link'" class="space-y-3">
                 <x-select name="holiday_id" wire:model.live="selectedHolidayId" label="Feriado existente" placeholder="Selecione o feriado" :value="$selectedHolidayId"
                     :options="$this->candidates->mapWithKeys(fn ($candidate) => [$candidate->id => $candidate->name.' · '.formatShort($candidate->date).($candidate->trashed() ? ' · Na lixeira' : '')])->all()"
+                    :search-unavailable="$this->searchFailed('candidates')" search-retry="retrySearch('candidates')" search-target="holidaySearch,retrySearch"
                     :invalid="$errors->has('holiday_id')" :error="$errors->first('holiday_id')"
-                    empty="Busque pelo nome do feriado ou selecione uma sugestão." searchable required>
+                    :empty="mb_strlen(trim($holidaySearch)) < 2 ? 'Digite pelo menos 2 caracteres ou selecione uma sugestão.' : 'Nenhum feriado encontrado.'" searchable required>
                     <x-slot:search>
                         <flux:input name="" wire:model.live.debounce.500ms="holidaySearch" wire:ignore.self placeholder="Buscar feriado…" aria-label="Buscar feriado" icon="magnifying-glass" size="sm" maxlength="255"
                             role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="$refs.list.id" x-bind:aria-activedescendant="activeId()" />

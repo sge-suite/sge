@@ -78,6 +78,7 @@
         @endphp
         <x-select wire:model.live="values.granting_party_id" :value="$values['granting_party_id'] ?? ''" label="Onde você fará o estágio?" placeholder="Buscar por nome ou CPF/CNPJ"
             :options="$partyOptions"
+            :search-unavailable="$this->searchFailed('parties')" search-retry="retrySearch('parties')" search-target="partySearch,partyCityId,retrySearch"
             :empty="mb_strlen(trim($partySearch)) < 2 && blank($partyCityId) ? 'Digite pelo menos dois caracteres para buscar.' : 'Não encontramos uma concedente disponível para seu campus com esses filtros.'"
             :invalid="$errors->has('granting_party_id')" :error="$errors->first('granting_party_id')" required>
             <x-slot:search>
@@ -86,7 +87,7 @@
                 <span wire:loading wire:target="partySearch,partyCityId" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando concedentes…</span>
             </x-slot:search>
         </x-select>
-        @if (! $choices['selectedParty'])
+        @if (! $choices['selectedParty'] && ! $this->searchFailed('parties'))
         @if ($choices['parties']->count() === 20)<flux:text size="sm">Exibimos até 20 resultados. Refine a busca pelo nome, documento ou cidade para encontrar a unidade correta.</flux:text>@endif
         @if ($partyMatchMessage)
             <flux:text size="sm">Se a unidade correta não estiver na lista, procure o Setor de Estágio para conferir os cadastros desse documento.</flux:text>
@@ -167,14 +168,14 @@
             <div class="sm:col-span-2"><flux:input wire:model="values.supervisor_proposal.email" label="E-mail do supervisor" type="email" error:name="supervisor_proposal.email" maxlength="255" required /></div>
         </div>
     @else
-        <x-select wire:model.live="values.supervisor_affiliation_id" :value="$values['supervisor_affiliation_id'] ?? ''" label="Supervisor do seu campus" placeholder="Buscar por nome ou CPF" :empty="mb_strlen(trim($supervisorSearch)) < 2 ? 'Digite pelo menos dois caracteres para buscar.' : 'Não encontramos um vínculo de supervisor disponível para seu campus com esses dados.'" :options="collect([$choices['selectedSupervisor']])->merge($choices['supervisors'])->filter()->unique('id')->mapWithKeys(fn ($supervisor) => [$supervisor->id => $supervisor->user->name.' · '.$supervisor->email])->all()" :invalid="$errors->has('supervisor_affiliation_id')" :error="$errors->first('supervisor_affiliation_id')" required>
+        <x-select :search-unavailable="$this->searchFailed('supervisors')" search-retry="retrySearch('supervisors')" search-target="supervisorSearch,retrySearch" wire:model.live="values.supervisor_affiliation_id" :value="$values['supervisor_affiliation_id'] ?? ''" label="Supervisor do seu campus" placeholder="Buscar por nome ou CPF" :empty="mb_strlen(trim($supervisorSearch)) < 2 ? 'Digite pelo menos dois caracteres para buscar.' : 'Não encontramos um vínculo de supervisor disponível para seu campus com esses dados.'" :options="collect([$choices['selectedSupervisor']])->merge($choices['supervisors'])->filter()->unique('id')->mapWithKeys(fn ($supervisor) => [$supervisor->id => $supervisor->user->name.' · '.$supervisor->email])->all()" :invalid="$errors->has('supervisor_affiliation_id')" :error="$errors->first('supervisor_affiliation_id')" required>
             <x-slot:search>
                 <flux:input wire:model.live.debounce.400ms="supervisorSearch" wire:ignore.self placeholder="Nome ou CPF…" aria-label="Buscar supervisor por nome ou CPF" icon="magnifying-glass" size="sm" maxlength="100"
                     role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="listElement()?.id" x-bind:aria-activedescendant="activeId()" />
                 <span wire:loading wire:target="supervisorSearch" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando supervisores…</span>
             </x-slot:search>
         </x-select>
-        @if (! $choices['selectedSupervisor'])
+        @if (! $choices['selectedSupervisor'] && ! $this->searchFailed('supervisors'))
         @if ($choices['supervisors']->count() === 20)<flux:text size="sm">Exibimos até 20 resultados. Refine a busca pelo nome ou CPF.</flux:text>@endif
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
             <flux:text size="sm">Não encontrou quem acompanhará suas atividades?</flux:text>

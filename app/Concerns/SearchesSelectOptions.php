@@ -7,9 +7,9 @@ use App\Models\Campus;
 use App\Models\Course;
 use App\Models\GrantingParty;
 use App\Models\InternshipType;
+use App\Support\SearchQuery;
+use App\Support\SearchUnavailable;
 use Livewire\Attributes\Renderless;
-use Meilisearch\Exceptions\ApiException;
-use Meilisearch\Exceptions\CommunicationException;
 
 trait SearchesSelectOptions
 {
@@ -39,13 +39,11 @@ trait SearchesSelectOptions
             if (isset($configuration['attributes'])) {
                 $query->options(['attributesToSearchOn' => $configuration['attributes']]);
             }
-            $keys = $query->take(21)->keys()
+            $keys = app(SearchQuery::class)->run(fn () => $query->take(21)->keys())
                 ->map(fn (int|string $key): string => (string) $key)->values()->all();
 
             return ['keys' => array_values(array_slice($keys, 0, 20)), 'hasMore' => count($keys) > 20];
-        } catch (ApiException|CommunicationException $exception) {
-            report($exception);
-
+        } catch (SearchUnavailable) {
             return ['keys' => [], 'hasMore' => false, 'unavailable' => true];
         }
     }

@@ -21,6 +21,7 @@ use Livewire\WithPagination;
 
 new #[Title('Estágios')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use WithPagination;
     use \App\Concerns\SearchesSelectOptions;
 
@@ -39,6 +40,11 @@ new #[Title('Estágios')] class extends Component
     #[Url(except: '', as: 'course')] public string $courseId = '';
     #[Url(except: '', as: 'advisor')] public string $advisorId = '';
     #[Url(except: false, as: 'pending_cancellations')] public bool $pendingCancellations = false;
+
+    protected function searchRetryProperties(): array
+    {
+        return ['internships' => ['internships']];
+    }
 
     public function boot(): void
     {
@@ -167,7 +173,7 @@ new #[Title('Estágios')] class extends Component
             ->with(['course', 'advisorAffiliation.user']);
 
         if ($search !== '') {
-            return Internship::searchVisibleToAffiliation($search, $owner)
+            return $this->searchWithRecovery('internships', fn () => Internship::searchVisibleToAffiliation($search, $owner)
                 ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('status', InternshipStatus::tryFrom($this->status)?->value ?? 'invalid'))
                 ->when($this->advisorId !== '', fn ($searchQuery) => $searchQuery->where('advisor_affiliation_id', (int) $this->advisorId))
                 ->when($this->courseId !== '', fn ($searchQuery) => $searchQuery->where('course_id', (int) $this->courseId))
@@ -179,7 +185,8 @@ new #[Title('Estágios')] class extends Component
                             ->whereIn('status', [InternshipCancellationRequestStatus::Submitted, InternshipCancellationRequestStatus::UnderReview])]);
                     }
                 })
-                ->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+                ->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->paginate(PageSize::PER_PAGE, 'page', $this->getPage()),
+                fn () => $this->unavailableSearchPage());
         }
 
         return $query->latest('updated_at')->latest('id')->paginate(PageSize::PER_PAGE);
@@ -208,8 +215,10 @@ new #[Title('Estágios')] class extends Component
         <flux:checkbox wire:model.live="pendingCancellations" label="Somente com pedido de cancelamento pendente" />
     @endif
     @php($internships = $this->internships)
-    <x-loading-overlay target="search,courseId,advisorId,status,pendingCancellations,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
-        @if ($internships->isNotEmpty())
+    <x-loading-overlay target="retrySearch,search,courseId,advisorId,status,pendingCancellations,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+        @if ($this->searchFailed('internships'))
+            <x-search-unavailable retry="retrySearch('internships')" />
+        @elseif ($internships->isNotEmpty())
             <x-academic-internships-table :internships="$internships" :paginated="true" :is-office="app(StudentInternshipContext::class)->selected(auth()->user())->type === AffiliationType::InternshipOffice" />
         @else
             <div class="rounded-xl border border-dashed border-zinc-300 px-6 py-14 text-center dark:border-zinc-700">

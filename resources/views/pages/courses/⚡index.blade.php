@@ -14,6 +14,7 @@ use Livewire\WithPagination;
 
 new #[Title('Cursos')] class extends Component
 {
+    use \App\Concerns\HandlesSearchFailures;
     use WithPagination;
 
     #[Url(except: 'all')]
@@ -21,6 +22,11 @@ new #[Title('Cursos')] class extends Component
 
     #[Url(except: '')]
     public string $search = '';
+
+    protected function searchRetryProperties(): array
+    {
+        return ['courses' => ['courses']];
+    }
 
     public function updatedSearch(): void
     {
@@ -63,10 +69,11 @@ new #[Title('Cursos')] class extends Component
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'));
 
         if ($search !== '') {
-            return Course::search($search)->where('campus_id', (int) $affiliation->campus_id)
+            return $this->searchWithRecovery('courses', fn () => Course::search($search)->where('campus_id', (int) $affiliation->campus_id)
                 ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('is_active', (int) ($this->status === 'active')))
                 ->query(fn (Builder $builder) => $builder->mergeConstraintsFrom($query)->with($query->getEagerLoads()))
-                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage());
+                ->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE, 'page', $this->getPage()),
+                fn () => $this->unavailableSearchPage());
         }
 
         return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
@@ -102,8 +109,10 @@ new #[Title('Cursos')] class extends Component
         </div>
     </div>
     @php($courses = $this->courses)
-    <x-loading-overlay target="search,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
-        @if ($courses->isNotEmpty())
+    <x-loading-overlay target="retrySearch,search,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+        @if ($this->searchFailed('courses'))
+            <x-search-unavailable retry="retrySearch('courses')" />
+        @elseif ($courses->isNotEmpty())
             <flux:table :paginate="$courses" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
                     <flux:table.column>Curso</flux:table.column>

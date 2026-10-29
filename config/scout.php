@@ -152,6 +152,10 @@ return [
     'meilisearch' => [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
+        'search_connect_timeout' => (float) env('MEILISEARCH_SEARCH_CONNECT_TIMEOUT', 1),
+        'search_timeout' => (float) env('MEILISEARCH_SEARCH_TIMEOUT', 3),
+        'operations_connect_timeout' => (float) env('MEILISEARCH_OPERATIONS_CONNECT_TIMEOUT', 10),
+        'operations_timeout' => (float) env('MEILISEARCH_OPERATIONS_TIMEOUT', 300),
         'index-settings' => [
             Affiliation::class => [
                 'searchableAttributes' => ['name', 'email', 'registration_number'],
