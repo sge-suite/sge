@@ -14,6 +14,10 @@ class DeliveryMail extends Mailable
 
     public function build(): static
     {
+        if ($this->attempt->attempt_number > 1) {
+            return $this->retryContent();
+        }
+
         return match ($this->attempt->purpose) {
             EmailMessagePurpose::Notification, EmailMessagePurpose::DocumentSignature, EmailMessagePurpose::InternshipRequestSubmitted => $this->notificationContent(),
             EmailMessagePurpose::AccountCreated => $this->accountCreatedContent(),
@@ -21,6 +25,28 @@ class DeliveryMail extends Mailable
             EmailMessagePurpose::AccountEmailChanged, EmailMessagePurpose::AdministrativeChange => $this->accountEmailChangedContent(),
             default => throw new LogicException('Finalidade de e-mail inválida.'),
         };
+    }
+
+    private function retryContent(): static
+    {
+        $message = $this->attempt->emailMessage;
+
+        if ($message === null || $message->purpose !== $this->attempt->purpose || blank($message->subject)
+            || (blank($message->content_text) && blank($message->content_html))) {
+            throw new LogicException('O conteúdo original não está disponível para repetir o transporte.');
+        }
+
+        $this->subject($message->subject);
+
+        if (filled($message->content_html)) {
+            $this->html($message->content_html);
+        }
+
+        if (filled($message->content_text)) {
+            $this->text('emails.delivery-text', ['body' => $message->content_text]);
+        }
+
+        return $this;
     }
 
     private function notificationContent(): static

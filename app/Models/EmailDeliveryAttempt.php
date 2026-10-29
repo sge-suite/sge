@@ -65,6 +65,47 @@ class EmailDeliveryAttempt extends Model
         return $this->belongsTo(Affiliation::class, 'requested_by_affiliation_id');
     }
 
+    public function retryUnavailableReason(): ?string
+    {
+        if ($this->status !== EmailDeliveryAttemptStatus::Failed) {
+            return 'Somente a última tentativa com falha pode ser repetida.';
+        }
+
+        if ($this->attempt_number >= 3) {
+            return 'O limite de três tentativas, incluindo a original, foi atingido.';
+        }
+
+        $message = $this->emailMessage;
+
+        if ($message === null || $message->purpose !== $this->purpose || blank($message->subject)
+            || (blank($message->content_text) && blank($message->content_html))) {
+            return 'O conteúdo original não está disponível para reproduzir fielmente esta mensagem.';
+        }
+
+        return null;
+    }
+
+    private function assertRetryIdentity(): void
+    {
+        $first = self::query()->where('delivery_key', $this->delivery_key)
+            ->orderBy('attempt_number')->lockForUpdate()->first();
+        $previous = self::query()->where('delivery_key', $this->delivery_key)
+            ->orderByDesc('attempt_number')->lockForUpdate()->first();
+
+        if ($first === null || $first->attempt_number !== 1 || $previous === null
+            || $previous->attempt_number + 1 !== $this->attempt_number || $previous->retryUnavailableReason() !== null
+            || $this->status !== EmailDeliveryAttemptStatus::Queued) {
+            throw ValidationException::withMessages(['retry' => 'A sequência não permite uma nova tentativa. Atualize o histórico.']);
+        }
+
+        foreach ([$first, $previous] as $reserved) {
+            if ($reserved->email_message_id !== $this->email_message_id || $reserved->purpose !== $this->purpose
+                || $reserved->recipient_email !== $this->recipient_email || $reserved->scope_context != $this->scope_context) {
+                throw ValidationException::withMessages(['retry' => 'A nova tentativa deve preservar a identidade da reserva original.']);
+            }
+        }
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $attempt): void {
@@ -108,6 +149,10 @@ class EmailDeliveryAttempt extends Model
             ])->validate();
 
             if (! $attempt->exists) {
+                if ($attempt->attempt_number > 1) {
+                    $attempt->assertRetryIdentity();
+                }
+
                 $requiresMessage = in_array($attempt->purpose, [
                     EmailMessagePurpose::Notification,
                     EmailMessagePurpose::DocumentSignature,
@@ -130,7 +175,7 @@ class EmailDeliveryAttempt extends Model
 
                     $notifiable = $message->notification?->notifiable;
 
-                    if ($notifiable !== null && (! ($notifiable instanceof Affiliation || $notifiable instanceof User) ||
+                    if ($attempt->attempt_number === 1 && $notifiable !== null && (! ($notifiable instanceof Affiliation || $notifiable instanceof User) ||
                         $notifiable->email !== $attempt->recipient_email)) {
                         throw ValidationException::withMessages(['recipient_email' => 'O destinatário não corresponde à notificação.']);
                     }

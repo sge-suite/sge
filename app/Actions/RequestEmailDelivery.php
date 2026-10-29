@@ -13,12 +13,14 @@ use App\Models\EmailMessage;
 use App\Models\GeneratedDocument;
 use App\Models\InternshipRequest;
 use App\Models\User;
+use App\Support\ActiveAffiliationContext;
 use App\Support\EmailDeliveryContext;
 use App\Support\EmailRecipientIdentity;
 use App\Support\InternshipRequestReceipt;
 use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -26,7 +28,12 @@ use Spatie\Activitylog\Support\CauserResolver;
 
 class RequestEmailDelivery
 {
-    public function __construct(private EmailRecipientIdentity $identities) {}
+    public function __construct(
+        private EmailRecipientIdentity $identities,
+        private ActiveAffiliationContext $context,
+        private CauserResolver $causerResolver,
+        private AdministrativeAffiliationTransaction $affiliationTransaction,
+    ) {}
 
     /** @param array{name: string, email: string, role: string, affiliation: Affiliation|null} $recipient */
     public function documentSignature(GeneratedDocument $document, array $recipient, string $documentName, string $location, string $personalMessage, string $deliveryKey): EmailDeliveryAttempt
@@ -298,23 +305,39 @@ class RequestEmailDelivery
         });
     }
 
-    public function retry(EmailDeliveryAttempt $attempt): EmailDeliveryAttempt
+    public function retry(EmailDeliveryAttempt $attempt, User $actor, int $expectedLatestAttemptId, int $expectedAffiliationId): EmailDeliveryAttempt
     {
-        return DB::transaction(function () use ($attempt): EmailDeliveryAttempt {
-            $first = EmailDeliveryAttempt::query()->where('delivery_key', $attempt->delivery_key)
-                ->orderBy('id')->lockForUpdate()->firstOrFail();
-            $latest = EmailDeliveryAttempt::query()->where('delivery_key', $first->delivery_key)
-                ->orderByDesc('attempt_number')->firstOrFail();
+        return DB::transaction(function () use ($attempt, $actor, $expectedLatestAttemptId, $expectedAffiliationId): EmailDeliveryAttempt {
+            $this->affiliationTransaction->lockWrites();
+            $affiliation = $this->context->currentFor($actor, app('session.store'));
 
-            if ($latest->status !== EmailDeliveryAttemptStatus::Failed) {
+            if ($affiliation?->id !== $expectedAffiliationId) {
+                throw ValidationException::withMessages(['retry' => 'O vínculo selecionado mudou. Reabra o detalhe do envio antes de solicitar outra tentativa.']);
+            }
+
+            $affiliation = $actor->affiliations()->active()->lockForUpdate()->findOrFail($expectedAffiliationId);
+            $affiliation->campus()->lockForUpdate()->first();
+            $attempt = EmailDeliveryAttempt::query()->findOrFail($attempt->id);
+            Gate::forUser($actor)->authorize('retry', $attempt);
+
+            $first = EmailDeliveryAttempt::query()->where('delivery_key', $attempt->delivery_key)
+                ->orderBy('attempt_number')->lockForUpdate()->firstOrFail();
+            $latest = EmailDeliveryAttempt::query()->where('delivery_key', $first->delivery_key)
+                ->orderByDesc('attempt_number')->lockForUpdate()->firstOrFail();
+            Gate::forUser($actor)->authorize('retry', $latest);
+
+            if ($latest->id !== $expectedLatestAttemptId) {
                 return $latest;
             }
 
-            if ($latest->attempt_number >= 3) {
-                throw ValidationException::withMessages(['attempt_number' => 'O limite de tentativas foi atingido.']);
+            if (($reason = $latest->retryUnavailableReason()) !== null) {
+                throw ValidationException::withMessages(['retry' => $reason]);
             }
 
-            return $this->reserve($latest->delivery_key, $latest->purpose, $latest->recipient_email, $latest->emailMessage, $latest->attempt_number + 1, $latest->scope_context);
+            return $this->causerResolver->withCauser($affiliation, fn (): EmailDeliveryAttempt => $this->reserve(
+                $latest->delivery_key, $latest->purpose, $latest->recipient_email, $latest->emailMessage,
+                $latest->attempt_number + 1, $latest->scope_context,
+            ));
         });
     }
 
