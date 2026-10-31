@@ -185,14 +185,18 @@ new #[Title('Análise da solicitação de estágio')] class extends Component
         $result = $action->handle(Auth::user(), $this->record, $operation, $this->message, $this->sections, $this->advisorId, $this->supervisorQualificationId, $this->sectionMessages);
         unset($this->record, $this->choices, $this->activityHistory, $this->canDecide, $this->canStartReview, $this->acceptanceRequirements);
         $this->resetValidation();
-        \Flux\Flux::toast(match ($operation) {
-            'begin' => 'Solicitação em análise. As ações de decisão estão disponíveis.',
-            'accept' => 'Solicitação aceita. Estágio nº '.$result->internship_id.' em formalização.',
-            default => 'Decisão registrada.',
-        }, variant: 'success');
         if ($operation !== 'begin') {
             $this->dispatch('form-saved', scope: 'request-review', savedAt: formatDateTime(now()));
         }
+        if ($operation === 'accept') {
+            session()->flash('status', 'Solicitação aceita. Estágio nº '.$result->internship_id.' em formalização.');
+            $this->redirectRoute('internships.show', ['internship' => $result->internship_id], navigate: true);
+
+            return;
+        }
+        \Flux\Flux::toast($operation === 'begin'
+            ? 'Solicitação em análise. As ações de decisão estão disponíveis.'
+            : 'Decisão registrada.', variant: 'success');
     }
 
     public function refreshChoices(): void
