@@ -8,6 +8,7 @@ use App\Enums\InternshipStatus;
 use App\Models\Internship;
 use App\Models\User;
 use App\Support\StudentInternshipContext;
+use Illuminate\Database\Eloquent\Builder;
 
 class InternshipPolicy
 {
@@ -96,15 +97,25 @@ class InternshipPolicy
 
     public function updateAdvisorGrades(User $user, Internship $internship): bool
     {
-        $affiliation = $this->context->selected($user);
+        return $this->updatableAdvisorGradesQuery($user)->whereKey($internship->id)->exists();
+    }
 
-        return $this->viewAdvisorGrades($user, $internship)
-            && $affiliation->type === AffiliationType::Advisor
-            && $internship->advisor_affiliation_id === $affiliation->id
-            && $affiliation->campus->deactivated_at === null
-            && $internship->course->deactivated_at === null
-            && $internship->status !== InternshipStatus::Cancelled
-            && $internship->advisorAffiliation->deactivated_at === null;
+    /** @return Builder<Internship> */
+    public function updatableAdvisorGradesQuery(User $user): Builder
+    {
+        $affiliation = $this->context->selected($user);
+        $query = Internship::query();
+        if ($affiliation?->type !== AffiliationType::Advisor || $affiliation->campus === null
+            || $affiliation->campus->deactivated_at !== null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->visibleToAffiliation($affiliation)
+            ->where('advisor_affiliation_id', $affiliation->id)
+            ->whereHas('advisorAffiliation', fn (Builder $advisor) => $advisor
+                ->where('user_id', $user->id)->where('campus_id', $affiliation->campus_id)->whereNull('deactivated_at'))
+            ->whereHas('course', fn (Builder $course) => $course->whereNull('deactivated_at'))
+            ->where('status', '!=', InternshipStatus::Cancelled);
     }
 
     public function managePauses(User $user, Internship $internship): bool

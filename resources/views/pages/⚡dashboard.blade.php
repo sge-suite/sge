@@ -7,6 +7,7 @@ use App\Enums\AffiliationType;
 use App\Models\User;
 use App\Models\InternshipRequest;
 use App\Models\Internship;
+use App\Policies\InternshipPolicy;
 use App\Support\StudentInternshipContext;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -37,6 +38,7 @@ new #[Title('Painel')] class extends Component
         $owner = app(StudentInternshipContext::class)->selected(auth()->user());
         $query = Internship::query()->visibleToAffiliation($owner);
         $counts = (clone $query)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
+        $pendingGrades = app(InternshipPolicy::class)->updatableAdvisorGradesQuery(auth()->user())->pendingAdvisorGrades();
 
         return [
             'role' => $owner->type->label(),
@@ -48,6 +50,8 @@ new #[Title('Painel')] class extends Component
                 default => 'Acompanhe os estágios disponíveis para você.',
             },
             'isOffice' => $owner->type === AffiliationType::InternshipOffice,
+            'pendingGradesCount' => (clone $pendingGrades)->count(),
+            'pendingGrades' => $pendingGrades->oldest('projected_end_date')->oldest('id')->limit(5)->get(),
             'total' => (int) $counts->sum(),
             'inProgress' => (int) $counts->get('in_progress', 0),
             'paused' => (int) $counts->get('paused', 0),

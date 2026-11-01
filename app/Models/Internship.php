@@ -178,6 +178,26 @@ class Internship extends Model
         return $query;
     }
 
+    /**
+     * @param  Builder<Internship>  $query
+     * @return Builder<Internship>
+     */
+    public function scopePendingAdvisorGrades(Builder $query): Builder
+    {
+        $weights = [];
+        foreach (['supervisor_evaluation', 'report', 'presentation'] as $component) {
+            $path = "internship_type_snapshot->'rules'->>'{$component}_weight'";
+            $weights[] = "CASE WHEN {$path} ~ '^(0|[1-9]|10)$' THEN ({$path})::integer END";
+        }
+
+        return $query->whereRaw('('.implode(' + ', $weights).') = 10')
+            ->where(fn (Builder $missing) => $missing
+                ->where(fn (Builder $report) => $report->whereNull('report_grade')
+                    ->where('internship_type_snapshot->rules->report_weight', '>', 0))
+                ->orWhere(fn (Builder $presentation) => $presentation->whereNull('presentation_grade')
+                    ->where('internship_type_snapshot->rules->presentation_weight', '>', 0)));
+    }
+
     /** @var array{completion_date: CarbonImmutable, projected_end_date: CarbonImmutable, credited_hours: int, calendar: list<array{date: string, scheduled_hours: int, credited_hours: int, accumulated_hours: int, kind: string, reason?: string}>}|null */
     public ?array $endDateCalculation = null;
 
