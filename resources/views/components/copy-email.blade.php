@@ -13,7 +13,9 @@
     }"
     {{ $attributes }}
 >
-    <flux:link as="button" class="cursor-copy text-left wrap-anywhere" x-on:click="copy()" title="Clique para copiar o e-mail" aria-label="Copiar e-mail: {{ $email }}">
-        <span x-ref="email">{{ $email }}</span>
-    </flux:link>
+    <flux:tooltip content="Clique para copiar o e-mail">
+        <flux:link as="button" class="cursor-copy text-left wrap-anywhere" x-on:click="copy()" aria-label="Copiar e-mail: {{ $email }}">
+            <span x-ref="email">{{ $email }}</span>
+        </flux:link>
+    </flux:tooltip>
 </span>

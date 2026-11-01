@@ -78,7 +78,9 @@
                     <flux:icon.document variant="solid" class="size-6 shrink-0 text-zinc-400" />
                 @endif
                 <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100" title="{{ $file->getClientOriginalName() }}">{{ $file->getClientOriginalName() }}</p>
+                    <flux:tooltip class="block min-w-0" :content="$file->getClientOriginalName()">
+                        <p class="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ $file->getClientOriginalName() }}</p>
+                    </flux:tooltip>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400" x-text="formatSize(@js($file->getSize()))"></p>
                 </div>
                 <flux:button type="button" variant="ghost" size="sm" icon="x-mark" :disabled="$disabled"

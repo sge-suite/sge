@@ -294,43 +294,46 @@
             @endif
         </select>
         @endif
-        <button type="button" id="{{ $selectId }}" x-ref="trigger" data-flux-control
-            {{ $attributes->whereStartsWith('wire:')->except(['wire:key'])->whereDoesntStartWith('wire:model') }}
-            @disabled($disabled) aria-haspopup="listbox" aria-expanded="false" x-bind:aria-expanded="open"
-            x-bind:aria-label="label()" x-bind:title="label()"
-            aria-controls="{{ $selectId }}-list" @if($invalid) aria-invalid="true" @endif
-            x-bind:aria-invalid="missing || @js((bool) $invalid)" @if($error !== '') aria-describedby="{{ $selectId }}-error" @endif
-            class="select-trigger flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border bg-white px-3 text-start text-sm shadow-xs outline-hidden transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/10 dark:text-white {{ $invalid ? 'border-red-500 dark:border-red-400' : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10 dark:hover:border-white/20' }}"
-            x-bind:class="{ 'text-zinc-400 dark:text-zinc-400': !value, 'border-red-500 ring-2 ring-red-500': missing }"
-            x-on:click="open ? close() : show()"
-        >
-            <span class="flex min-w-0 flex-1 items-center gap-2">
-                @foreach ($optionIcons as $optionValue => $optionIcon)
-                    <span x-cloak x-show="String(value) === @js((string) $optionValue)" class="shrink-0">
-                        <flux:icon :name="$optionIcon" variant="mini" class="text-zinc-500 dark:text-zinc-300" />
-                    </span>
-                @endforeach
-                @if ($icon)
-                    <span x-cloak x-show="!Object.hasOwn(@js($optionIcons), String(value))" class="shrink-0">
-                        <flux:icon :name="$icon" variant="mini" class="text-zinc-400 dark:text-zinc-400" />
-                    </span>
-                @endif
-                <span
-                    x-ref="labelViewport"
-                    x-bind:class="labelOverflows && !open ? 'select-label-fade' : ''"
-                    class="select-label-viewport block min-w-0 flex-1 overflow-hidden"
-                >
+        <flux:tooltip class="block w-full" label>
+            <button type="button" id="{{ $selectId }}" x-ref="trigger" data-flux-control
+                {{ $attributes->whereStartsWith('wire:')->except(['wire:key'])->whereDoesntStartWith('wire:model') }}
+                @disabled($disabled) aria-haspopup="listbox" aria-expanded="false" x-bind:aria-expanded="open"
+                x-bind:aria-label="label()"
+                aria-controls="{{ $selectId }}-list" @if($invalid) aria-invalid="true" @endif
+                x-bind:aria-invalid="missing || @js((bool) $invalid)" @if($error !== '') aria-describedby="{{ $selectId }}-error" @endif
+                class="select-trigger flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border bg-white px-3 text-start text-sm shadow-xs outline-hidden transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/10 dark:text-white {{ $invalid ? 'border-red-500 dark:border-red-400' : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10 dark:hover:border-white/20' }}"
+                x-bind:class="{ 'text-zinc-400 dark:text-zinc-400': !value, 'border-red-500 ring-2 ring-red-500': missing }"
+                x-on:click="open ? close() : show()"
+            >
+                <span class="flex min-w-0 flex-1 items-center gap-2">
+                    @foreach ($optionIcons as $optionValue => $optionIcon)
+                        <span x-cloak x-show="String(value) === @js((string) $optionValue)" class="shrink-0">
+                            <flux:icon :name="$optionIcon" variant="mini" class="text-zinc-500 dark:text-zinc-300" />
+                        </span>
+                    @endforeach
+                    @if ($icon)
+                        <span x-cloak x-show="!Object.hasOwn(@js($optionIcons), String(value))" class="shrink-0">
+                            <flux:icon :name="$icon" variant="mini" class="text-zinc-400 dark:text-zinc-400" />
+                        </span>
+                    @endif
                     <span
-                        x-ref="labelText"
-                        x-bind:class="labelOverflows && !open ? 'select-label-marquee' : ''"
-                        x-bind:style="'--select-label-distance: ' + labelScrollDistance"
-                        class="block w-max whitespace-nowrap"
-                        x-text="label()"
-                    >{{ $selectedLabel ?: ($options[$value] ?? $placeholder) }}</span>
+                        x-ref="labelViewport"
+                        x-bind:class="labelOverflows && !open ? 'select-label-fade' : ''"
+                        class="select-label-viewport block min-w-0 flex-1 overflow-hidden"
+                    >
+                        <span
+                            x-ref="labelText"
+                            x-bind:class="labelOverflows && !open ? 'select-label-marquee' : ''"
+                            x-bind:style="'--select-label-distance: ' + labelScrollDistance"
+                            class="block w-max whitespace-nowrap"
+                            x-text="label()"
+                        >{{ $selectedLabel ?: ($options[$value] ?? $placeholder) }}</span>
+                    </span>
                 </span>
-            </span>
-            <flux:icon.chevron-down variant="micro" class="shrink-0 text-zinc-400" />
-        </button>
+                <flux:icon.chevron-down variant="micro" class="shrink-0 text-zinc-400" />
+            </button>
+            <flux:tooltip.content x-text="label()"></flux:tooltip.content>
+        </flux:tooltip>
         <div x-cloak x-show="open" x-transition.opacity.duration.100ms
             x-bind:class="upwards ? 'bottom-full mb-1' : 'top-full mt-1'"
             class="select-panel absolute inset-x-0 z-30 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-700 motion-reduce:transition-none">
