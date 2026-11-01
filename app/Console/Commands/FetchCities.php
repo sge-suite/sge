@@ -39,9 +39,14 @@ class FetchCities extends Command
         }
 
         try {
+            $this->components->info('Buscando lista de UFs na BrasilAPI...');
             $states = $this->fetchStates();
+            $this->components->twoColumnDetail('UFs encontradas', (string) count($states));
+
             $cities = $this->fetchCities($states);
-            $this->writeCatalog($outputPath, $cities);
+            $this->components->twoColumnDetail('Cidades válidas', (string) count($cities));
+
+            $this->components->task('Gravando catálogo', fn () => $this->writeCatalog($outputPath, $cities));
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());
 
@@ -113,16 +118,36 @@ class FetchCities extends Command
      */
     private function fetchCities(array $states): array
     {
-        $responses = Http::pool(function (Pool $pool) use ($states): array {
-            $requests = [];
+        $responses = [];
+        $bar = $this->output->createProgressBar(count($states));
+        $bar->setFormat(' %current%/%max% UFs [%bar%] %percent:3s%% | %elapsed:6s% | %message%');
+        $bar->setMessage('iniciando...');
+        $bar->start();
 
-            foreach ($states as $state) {
-                $requests[$state] = $this->configureRequest($pool->as($state))
-                    ->get('/ibge/municipios/v1/'.$state);
-            }
+        foreach (array_chunk($states, 4) as $batch) {
+            $bar->setMessage('consultando '.implode(', ', $batch));
+            $bar->display();
 
-            return $requests;
-        }, 4);
+            $batchResponses = Http::pool(function (Pool $pool) use ($batch): array {
+                $requests = [];
+
+                foreach ($batch as $state) {
+                    $requests[$state] = $this->configureRequest($pool->as($state))
+                        ->get('/ibge/municipios/v1/'.$state);
+                }
+
+                return $requests;
+            }, 4);
+
+            $responses += $batchResponses;
+            $bar->advance(count($batch));
+        }
+
+        $bar->setMessage('concluído');
+        $bar->finish();
+        $this->newLine(2);
+
+        $this->components->info('Validando municípios...');
 
         $cities = [];
         $codes = [];
