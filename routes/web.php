@@ -107,6 +107,8 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 
         Route::livewire('notifications', 'pages::notifications.index')->name('notifications.index');
+        Route::livewire('notifications/{notification}', 'pages::notifications.show')
+            ->whereUuid('notification')->name('notifications.show');
 
         Route::livewire('campus/edit', 'pages::campuses.own-edit')
             ->middleware('can:viewOwn,'.Campus::class)->name('campuses.own.edit');

@@ -21,7 +21,7 @@ new class extends Component
     {
         $this->affiliationId = $inbox->affiliation(auth()->user())->id;
         $this->placement = $placement;
-        $this->current = request()->routeIs('notifications.index');
+        $this->current = request()->routeIs('notifications.*');
     }
 
     public function hydrate(NotificationInbox $inbox): void

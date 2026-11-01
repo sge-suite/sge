@@ -1,7 +1,6 @@
 <?php
 
 use App\Actions\UpdateNotificationReadState;
-use App\Support\NotificationDestinations;
 use App\Support\NotificationInbox;
 use App\Support\PageSize;
 use Illuminate\Notifications\DatabaseNotification;
@@ -44,18 +43,6 @@ new #[Title('Notificações')] class extends Component
         $this->resetPage();
     }
 
-    public function markAsRead(string $id, UpdateNotificationReadState $update): void
-    {
-        $update->handle(auth()->user(), $this->affiliationId, $id, read: true);
-        $this->refreshNotifications();
-    }
-
-    public function markAsUnread(string $id, UpdateNotificationReadState $update): void
-    {
-        $update->handle(auth()->user(), $this->affiliationId, $id, read: false);
-        $this->refreshNotifications();
-    }
-
     public function markAllAsRead(UpdateNotificationReadState $update): void
     {
         $update->markAllAsRead(auth()->user(), $this->affiliationId);
@@ -63,10 +50,10 @@ new #[Title('Notificações')] class extends Component
         $this->refreshNotifications();
     }
 
-    public function refreshNotifications(): void
+    private function refreshNotifications(): void
     {
         app(NotificationInbox::class)->affiliation(auth()->user(), $this->affiliationId);
-        unset($this->notifications, $this->destinations, $this->unreadCount);
+        unset($this->notifications, $this->unreadCount);
         $this->dispatch('notifications-updated');
     }
 
@@ -100,69 +87,60 @@ new #[Title('Notificações')] class extends Component
 
         return $notifications;
     }
-
-    /** @return array<string, string|null> */
-    #[Computed]
-    public function destinations(): array
-    {
-        return app(NotificationDestinations::class)->forPage(auth()->user(), $this->affiliationId, $this->notifications->getCollection());
-    }
 }; ?>
 
 <div class="w-full space-y-8">
     <div>
         <flux:heading size="xl" level="1">Notificações</flux:heading>
-        <flux:text class="mt-2">Acompanhe os avisos do vínculo selecionado e gerencie a leitura no SGE.</flux:text>
+        <flux:text class="mt-2">Consulte os avisos do vínculo selecionado. Selecione uma linha para abrir os detalhes.</flux:text>
     </div>
 
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div class="w-full sm:max-w-xs">
             <x-select wire:model.live="status" label="Leitura" :value="$status" :options="['all' => 'Todas', 'unread' => 'Não lidas', 'read' => 'Lidas']" />
         </div>
-        <div class="flex flex-wrap items-center gap-3">
-            <flux:button icon="arrow-path" wire:click="refreshNotifications" wire:loading.attr="disabled">Atualizar</flux:button>
-            <flux:button icon="check" wire:click="$set('showMarkAllConfirmation', true)" :disabled="$this->unreadCount === 0" wire:loading.attr="disabled">Marcar todas como lidas</flux:button>
-        </div>
+        <flux:button icon="check" wire:click="$set('showMarkAllConfirmation', true)" :disabled="$this->unreadCount === 0" wire:loading.attr="disabled">Marcar todas como lidas</flux:button>
     </div>
 
-    <x-loading-overlay target="status,markAsRead,markAsUnread,markAllAsRead,refreshNotifications,gotoPage,nextPage,previousPage" label="Atualizando notificações…" :dim-while-loading="true">
+    <x-loading-overlay target="status,markAllAsRead,gotoPage,nextPage,previousPage" label="Atualizando notificações…" :dim-while-loading="true">
         @php
             $notifications = $this->notifications;
-            $destinations = $this->destinations;
         @endphp
         <div class="space-y-4">
             <flux:text size="sm" role="status" aria-live="polite">{{ $this->unreadCount }} {{ $this->unreadCount === 1 ? 'notificação não lida' : 'notificações não lidas' }} no vínculo selecionado.</flux:text>
 
             @if ($notifications->isNotEmpty())
-                <div class="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-                    @foreach ($notifications as $notification)
-                        @php
-                            $data = Arr::wrap($notification->data);
-                            $title = is_string($data['title'] ?? null) && trim($data['title']) !== '' ? $data['title'] : 'Notificação';
-                            $message = is_string($data['message'] ?? null) && trim($data['message']) !== '' ? $data['message'] : 'Este aviso não possui mensagem disponível.';
-                            $destination = $destinations[$notification->id] ?? null;
-                        @endphp
-                        <article wire:key="notification-{{ $affiliationId }}-{{ $notification->id }}" @class(['flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between', 'bg-zinc-50 dark:bg-zinc-900/50' => $notification->unread()])>
-                            <div class="min-w-0 flex-1 space-y-3">
-                                <div class="flex flex-wrap items-start gap-3">
-                                    <flux:heading level="2" class="min-w-0 wrap-anywhere">{{ $title }}</flux:heading>
+                <flux:table :paginate="$notifications" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
+                    <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+                        <flux:table.column>Notificação</flux:table.column>
+                        <flux:table.column class="hidden sm:table-cell">Recebida em</flux:table.column>
+                        <flux:table.column>Leitura</flux:table.column>
+                    </flux:table.columns>
+                    <flux:table.rows>
+                        @foreach ($notifications as $notification)
+                            @php
+                                $data = Arr::wrap($notification->data);
+                                $title = is_string($data['title'] ?? null) && trim($data['title']) !== '' ? $data['title'] : 'Notificação';
+                            @endphp
+                            <flux:table.row :key="'notification-'.$affiliationId.'-'.$notification->id"
+                                class="group cursor-pointer transition-colors hover:bg-zinc-100 focus-within:bg-zinc-100 focus:bg-zinc-100 dark:hover:bg-zinc-700 dark:focus-within:bg-zinc-700 dark:focus:bg-zinc-700 {{ $notification->unread() ? 'bg-zinc-50 dark:bg-zinc-900/50' : '' }}"
+                                tabindex="0" :aria-label="'Abrir notificação: '.$title"
+                                x-on:click="if (! $event.target.closest('a, button')) $el.querySelector('[data-notification-link]').click()"
+                                x-on:keydown.enter.prevent="$el.querySelector('[data-notification-link]').click()"
+                                x-on:keydown.space.prevent="$el.querySelector('[data-notification-link]').click()">
+                                <flux:table.cell class="whitespace-normal">
+                                    <a data-notification-link tabindex="-1" href="{{ route('notifications.show', ['notification' => $notification->id]) }}" wire:navigate
+                                        @class(['text-zinc-900 underline-offset-4 wrap-anywhere group-hover:underline dark:text-white', 'font-semibold' => $notification->unread(), 'font-medium' => $notification->read()])>{{ $title }}</a>
+                                    <flux:text size="sm" class="sm:hidden">{{ formatDateTime($notification->created_at) }}</flux:text>
+                                </flux:table.cell>
+                                <flux:table.cell class="hidden sm:table-cell">{{ formatDateTime($notification->created_at) }}</flux:table.cell>
+                                <flux:table.cell>
                                     <flux:badge size="sm" :color="$notification->unread() ? 'blue' : 'zinc'" :icon="$notification->unread() ? 'envelope' : 'check'">{{ $notification->unread() ? 'Não lida' : 'Lida' }}</flux:badge>
-                                </div>
-                                <flux:text class="whitespace-pre-line wrap-anywhere">{{ $message }}</flux:text>
-                                <flux:text size="sm">{{ formatDateTime($notification->created_at) }}</flux:text>
-                                @if ($destination !== null)
-                                    <flux:button size="sm" :href="$destination" icon:trailing="arrow-up-right" wire:navigate>Acessar destino</flux:button>
-                                @else
-                                    <flux:text size="sm">Destino não disponível. O recurso pode ter sido removido ou seu vínculo não tem acesso.</flux:text>
-                                @endif
-                            </div>
-                            <flux:button size="sm" :icon="$notification->unread() ? 'check' : 'envelope'" wire:click="{{ $notification->unread() ? 'markAsRead' : 'markAsUnread' }}('{{ $notification->id }}')" wire:loading.attr="disabled" :aria-label="($notification->unread() ? 'Marcar como lida: ' : 'Marcar como não lida: ').$title" class="shrink-0 self-start">
-                                {{ $notification->unread() ? 'Marcar como lida' : 'Marcar como não lida' }}
-                            </flux:button>
-                        </article>
-                    @endforeach
-                </div>
-                <flux:pagination :paginator="$notifications" />
+                                </flux:table.cell>
+                            </flux:table.row>
+                        @endforeach
+                    </flux:table.rows>
+                </flux:table>
             @else
                 <div class="rounded-xl border border-dashed border-zinc-300 px-6 py-14 text-center dark:border-zinc-700">
                     <flux:icon.bell class="mx-auto mb-4 size-8 text-zinc-400" />
