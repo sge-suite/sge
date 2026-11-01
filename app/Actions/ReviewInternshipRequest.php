@@ -61,8 +61,13 @@ class ReviewInternshipRequest
             } else {
                 $request->assertUnderReview();
             }
-            abort_if($internship?->released_at !== null, 409);
-            abort_unless($internship === null || in_array($internship->status, [InternshipStatus::PendingFormalization, InternshipStatus::AwaitingSignatures, InternshipStatus::PendingCorrection], true), 409);
+            if ($internship?->released_at !== null
+                || ($internship !== null && ! in_array($internship->status, [InternshipStatus::PendingFormalization, InternshipStatus::AwaitingSignatures, InternshipStatus::PendingCorrection], true))) {
+                if ($operation === 'accept') {
+                    throw ValidationException::withMessages(['status' => 'O estágio foi liberado ou mudou de situação e não permite mais este aceite. Atualize a análise antes de continuar.']);
+                }
+                abort(409);
+            }
             abort_if($operation === 'reject' && $internship !== null, 409);
             $sectionMessages = array_map(fn (mixed $value): mixed => is_string($value) ? trim($value) : $value, $sectionMessages);
             $rules = [
@@ -114,7 +119,9 @@ class ReviewInternshipRequest
                     $owner = $request->affiliation()->lockForUpdate()->firstOrFail();
                     $request->advisor_affiliation_id = $advisorId ?? $internship->advisor_affiliation_id ?? $request->advisor_affiliation_id;
                     $this->studentRequests->assertRelations($request, $owner);
-                    abort_if($request->granting_party_registration_request_id !== null || $request->supervisor_registration_request_id !== null, 422, 'Aprove e associe os cadastros pendentes antes do aceite.');
+                    if ($request->granting_party_registration_request_id !== null || $request->supervisor_registration_request_id !== null) {
+                        throw ValidationException::withMessages(['registration' => 'Aprove e associe os cadastros pendentes antes do aceite.']);
+                    }
                     $advisor = Affiliation::query()->active()->where('campus_id', $campus->id)->where('type', AffiliationType::Advisor->value)->lockForUpdate()->find($request->advisor_affiliation_id);
                     if ($advisor === null) {
                         throw ValidationException::withMessages(['advisor_affiliation_id' => 'Selecione um orientador ativo do campus.']);
@@ -144,7 +151,9 @@ class ReviewInternshipRequest
                         $attributes['supervisor_snapshot'] = $internship->supervisor_snapshot;
                     }
                     $stage = $internship ?? new Internship;
-                    abort_unless(! $stage->exists || $stage->student_affiliation_id === $request->affiliation_id, 409);
+                    if ($stage->exists && $stage->student_affiliation_id !== $request->affiliation_id) {
+                        throw ValidationException::withMessages(['internship' => 'O estágio não pertence ao vínculo discente desta solicitação. Revise os dados antes de continuar.']);
+                    }
                     if ($stage->exists) {
                         $fields = ['advisor_affiliation_id'];
                         foreach ($corrected as $section) {
