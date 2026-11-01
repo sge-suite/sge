@@ -18,10 +18,24 @@
         @endforeach
     </section>
 
+    @if ($overview['actionRequests']->isNotEmpty())
+        <section aria-labelledby="student-action-requests" class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <flux:heading id="student-action-requests" size="lg" level="2">Suas próximas ações</flux:heading>
+                    <flux:text size="sm">Correções primeiro, depois rascunhos; até 3 solicitações pela atualização mais antiga de cada grupo.</flux:text>
+                </div>
+                <flux:button variant="ghost" icon="arrow-right" :href="route('internship-requests.index')" wire:navigate>Ver todas as solicitações</flux:button>
+            </div>
+            <x-student-requests-table :requests="$overview['actionRequests']" :show-actions="true" :editable-request-ids="$overview['editableRequestIds']" />
+            @if ($overview['actionable'] > $overview['actionRequests']->count())<flux:text size="sm">Há mais {{ $overview['actionable'] - $overview['actionRequests']->count() }} solicitações para revisar na listagem completa.</flux:text>@endif
+        </section>
+    @endif
+
     <section aria-labelledby="student-recent-requests" class="space-y-4 border-t border-zinc-200 pt-6 dark:border-zinc-700">
         <div>
             <flux:heading id="student-recent-requests" size="lg" level="2">Últimas atualizações</flux:heading>
-            <flux:text class="mt-1">As três solicitações e os três estágios atualizados mais recentemente.</flux:text>
+            <flux:text class="mt-1">Até três outras solicitações e três estágios atualizados mais recentemente.</flux:text>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3">
             <flux:heading level="3">Solicitações</flux:heading>
@@ -30,9 +44,13 @@
         @if ($overview['requests']->isNotEmpty())
             <x-student-requests-table :requests="$overview['requests']" :can-edit="$overview['canEdit']" />
         @else
-            <flux:callout icon="clipboard-document-list" heading="Nenhuma solicitação iniciada">
-                <flux:callout.text>Inicie sua solicitação para acompanhar as atualizações por aqui.</flux:callout.text>
-            </flux:callout>
+            @if ($overview['actionRequests']->isEmpty())
+                <flux:callout icon="clipboard-document-list" heading="Nenhuma solicitação iniciada">
+                    <flux:callout.text>Inicie sua solicitação para acompanhar as atualizações por aqui.</flux:callout.text>
+                </flux:callout>
+            @else
+                <flux:text>Nenhuma outra solicitação atualizada.</flux:text>
+            @endif
         @endif
         <div class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-700">
             <flux:heading level="3">Estágios</flux:heading>

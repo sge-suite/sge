@@ -4,10 +4,12 @@ use App\Actions\GetAdministrativeDashboardMetrics;
 use App\Actions\GetInternshipOfficeDashboard;
 use App\Actions\GetSupervisorDashboard;
 use App\Enums\AffiliationType;
+use App\Enums\InternshipRequestStatus;
 use App\Models\User;
 use App\Models\InternshipRequest;
 use App\Models\Internship;
 use App\Policies\InternshipPolicy;
+use App\Policies\InternshipRequestPolicy;
 use App\Support\StudentInternshipContext;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -69,16 +71,25 @@ new #[Title('Painel')] class extends Component
         $counts = $owner->internshipRequests()->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
         $internships = Internship::query()->where('student_affiliation_id', $owner->id)
             ->whereHas('course', fn ($query) => $query->where('campus_id', $owner->campus_id));
+        $actionRequests = $owner->internshipRequests()
+            ->whereIn('status', [InternshipRequestStatus::PendingCorrection, InternshipRequestStatus::Draft])
+            ->with(['internshipType', 'grantingParty'])
+            ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', [InternshipRequestStatus::PendingCorrection->value])
+            ->oldest('updated_at')->oldest('id')->limit(3)->get();
 
         return [
             'canEdit' => Gate::allows('create', InternshipRequest::class),
             'course' => $owner->course->name,
             'campus' => $owner->campus->name,
             'actionable' => (int) $counts->get('draft', 0) + (int) $counts->get('pending_correction', 0),
+            'actionRequests' => $actionRequests,
+            'editableRequestIds' => app(InternshipRequestPolicy::class)->updatableQuery(auth()->user())
+                ->whereKey($actionRequests->modelKeys())->pluck('id')->all(),
             'pending' => (int) $counts->get('submitted', 0) + (int) $counts->get('under_review', 0),
             'internshipsCount' => (clone $internships)->count(),
             'completed' => (clone $internships)->where('status', \App\Enums\InternshipStatus::Completed)->count(),
-            'requests' => $owner->internshipRequests()->with(['internshipType', 'grantingParty'])->latest('updated_at')->latest('id')->limit(3)->get(),
+            'requests' => $owner->internshipRequests()->whereNotIn('id', $actionRequests->modelKeys())
+                ->with(['internshipType', 'grantingParty'])->latest('updated_at')->latest('id')->limit(3)->get(),
             'internships' => $internships->with('advisorAffiliation.user')->latest('updated_at')->latest('id')->limit(3)->get(),
         ];
     }

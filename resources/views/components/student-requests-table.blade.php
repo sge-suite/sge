@@ -1,4 +1,4 @@
-@props(['requests', 'canEdit' => false, 'paginated' => false])
+@props(['requests', 'canEdit' => false, 'paginated' => false, 'showActions' => false, 'editableRequestIds' => null])
 
 <flux:table :paginate="$paginated ? $requests : null">
     <flux:table.columns>
@@ -6,12 +6,15 @@
         <flux:table.column class="hidden md:table-cell">Concedente</flux:table.column>
         <flux:table.column>Situação</flux:table.column>
         <flux:table.column class="hidden lg:table-cell">Atualizada em</flux:table.column>
+        @if ($showActions)<flux:table.column>Próxima ação</flux:table.column>@endif
     </flux:table.columns>
     <flux:table.rows>
         @foreach ($requests as $request)
             @php
                 $status = $request->status->value;
-                $editable = $canEdit && in_array($status, ['draft', 'pending_correction'], true);
+                $editable = $editableRequestIds !== null
+                    ? in_array($request->id, $editableRequestIds, true)
+                    : $canEdit && in_array($status, ['draft', 'pending_correction'], true);
                 $color = match ($status) { 'pending_correction' => 'orange', 'submitted', 'under_review' => 'amber', 'accepted' => 'green', 'rejected' => 'red', default => 'zinc' };
                 $party = $request->granting_party_snapshot['name'] ?? $request->grantingParty?->name ?? 'Não informada';
             @endphp
@@ -26,6 +29,11 @@
                 <flux:table.cell class="hidden whitespace-normal md:table-cell">{{ $party }}</flux:table.cell>
                 <flux:table.cell><flux:badge size="sm" :color="$color">{{ $request->status->label() }}</flux:badge></flux:table.cell>
                 <flux:table.cell class="hidden lg:table-cell">{{ formatDateTime($request->updated_at) }}</flux:table.cell>
+                @if ($showActions)
+                    <flux:table.cell>
+                        <flux:button size="sm" :variant="$editable ? 'primary' : 'outline'" :href="route('internship-requests.show', $request)" wire:navigate :aria-label="($editable ? ($status === 'pending_correction' ? 'Corrigir solicitação nº ' : 'Continuar preenchimento da solicitação nº ') : 'Consultar solicitação nº ').$request->id">{{ $editable ? ($status === 'pending_correction' ? 'Corrigir solicitação' : 'Continuar preenchimento') : 'Consultar solicitação' }}</flux:button>
+                    </flux:table.cell>
+                @endif
             </flux:table.row>
         @endforeach
     </flux:table.rows>

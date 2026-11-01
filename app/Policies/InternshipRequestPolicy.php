@@ -39,8 +39,15 @@ class InternshipRequestPolicy
 
     public function update(User $user, InternshipRequest $request): bool
     {
-        return $this->view($user, $request) && $this->create($user)
-            && in_array($request->status, [InternshipRequestStatus::Draft, InternshipRequestStatus::PendingCorrection], true);
+        return $this->updatableQuery($user)->whereKey($request->id)->exists();
+    }
+
+    /** @return Builder<InternshipRequest> */
+    public function updatableQuery(User $user): Builder
+    {
+        return $this->viewableQuery($user)
+            ->when(! $this->create($user), fn (Builder $query): Builder => $query->whereRaw('1 = 0'))
+            ->whereIn('status', [InternshipRequestStatus::Draft, InternshipRequestStatus::PendingCorrection]);
     }
 
     public function submit(User $user, InternshipRequest $request): bool
