@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Enums\GeneratedDocumentStatus;
 use App\Enums\InternshipRequestStatus;
 use App\Enums\InternshipStatus;
 use App\Models\Internship;
@@ -27,6 +28,11 @@ class GetInternshipOfficeDashboard
         $today = CarbonImmutable::today(config('app.timezone'));
         $ending = (clone $internships)->whereIn('status', [InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused])
             ->whereDate('projected_end_date', '<=', $today->addDays(30)->toDateString());
+        $signatureDocuments = fn ($query) => $query->where('status', GeneratedDocumentStatus::AwaitingSignature);
+        $signatures = (clone $internships)->whereHas('generatedDocuments', $signatureDocuments);
+        $delayed = (clone $internships)->whereNull('released_at')
+            ->whereIn('status', [InternshipStatus::PendingFormalization, InternshipStatus::AwaitingSignatures, InternshipStatus::PendingCorrection])
+            ->whereDate('planned_start_date', '<', $today->toDateString());
 
         return [
             'campus' => $owner->campus->name,
@@ -40,7 +46,12 @@ class GetInternshipOfficeDashboard
             'endingCount' => (clone $ending)->count(),
             'endingInternships' => $ending->with(['course', 'advisorAffiliation.user'])->orderBy('projected_end_date')->orderBy('id')->limit(5)->get(),
             'endingUntil' => $today->addDays(30),
-            'awaitingSignatures' => (int) $counts->get(InternshipStatus::AwaitingSignatures->value, 0),
+            'signatureCount' => (clone $signatures)->count(),
+            'signatureInternships' => $signatures->withMin(['generatedDocuments' => $signatureDocuments], 'updated_at')
+                ->withCasts(['generated_documents_min_updated_at' => 'datetime'])
+                ->orderBy('generated_documents_min_updated_at')->oldest('id')->limit(5)->get(),
+            'delayedCount' => (clone $delayed)->count(),
+            'delayedInternships' => $delayed->oldest('planned_start_date')->oldest('id')->limit(5)->get(),
             'released' => (int) $counts->get(InternshipStatus::Released->value, 0),
         ];
     }

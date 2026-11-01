@@ -22,8 +22,33 @@
     </section>
     <div class="flex flex-wrap gap-3">
         <flux:button size="sm" variant="outline" icon="check-circle" :href="route('internships.index', ['status' => 'released'])" wire:navigate>Liberados para início: {{ $overview['released'] }}</flux:button>
-        <flux:button size="sm" variant="outline" icon="pencil-square" :href="route('internships.index', ['status' => 'awaiting_signatures'])" wire:navigate>Aguardando assinaturas: {{ $overview['awaitingSignatures'] }}</flux:button>
     </div>
+    @if ($overview['signatureCount'] > 0)
+        <section class="space-y-4" aria-labelledby="office-signatures-heading">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <flux:heading id="office-signatures-heading" level="2" size="lg">Estágios com documentos aguardando assinatura ({{ $overview['signatureCount'] }})</flux:heading>
+                    <flux:text size="sm">Até 5 estágios pela atualização mais antiga dos documentos pendentes.</flux:text>
+                </div>
+                <flux:button variant="ghost" icon="arrow-right" :href="route('internships.index')" wire:navigate>Ver todos os estágios</flux:button>
+            </div>
+            <x-dashboard-internship-queue :internships="$overview['signatureInternships']" :signatures="true" />
+            @if ($overview['signatureCount'] > $overview['signatureInternships']->count())<flux:text size="sm">Há mais {{ $overview['signatureCount'] - $overview['signatureInternships']->count() }} estágios na listagem completa.</flux:text>@endif
+        </section>
+    @endif
+    @if ($overview['delayedCount'] > 0)
+        <section class="space-y-4" aria-labelledby="office-delayed-heading">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <flux:heading id="office-delayed-heading" level="2" size="lg">Início previsto já passou ({{ $overview['delayedCount'] }})</flux:heading>
+                    <flux:text size="sm">Até 5 estágios ainda sem liberação, pelo início previsto mais antigo. Confira a formalização ou a correção necessária.</flux:text>
+                </div>
+                <flux:button variant="ghost" icon="arrow-right" :href="route('internships.index')" wire:navigate>Ver todos os estágios</flux:button>
+            </div>
+            <x-dashboard-internship-queue :internships="$overview['delayedInternships']" />
+            @if ($overview['delayedCount'] > $overview['delayedInternships']->count())<flux:text size="sm">Há mais {{ $overview['delayedCount'] - $overview['delayedInternships']->count() }} estágios na listagem completa.</flux:text>@endif
+        </section>
+    @endif
     <section class="space-y-4" aria-labelledby="office-requests-heading">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div><flux:heading id="office-requests-heading" level="2" size="lg">Solicitações para analisar</flux:heading><flux:text class="mt-1" size="sm">Até 5 solicitações, das mais antigas às mais recentes pela última atualização.</flux:text></div>
