@@ -69,16 +69,14 @@ class RequestEmailDelivery
         $text = (string) app(Markdown::class)->renderText('emails.document-signature', $data);
 
         return DB::transaction(function () use ($recipient, $subject, $text, $html, $deliveryKey, $document): EmailDeliveryAttempt {
-            $notification = $recipient['affiliation']?->notifications()->firstOrCreate(['id' => $deliveryKey], [
-                'type' => self::class, 'data' => ['title' => $subject, 'message' => $text, 'route' => 'dashboard',
-                    'internship_id' => $document->internship_id, 'generated_document_id' => $document->id],
-            ]);
             $message = EmailMessage::query()->firstOrCreate(['idempotency_key' => $deliveryKey], [
-                'purpose' => EmailMessagePurpose::DocumentSignature, 'notification_id' => $notification?->id,
+                'purpose' => EmailMessagePurpose::DocumentSignature,
                 'subject' => $subject, 'content_text' => $text, 'content_html' => $html,
                 'template_key' => 'document.signature-available', 'template_version' => '4',
             ]);
-            if ($message->purpose !== EmailMessagePurpose::DocumentSignature || $message->notification_id !== $notification?->id
+            $matchesLegacyNotification = $message->notification_id === null || ($message->notification_id === $deliveryKey
+                && $recipient['affiliation']?->is($message->notification?->notifiable) === true);
+            if ($message->purpose !== EmailMessagePurpose::DocumentSignature || ! $matchesLegacyNotification
                 || $message->subject !== $subject || $message->content_text !== $text || $message->content_html !== $html) {
                 throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
             }
@@ -123,21 +121,16 @@ class RequestEmailDelivery
         });
     }
 
-    /** @param array{campus_ids: list<int>}|null $scopeContext */
-    public function notification(DatabaseNotification $notification, string $subject, string $contentText, ?string $contentHtml, string $deliveryKey, ?array $scopeContext = null): EmailDeliveryAttempt
+    /** @param array{campus_ids: list<int>} $scopeContext */
+    public function operationalNotice(Affiliation $recipient, string $subject, string $contentText, string $contentHtml, string $deliveryKey, array $scopeContext, ?DatabaseNotification $notification = null): EmailDeliveryAttempt
     {
         $this->validateKey($deliveryKey);
-        $recipient = $notification->notifiable;
-
-        if (! $recipient instanceof Affiliation && ! $recipient instanceof User) {
-            throw ValidationException::withMessages(['notification' => 'A notificação deve pertencer a uma conta ou vínculo.']);
-        }
 
         return DB::transaction(function () use ($notification, $recipient, $subject, $contentText, $contentHtml, $deliveryKey, $scopeContext): EmailDeliveryAttempt {
             $message = EmailMessage::query()->firstOrCreate(
                 ['idempotency_key' => $deliveryKey],
                 [
-                    'notification_id' => $notification->id,
+                    'notification_id' => $notification?->id,
                     'purpose' => EmailMessagePurpose::Notification,
                     'subject' => $subject,
                     'content_text' => $contentText,
@@ -145,7 +138,7 @@ class RequestEmailDelivery
                 ],
             );
 
-            if ($message->notification_id !== $notification->id || $message->subject !== $subject ||
+            if ($message->purpose !== EmailMessagePurpose::Notification || $message->notification_id !== $notification?->id || $message->subject !== $subject ||
                 $message->content_text !== $contentText || $message->content_html !== $contentHtml) {
                 throw ValidationException::withMessages(['delivery_key' => 'Esta chave já pertence a outra mensagem.']);
             }

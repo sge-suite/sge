@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Actions\RequestEmailDelivery;
+use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\EmailMessage;
 use App\Models\SupervisorEvaluation;
@@ -41,11 +42,15 @@ class DeliverSupervisorEvaluationNotice implements ShouldQueue
             if (EmailMessage::query()->where('idempotency_key', $this->noticeId)->exists()) {
                 return;
             }
-            $notification = $recipient->notifications()->firstOrCreate(['id' => $this->noticeId], [
-                'type' => self::class,
-                'data' => ['title' => $this->title, 'message' => $this->message, 'route' => 'supervisor-evaluations.show', 'supervisor_evaluation_id' => $this->evaluationId],
-            ]);
             $evaluation = SupervisorEvaluation::query()->with('internship.course')->findOrFail($this->evaluationId);
+            $notification = null;
+            if ($recipient->type === AffiliationType::InternshipOffice && $recipient->deactivated_at === null
+                && $recipient->campus_id === $evaluation->internship->course->campus_id) {
+                $notification = $recipient->notifications()->firstOrCreate(['id' => $this->noticeId], [
+                    'type' => self::class,
+                    'data' => ['title' => $this->title, 'message' => $this->message, 'route' => 'supervisor-evaluations.show', 'supervisor_evaluation_id' => $this->evaluationId],
+                ]);
+            }
             $internshipDetails = $details->forInternship($evaluation->internship);
             $subject = $this->internshipCompleted ? 'Sua avaliação foi aceita e o estágio está concluído' : $this->title;
             $body = $this->message;
@@ -65,8 +70,8 @@ class DeliverSupervisorEvaluationNotice implements ShouldQueue
             ];
             $contentHtml = (string) app(Markdown::class)->render('emails.notification', $data);
             $contentText = (string) app(Markdown::class)->renderText('emails.notification', $data);
-            $delivery->notification($notification, $subject, $contentText, $contentHtml, $this->noticeId,
-                app(EmailDeliveryContext::class)->forInternship($evaluation->internship));
+            $delivery->operationalNotice($recipient, $subject, $contentText, $contentHtml, $this->noticeId,
+                app(EmailDeliveryContext::class)->forInternship($evaluation->internship), $notification);
         });
     }
 

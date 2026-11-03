@@ -13,8 +13,6 @@ use App\Support\InternshipEmailDetails;
 use App\Support\InternshipGradeCalculator;
 use App\Support\InternshipRecipients;
 use Illuminate\Mail\Markdown;
-use Illuminate\Notifications\DatabaseNotification;
-use LogicException;
 use Ramsey\Uuid\Uuid;
 
 class NotifyInternshipEvaluationResults
@@ -25,10 +23,14 @@ class NotifyInternshipEvaluationResults
         private EmailRecipientIdentity $identities) {}
 
     /** O chamador mantém o estágio bloqueado na transação da aprovação/conclusão. */
-    public function supervisorApproved(Internship $internship, DatabaseNotification $notification): void
+    public function supervisorApproved(Internship $internship, Affiliation $recipient, string $noticeId): void
     {
+        if (EmailMessage::query()->where('idempotency_key', $noticeId)->exists()) {
+            return;
+        }
+
         $weights = $this->calculator->weights($internship->internship_type_snapshot['rules'] ?? []);
-        $this->send($internship, $notification, 'Avaliação do supervisor aceita — estágio concluído',
+        $this->send($internship, $recipient, $noticeId, 'Avaliação do supervisor aceita — estágio concluído',
             'O Setor de Estágio aceitou a avaliação do supervisor. A carga horária foi integralmente cumprida e o estágio está concluído.',
             ['Nota do supervisor' => $this->grade((float) $internship->supervisor_grade, $weights['supervisor_evaluation_weight'])],
             'Esta nota corresponde à avaliação do supervisor. A nota final será comunicada separadamente, quando as três notas estiverem disponíveis e válidas. Em caso de dúvidas, entre em contato com a Coordenação do seu curso.');
@@ -61,12 +63,8 @@ class NotifyInternshipEvaluationResults
         }
         $title = 'Avaliação final do estágio disponível';
         $body = 'As notas do supervisor, do relatório e da apresentação foram registradas. A nota final calculada pelo SGE está disponível.';
-        $notification = $recipient->notifications()->firstOrCreate(['id' => $noticeId], [
-            'type' => self::class,
-            'data' => ['title' => $title, 'message' => $body, 'route' => 'dashboard', 'internship_id' => $internship->id, 'event' => 'final-grade'],
-        ]);
         $weights = $this->calculator->weights($internship->internship_type_snapshot['rules'] ?? []);
-        $this->send($internship, $notification, $title, $body, [
+        $this->send($internship, $recipient, $noticeId, $title, $body, [
             'Nota do supervisor' => $this->grade((float) $internship->supervisor_grade, $weights['supervisor_evaluation_weight']),
             'Nota do relatório' => $this->grade((float) $internship->report_grade, $weights['report_weight']),
             'Nota da apresentação' => $this->grade((float) $internship->presentation_grade, $weights['presentation_weight']),
@@ -75,21 +73,14 @@ class NotifyInternshipEvaluationResults
     }
 
     /** @param array<string, string> $grades */
-    private function send(Internship $internship, DatabaseNotification $notification, string $title, string $body, array $grades, string $explanation): void
+    private function send(Internship $internship, Affiliation $recipient, string $noticeId, string $title, string $body, array $grades, string $explanation): void
     {
-        if (EmailMessage::query()->where('idempotency_key', $notification->id)->exists()) {
-            return;
-        }
-        $recipient = $notification->notifiable;
-        if (! $recipient instanceof Affiliation) {
-            throw new LogicException('O aviso acadêmico exige um vínculo destinatário.');
-        }
         $data = ['messageSubject' => $title, 'body' => $body, 'internshipDetails' => $this->details->forInternship($internship),
             'grades' => $grades, 'explanation' => $explanation, 'dashboardUrl' => route('dashboard'),
             'recipientIdentity' => $this->identities->forAffiliation($recipient)];
         $html = (string) $this->markdown->render('emails.internship-evaluation-result', $data);
         $text = (string) $this->markdown->renderText('emails.internship-evaluation-result', $data);
-        $this->delivery->notification($notification, $title, $text, $html, $notification->id, $this->emailContext->forInternship($internship));
+        $this->delivery->operationalNotice($recipient, $title, $text, $html, $noticeId, $this->emailContext->forInternship($internship));
     }
 
     private function grade(float $value, int $weight): string

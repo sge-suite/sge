@@ -43,16 +43,10 @@ class DeliverInternshipRequestNotice implements ShouldQueue
             }
             $isPendingCorrection = $this->affectedSections !== [];
             $title = $isPendingCorrection ? 'Sua solicitação de estágio precisa de correções' : 'Sua solicitação de estágio foi atualizada';
-            $text = $isPendingCorrection
-                ? $this->correctionEmailText($request->id)
-                : 'A solicitação nº '.$request->id.' está com a situação: '.$this->statusLabel.'. Acesse o SGE para consultar os próximos passos.';
-            $notification = $owner->notifications()->firstOrCreate(['id' => $this->noticeId], [
-                'type' => self::class,
-                'data' => ['title' => $title, 'message' => $text, 'route' => 'internship-requests.show', 'internship_request_id' => $request->id],
-            ]);
             $data = [
                 'messageSubject' => $title,
-                'body' => $isPendingCorrection ? $this->correctionEmailMarkdown($request->id) : $text,
+                'body' => $isPendingCorrection ? $this->correctionEmailMarkdown($request->id)
+                    : 'A solicitação nº '.$request->id.' está com a situação: '.$this->statusLabel.'. Acesse o SGE para consultar os próximos passos.',
                 'dashboardUrl' => route('internship-requests.show', $request),
                 'internshipDetails' => ['Solicitação' => 'nº '.$request->id,
                     'Tipo de estágio' => $request->internship_type_snapshot['name'] ?? 'Não informado', 'Situação' => $this->statusLabel],
@@ -60,22 +54,8 @@ class DeliverInternshipRequestNotice implements ShouldQueue
             ];
             $contentHtml = (string) app(Markdown::class)->render('emails.notification', $data);
             $emailText = (string) app(Markdown::class)->renderText('emails.notification', $data);
-            $delivery->notification($notification, $title, $emailText, $contentHtml, $this->noticeId, app(EmailDeliveryContext::class)->forInternshipRequest($request));
+            $delivery->operationalNotice($owner, $title, $emailText, $contentHtml, $this->noticeId, app(EmailDeliveryContext::class)->forInternshipRequest($request));
         });
-    }
-
-    private function correctionEmailText(int $requestId): string
-    {
-        $lines = ['A solicitação nº '.$requestId.' está com pendências e precisa de ajustes para voltar à análise.'];
-        foreach ($this->correctionItems() as [$label, $message]) {
-            $lines[] = $label.': '.$message;
-        }
-        if (filled($this->generalMessage)) {
-            $lines[] = 'Orientação geral do Setor: '.$this->generalMessage;
-        }
-        $lines[] = 'Acesse a solicitação no SGE, revise cada etapa indicada e reenvie para análise.';
-
-        return implode("\n\n", $lines);
     }
 
     private function correctionEmailMarkdown(int $requestId): string

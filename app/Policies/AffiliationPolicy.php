@@ -50,7 +50,9 @@ class AffiliationPolicy
 
     public function viewNotifications(User $user, Affiliation $affiliation): bool
     {
-        return $this->context->currentFor($user, app('session.store'))?->is($affiliation) === true;
+        $activeAffiliation = $this->context->currentFor($user, app('session.store'));
+
+        return $activeAffiliation?->type === AffiliationType::InternshipOffice && $activeAffiliation->is($affiliation);
     }
 
     private function canRemoveAffiliation(User $user, Affiliation $affiliation): bool

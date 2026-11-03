@@ -24,17 +24,13 @@ class NotifyInternshipLifecycle
             if (! in_array($category, $categories, true) || $recipient['affiliation'] === null) {
                 continue;
             }
-            $noticeId = (string) Str::uuid();
-            $text = 'Olá, '.$recipient['name'].".\n\n".'Você recebe este aviso como '.$recipient['role'].' do estágio nº '.$internship->id.".\n\n".$explanation
-                ."\n\n".'Situação atual: '.$internship->status->label().'.';
-            $notification = $recipient['affiliation']->notifications()->create(['id' => $noticeId, 'type' => self::class,
-                'data' => ['title' => $title, 'message' => $text, 'route' => 'dashboard', 'internship_id' => $internship->id]]);
-            if ($category === 'student' && $supervisorEvaluationApproved) {
-                $this->results->supervisorApproved($internship, $notification);
-
+            if ($category === 'supervisor' && $supervisorEvaluationApproved) {
                 continue;
             }
-            if ($category === 'supervisor' && $supervisorEvaluationApproved) {
+            $noticeId = (string) Str::uuid();
+            if ($category === 'student' && $supervisorEvaluationApproved) {
+                $this->results->supervisorApproved($internship, $recipient['affiliation'], $noticeId);
+
                 continue;
             }
             $data = ['messageSubject' => $title, 'body' => $explanation,
@@ -43,7 +39,7 @@ class NotifyInternshipLifecycle
                 'nextStep' => 'Acompanhe os detalhes no SGE com o vínculo identificado nesta mensagem.'];
             $html = (string) $this->markdown->render('emails.notification', $data);
             $emailText = (string) $this->markdown->renderText('emails.notification', $data);
-            $this->delivery->notification($notification, $title.' — estágio nº '.$internship->id, $emailText, $html, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
+            $this->delivery->operationalNotice($recipient['affiliation'], $title.' — estágio nº '.$internship->id, $emailText, $html, $noticeId, app(EmailDeliveryContext::class)->forInternship($internship));
         }
     }
 }
