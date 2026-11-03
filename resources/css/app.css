@@ -18,7 +18,7 @@
     --color-zinc-200: #e5e5e5;
     --color-zinc-300: #d4d4d4;
     --color-zinc-400: #a3a3a3;
-    --color-zinc-500: #737373;
+    --color-zinc-500: #595959;
     --color-zinc-600: #525252;
     --color-zinc-700: #404040;
     --color-zinc-800: #262626;
@@ -33,11 +33,22 @@
 
 @layer theme {
     .dark {
+        --color-zinc-400: #bfbfbf;
+        --color-zinc-500: #a3a3a3;
         --color-accent: var(--color-white);
         --color-accent-content: var(--color-white);
         --color-accent-foreground: var(--color-neutral-800);
         --color-brand: #34d399;
     }
+}
+
+[data-flux-text][class~="[:where(&)]:text-zinc-400"] {
+    color: var(--color-zinc-500);
+}
+
+.dark [data-flux-text]:is([class~="[:where(&)]:dark:text-white/50"], [class~="[:where(&)]:dark:text-white/70"]),
+.dark [data-flux-description][class~="dark:text-white/60"] {
+    color: var(--color-zinc-300);
 }
 
 @layer base {

@@ -36,9 +36,12 @@ new #[Title('Guia de variáveis DOCX')] class extends Component
     <flux:breadcrumbs><flux:breadcrumbs.item :href="route('document-templates.index')" wire:navigate>Templates DOCX</flux:breadcrumbs.item><flux:breadcrumbs.item>Guia de variáveis</flux:breadcrumbs.item></flux:breadcrumbs>
     @php
         $rules = [
-        'Como preparar o original' => 'Todas as variáveis disponíveis podem ser usadas em qualquer tipo de template, independentemente da classificação de remuneração. Não há lista de marcadores obrigatórios; use somente os necessários ao conteúdo do modelo. Variáveis reservadas ainda não podem ser usadas. Fontes incorporadas e links para sites e e-mails são permitidos. Não inclua macros, arquivos anexados ou campos automáticos. O sistema verifica a estrutura e as variáveis, sem analisar dados pessoais. TCE, credenciamento, SEDUC, EMATER e rescisão usam o tipo Documento principal.',
-        'Formatação e variações de texto' => 'Aplique fonte, tamanho, negrito e itálico diretamente ao marcador completo no Word ou LibreOffice. Para transformar o texto, use um único modificador: ${DISCENTE_NOME|MAIUSCULAS}, ${DISCENTE_NOME|MINUSCULAS}, ${DISCENTE_NOME|PRIMEIRA_MAIUSCULA} ou ${DISCENTE_NOME|INICIAIS_MAIUSCULAS}. Este último mantém partículas internas como “de”, “da”, “em” e “e” minúsculas. Sem modificador, a grafia cadastrada é preservada. Aplique a formatação desejada no próprio DOCX.',
-        'Modelos com e sem remuneração' => 'O texto jurídico fica em DOCXs separados. A classificação do modelo não restringe as variáveis disponíveis. Use somente os valores de bolsa e auxílio; não existe variável de parágrafo completo. Use os valores monetários somente quando fizerem sentido no conteúdo do modelo.',
+        'Como preparar o original' => 'Todas as variáveis disponíveis podem ser usadas em qualquer tipo de template, independentemente da classificação de remuneração. Não há lista de marcadores obrigatórios; use somente os necessários ao conteúdo do modelo. Variáveis reservadas ainda não podem ser usadas.
+Fontes incorporadas e links para sites e e-mails são permitidos. Não inclua macros, arquivos anexados ou campos automáticos. O sistema verifica a estrutura e as variáveis, sem analisar dados pessoais.',
+        'Formatação e variações de texto' => 'Aplique fonte, tamanho, negrito e itálico diretamente ao marcador completo no Word ou LibreOffice.
+Para transformar o texto, use um único modificador: ${DISCENTE_NOME|MAIUSCULAS}, ${DISCENTE_NOME|MINUSCULAS}, ${DISCENTE_NOME|PRIMEIRA_MAIUSCULA} ou ${DISCENTE_NOME|INICIAIS_MAIUSCULAS}. Este último mantém partículas internas como “de”, “da”, “em” e “e” minúsculas. Sem modificador, a grafia cadastrada é preservada.',
+        'Modelos com e sem remuneração' => 'O texto jurídico fica em DOCXs separados. A classificação do modelo não restringe as variáveis disponíveis.
+Use somente os valores de bolsa e auxílio; não existe variável de parágrafo completo. Use os valores monetários somente quando fizerem sentido no conteúdo do modelo.',
         ];
         $markdown = [
             '# Guia de variáveis DOCX do SGE',
@@ -47,7 +50,7 @@ new #[Title('Guia de variáveis DOCX')] class extends Component
 
         foreach ($rules as $heading => $rule) {
             $markdown[] = '## '.$heading;
-            $markdown[] = preg_replace('/\$\{[^}]+\}/', '`$0`', $rule);
+            $markdown[] = preg_replace('/\$\{[^}]+\}/', '`$0`', str_replace("\n", "\n\n", $rule));
         }
 
         $markdown[] = '## Catálogo completo de variáveis';
@@ -78,11 +81,20 @@ new #[Title('Guia de variáveis DOCX')] class extends Component
         </div>
     </div>
 
-    @foreach ($rules as $heading => $rule)
-        <flux:callout :heading="$heading" wire:key="guide-rule-{{ $loop->index }}">
-            <flux:callout.text>{{ $rule }}</flux:callout.text>
-        </flux:callout>
-    @endforeach
+    <div class="@container">
+        <div class="grid gap-x-8 gap-y-6 @3xl:grid-cols-2 @6xl:grid-cols-3">
+            @foreach ($rules as $heading => $rule)
+                <section class="min-w-0 max-w-prose @3xl:last:col-span-2 @6xl:last:col-span-1" wire:key="guide-rule-{{ $loop->index }}">
+                    <flux:heading level="2" size="lg">{{ $heading }}</flux:heading>
+                    <div class="mt-2 flex flex-col gap-3">
+                        @foreach (explode("\n", $rule) as $paragraph)
+                            <flux:text size="lg" class="leading-relaxed">{{ $paragraph }}</flux:text>
+                        @endforeach
+                    </div>
+                </section>
+            @endforeach
+        </div>
+    </div>
     <flux:input type="search" label="Buscar nome, significado ou origem" icon="magnifying-glass" wire:model.live.debounce.300ms="search" maxlength="255" />
     <x-loading-overlay target="search">
         <div class="space-y-4">

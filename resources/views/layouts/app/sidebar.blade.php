@@ -98,7 +98,7 @@
         <flux:header class="h-auto! min-h-16 gap-3 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 lg:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
-            <div class="shrink-0 lg:hidden">
+            <div class="ms-auto shrink-0 lg:hidden">
                 <flux:dropdown position="top" align="end">
                     <flux:profile
                         :initials="auth()->user()->initials()"
