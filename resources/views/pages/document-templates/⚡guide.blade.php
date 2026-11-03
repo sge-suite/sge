@@ -34,10 +34,55 @@ new #[Title('Guia de variáveis DOCX')] class extends Component
 
 <div class="w-full space-y-8">
     <flux:breadcrumbs><flux:breadcrumbs.item :href="route('document-templates.index')" wire:navigate>Templates DOCX</flux:breadcrumbs.item><flux:breadcrumbs.item>Guia de variáveis</flux:breadcrumbs.item></flux:breadcrumbs>
-    <div><flux:heading size="xl" level="1">Guia de variáveis</flux:heading><flux:text class="mt-2">Use os nomes exatos no formato ${NOME_DA_VARIAVEL}. Todos os exemplos são fictícios.</flux:text></div>
-    <flux:callout><flux:callout.heading>Como preparar o original</flux:callout.heading><flux:callout.text>Todas as variáveis disponíveis podem ser usadas em qualquer tipo de template, independentemente da classificação de remuneração. Não há lista de marcadores obrigatórios; use somente os necessários ao conteúdo do modelo. Variáveis reservadas ainda não podem ser usadas. Fontes incorporadas e links para sites e e-mails são permitidos. Não inclua macros, arquivos anexados ou campos automáticos. O sistema verifica a estrutura e as variáveis, sem analisar dados pessoais. TCE, credenciamento, SEDUC, EMATER e rescisão usam o tipo Documento principal.</flux:callout.text></flux:callout>
-    <flux:callout heading="Formatação e variações de texto"><flux:callout.text>Aplique fonte, tamanho, negrito e itálico diretamente ao marcador completo no Word ou LibreOffice. Para transformar o texto, use um único modificador: ${DISCENTE_NOME|MAIUSCULAS}, ${DISCENTE_NOME|MINUSCULAS}, ${DISCENTE_NOME|PRIMEIRA_MAIUSCULA} ou ${DISCENTE_NOME|INICIAIS_MAIUSCULAS}. Este último mantém partículas internas como “de”, “da”, “em” e “e” minúsculas. Sem modificador, a grafia cadastrada é preservada. A geração futura deverá manter os estilos do original.</flux:callout.text></flux:callout>
-    <flux:callout heading="Modelos com e sem remuneração"><flux:callout.text>O texto jurídico fica em DOCXs separados. A classificação do modelo não restringe as variáveis disponíveis. Use somente os valores de bolsa e auxílio; não existe variável de parágrafo completo. Use os valores monetários somente quando fizerem sentido no conteúdo do modelo.</flux:callout.text></flux:callout>
+    @php
+        $rules = [
+        'Como preparar o original' => 'Todas as variáveis disponíveis podem ser usadas em qualquer tipo de template, independentemente da classificação de remuneração. Não há lista de marcadores obrigatórios; use somente os necessários ao conteúdo do modelo. Variáveis reservadas ainda não podem ser usadas. Fontes incorporadas e links para sites e e-mails são permitidos. Não inclua macros, arquivos anexados ou campos automáticos. O sistema verifica a estrutura e as variáveis, sem analisar dados pessoais. TCE, credenciamento, SEDUC, EMATER e rescisão usam o tipo Documento principal.',
+        'Formatação e variações de texto' => 'Aplique fonte, tamanho, negrito e itálico diretamente ao marcador completo no Word ou LibreOffice. Para transformar o texto, use um único modificador: ${DISCENTE_NOME|MAIUSCULAS}, ${DISCENTE_NOME|MINUSCULAS}, ${DISCENTE_NOME|PRIMEIRA_MAIUSCULA} ou ${DISCENTE_NOME|INICIAIS_MAIUSCULAS}. Este último mantém partículas internas como “de”, “da”, “em” e “e” minúsculas. Sem modificador, a grafia cadastrada é preservada. Aplique a formatação desejada no próprio DOCX.',
+        'Modelos com e sem remuneração' => 'O texto jurídico fica em DOCXs separados. A classificação do modelo não restringe as variáveis disponíveis. Use somente os valores de bolsa e auxílio; não existe variável de parágrafo completo. Use os valores monetários somente quando fizerem sentido no conteúdo do modelo.',
+        ];
+        $markdown = [
+            '# Guia de variáveis DOCX do SGE',
+            'Use os nomes exatos no formato `${NOME_DA_VARIAVEL}`. Todos os exemplos são fictícios.',
+        ];
+
+        foreach ($rules as $heading => $rule) {
+            $markdown[] = '## '.$heading;
+            $markdown[] = preg_replace('/\$\{[^}]+\}/', '`$0`', $rule);
+        }
+
+        $markdown[] = '## Catálogo completo de variáveis';
+
+        foreach (app(TemplateVariableCatalog::class)->all() as $name => $variable) {
+            $availability = $variable['available'] ? 'Disponível' : 'Reservada, não use';
+            $markdown[] = '- `${'.$name.'}` — '.$variable['description'].' ('.$availability.'). Formato: '.$variable['format'].'. Condição: '.$variable['condition'].'. Valor vazio: '.$variable['empty'].'. Exemplo fictício: '.$variable['example'].'.';
+        }
+    @endphp
+
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <flux:heading size="xl" level="1">Guia de variáveis</flux:heading>
+            <flux:text class="mt-2">Use os nomes exatos no formato ${NOME_DA_VARIAVEL}. Todos os exemplos são fictícios.</flux:text>
+        </div>
+        <div x-data="{
+            async copy() {
+                try {
+                    await navigator.clipboard.writeText(this.$refs.markdown.textContent);
+                    this.$flux.toast('Regras copiadas em Markdown!', { variant: 'success' });
+                } catch {
+                    this.$flux.toast('Não foi possível copiar as regras.', { variant: 'danger' });
+                }
+            },
+        }">
+            <flux:button type="button" variant="outline" icon="clipboard" x-on:click="copy()">Copiar regras em Markdown</flux:button>
+            <div hidden x-ref="markdown">{{ implode("\n\n", $markdown) }}</div>
+        </div>
+    </div>
+
+    @foreach ($rules as $heading => $rule)
+        <flux:callout :heading="$heading" wire:key="guide-rule-{{ $loop->index }}">
+            <flux:callout.text>{{ $rule }}</flux:callout.text>
+        </flux:callout>
+    @endforeach
     <flux:input type="search" label="Buscar nome, significado ou origem" icon="magnifying-glass" wire:model.live.debounce.300ms="search" maxlength="255" />
     <x-loading-overlay target="search">
         <div class="space-y-4">
