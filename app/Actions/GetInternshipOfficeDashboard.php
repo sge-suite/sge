@@ -26,8 +26,9 @@ class GetInternshipOfficeDashboard
         $requests = InternshipRequest::query()->whereHas('affiliation', fn ($query) => $query->where('campus_id', $owner->campus_id))
             ->whereIn('status', [InternshipRequestStatus::Submitted, InternshipRequestStatus::UnderReview]);
         $today = CarbonImmutable::today(config('app.timezone'));
+        $endingUntil = $today->addDays(7);
         $ending = (clone $internships)->whereIn('status', [InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused])
-            ->whereDate('projected_end_date', '<=', $today->addDays(30)->toDateString());
+            ->whereDate('projected_end_date', '<=', $endingUntil->toDateString());
         $signatureDocuments = fn ($query) => $query->where('status', GeneratedDocumentStatus::AwaitingSignature);
         $signatures = (clone $internships)->whereHas('generatedDocuments', $signatureDocuments);
         $delayed = (clone $internships)->whereNull('released_at')
@@ -45,7 +46,7 @@ class GetInternshipOfficeDashboard
             'requests' => $requests->with('course')->oldest('updated_at')->oldest('id')->limit(5)->get(),
             'endingCount' => (clone $ending)->count(),
             'endingInternships' => $ending->with(['course', 'advisorAffiliation.user'])->orderBy('projected_end_date')->orderBy('id')->limit(5)->get(),
-            'endingUntil' => $today->addDays(30),
+            'endingUntil' => $endingUntil,
             'signatureCount' => (clone $signatures)->count(),
             'signatureInternships' => $signatures->withMin(['generatedDocuments' => $signatureDocuments], 'updated_at')
                 ->withCasts(['generated_documents_min_updated_at' => 'datetime'])
