@@ -58,6 +58,10 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:viewAny,'.Internship::class)->name('internships.index');
         Route::livewire('my-internships', 'pages::internships.student-index')
             ->middleware('can:viewOwnAny,'.Internship::class)->name('student-internships.index');
+        Route::livewire('internship-locations', 'pages::internship-locations.index')
+            ->middleware('can:viewStudentLocations,'.GrantingParty::class)->name('internship-locations.index');
+        Route::livewire('internship-locations/{grantingParty}', 'pages::internship-locations.show')
+            ->middleware('can:viewStudentLocation,grantingParty')->name('internship-locations.show');
         Route::get('internships/{internship}/documents/{generatedDocument}/download', GeneratedDocumentDownloadController::class)
             ->scopeBindings()->middleware('can:download,generatedDocument')->name('internships.documents.download');
         Route::livewire('internships/{internship}', 'pages::internships.show')

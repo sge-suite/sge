@@ -5,6 +5,7 @@ use App\Enums\InternshipCancellationRequestStatus;
 use App\Enums\AffiliationType;
 use App\Models\Course;
 use App\Models\Affiliation;
+use App\Models\GrantingParty;
 use App\Models\Internship;
 use App\Models\User;
 use App\Support\PageSize;
@@ -43,6 +44,13 @@ new #[Title('Estágios')] class extends Component
                 ->orderBy(User::query()->select('name')->whereColumn('users.id', 'affiliations.user_id'))->orderBy('id'),
                 $owner->type === AffiliationType::Advisor ? 'id = '.(int) $owner->id : '',
                 fn (Affiliation $advisor): string => $advisor->user->name),
+            'grantingParties' => new SelectOptionSource(GrantingParty::query()->forCampus((int) $owner->campus_id)
+                ->when(in_array($owner->type, [AffiliationType::Coordinator, AffiliationType::Advisor], true),
+                    fn (Builder $query) => $query->whereIn('id', (clone $visible)->select('granting_party_id')))
+                ->with('address.city')->orderBy('name')->orderBy('id'),
+                'campus_id = '.(int) $owner->campus_id,
+                fn (GrantingParty $party): string => $party->name.' · '.$party->address->city->name.'/'.$party->address->city->state->value.' · Unidade nº '.$party->id,
+                attributes: ['name']),
             default => abort(404),
         };
     }
@@ -52,6 +60,7 @@ new #[Title('Estágios')] class extends Component
     #[Url(except: 'all')] public string $status = 'all';
     #[Url(except: '', as: 'course')] public string $courseId = '';
     #[Url(except: '', as: 'advisor')] public string $advisorId = '';
+    #[Url(except: '', as: 'granting_party')] public string $grantingPartyId = '';
     #[Url(except: false, as: 'pending_cancellations')] public bool $pendingCancellations = false;
 
     protected function searchRetryProperties(): array
@@ -103,6 +112,12 @@ new #[Title('Estágios')] class extends Component
         $this->resetPage();
     }
 
+    public function updatedGrantingPartyId(): void
+    {
+        $this->normalizeFilters();
+        $this->resetPage();
+    }
+
     #[Computed]
     public function accessDescription(): string
     {
@@ -125,11 +140,14 @@ new #[Title('Estágios')] class extends Component
         if ($this->courseId !== '' && ! (ctype_digit($this->courseId) && $this->selectSearchSource('courses')->query->whereKey((int) $this->courseId)->exists())) {
             $this->courseId = '';
         }
+        if ($this->grantingPartyId !== '' && $this->selectedSelectOptions('grantingParties', $this->grantingPartyId) === []) {
+            $this->grantingPartyId = '';
+        }
     }
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'status', 'courseId', 'advisorId', 'pendingCancellations');
+        $this->reset('search', 'status', 'courseId', 'advisorId', 'grantingPartyId', 'pendingCancellations');
         $this->resetPage();
     }
 
@@ -154,6 +172,13 @@ new #[Title('Estágios')] class extends Component
         return ['' => 'Todos os orientadores'] + $this->selectedSelectOptions('advisors', $this->advisorId);
     }
 
+    /** @return array<int|string, string> */
+    #[Computed]
+    public function grantingPartyOptions(): array
+    {
+        return ['' => 'Todas as concedentes'] + $this->selectedSelectOptions('grantingParties', $this->grantingPartyId);
+    }
+
     /** @return LengthAwarePaginator<int, Internship> */
     #[Computed]
     public function internships(): LengthAwarePaginator
@@ -173,6 +198,7 @@ new #[Title('Estágios')] class extends Component
             ->when($this->status !== 'all', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->advisorId !== '', fn (Builder $query) => $query->where('advisor_affiliation_id', $this->advisorId))
             ->when($this->courseId !== '', fn (Builder $query) => $query->where('course_id', $this->courseId))
+            ->when($this->grantingPartyId !== '', fn (Builder $query) => $query->where('granting_party_id', $this->grantingPartyId))
             ->with(['course', 'advisorAffiliation.user']);
 
         if ($search !== '') {
@@ -180,6 +206,7 @@ new #[Title('Estágios')] class extends Component
                 ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('status', InternshipStatus::tryFrom($this->status)?->value ?? 'invalid'))
                 ->when($this->advisorId !== '', fn ($searchQuery) => $searchQuery->where('advisor_affiliation_id', (int) $this->advisorId))
                 ->when($this->courseId !== '', fn ($searchQuery) => $searchQuery->where('course_id', (int) $this->courseId))
+                ->when($this->grantingPartyId !== '', fn ($searchQuery) => $searchQuery->where('granting_party_id', (int) $this->grantingPartyId))
                 ->when($owner->type === AffiliationType::InternshipOffice && $this->pendingCancellations, fn ($searchQuery) => $searchQuery->where('has_pending_cancellation', 1))
                 ->query(function (Builder $builder) use ($query, $owner): void {
                     $builder->mergeConstraintsFrom($query)->with($query->getEagerLoads());
@@ -206,8 +233,9 @@ new #[Title('Estágios')] class extends Component
         <div class="min-w-0"><x-select search-source="courses" wire:model.live="courseId" label="Curso" :value="$courseId" :options="$this->courseOptions" searchable /></div>
         <div class="min-w-0"><x-select wire:model.live="status" label="Situação" :value="$status" :options="$this->statusOptions" /></div>
         <div class="min-w-0"><x-select search-source="advisors" wire:model.live="advisorId" label="Orientador" :value="$advisorId" :options="$this->advisorOptions" searchable /></div>
+        <div class="min-w-0"><x-select search-source="grantingParties" wire:model.live="grantingPartyId" label="Parte concedente" :value="$grantingPartyId" :options="$this->grantingPartyOptions" searchable /></div>
         <div>
-            @if ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '' || $pendingCancellations)
+            @if ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '' || $grantingPartyId !== '' || $pendingCancellations)
                 <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
             @else
                 <div aria-hidden="true" class="h-10"></div>
@@ -218,7 +246,7 @@ new #[Title('Estágios')] class extends Component
         <flux:checkbox wire:model.live="pendingCancellations" label="Somente com pedido de cancelamento pendente" />
     @endif
     @php($internships = $this->internships)
-    <x-loading-overlay target="retrySearch,search,courseId,advisorId,status,pendingCancellations,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+    <x-loading-overlay target="retrySearch,search,courseId,advisorId,grantingPartyId,status,pendingCancellations,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($this->searchFailed('internships'))
             <x-search-unavailable retry="retrySearch('internships')" />
         @elseif ($internships->isNotEmpty())
@@ -229,7 +257,7 @@ new #[Title('Estágios')] class extends Component
                 @if ($internships->total() > 0)
                     <flux:heading size="lg">Nenhum estágio nesta página</flux:heading>
                     <flux:button class="mt-5" variant="ghost" wire:click="resetPage">Ir para a primeira página</flux:button>
-                @elseif ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '' || $pendingCancellations)
+                @elseif ($search !== '' || $status !== 'all' || $courseId !== '' || $advisorId !== '' || $grantingPartyId !== '' || $pendingCancellations)
                     <flux:heading size="lg">Nenhum estágio encontrado</flux:heading>
                     <flux:text class="mt-2">Ajuste a busca ou os filtros para encontrar um estágio.</flux:text>
                     <flux:button class="mt-5" variant="ghost" wire:click="clearFilters">Limpar filtros</flux:button>

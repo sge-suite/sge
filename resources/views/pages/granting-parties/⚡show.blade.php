@@ -125,6 +125,13 @@ new #[Title('Detalhes da parte concedente')] class extends Component
         return $grantingParty;
     }
 
+    /** @return list<string> */
+    #[Computed]
+    public function coursesWithStartedInternships(): array
+    {
+        return $this->grantingParty->coursesWithStartedInternships();
+    }
+
     /** @return LengthAwarePaginator<int, array{id: int, actor: string, subject: string, event: string, occurred_at: string}>|null */
     #[Computed]
     public function activityHistory(): ?LengthAwarePaginator
@@ -177,6 +184,15 @@ new #[Title('Detalhes da parte concedente')] class extends Component
             @endforeach
             <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Endereço</dt><dd class="mt-1 text-sm">{{ $grantingParty->address->street }}, {{ $grantingParty->address->number }} · {{ $grantingParty->address->neighborhood }} · {{ $grantingParty->address->city->name }} / {{ $grantingParty->address->city->state->value }} · {{ \App\Helpers\BrazilianAddressHelper::formatCep($grantingParty->address->zip_code) }}</dd></div>
         </dl>
+    </section>
+    <section class="flex flex-wrap items-start justify-between gap-4 border-t border-zinc-200 pt-6 dark:border-zinc-700">
+        <div class="min-w-0">
+            <flux:heading level="2" size="lg">Cursos com estágio iniciado</flux:heading>
+            <flux:text class="mt-2">{{ $this->coursesWithStartedInternships === [] ? 'Sem registro de estágio iniciado nesta concedente.' : implode(', ', $this->coursesWithStartedInternships) }}</flux:text>
+        </div>
+        @can('viewAny', \App\Models\Internship::class)
+            <flux:button variant="outline" icon="briefcase" :href="route('internships.index', ['granting_party' => $grantingParty->id])" wire:navigate>Ver estágios da concedente</flux:button>
+        @endcan
     </section>
     @if ($grantingParty->hasLinkedRecords())
         <flux:callout heading="Exclusão indisponível"><flux:callout.text>Esta concedente possui registros vinculados. Você pode desativá-la para impedir novas associações.</flux:callout.text></flux:callout>

@@ -2,14 +2,18 @@
 
 use App\Enums\BrazilianState;
 use App\Models\City;
+use App\Models\Course;
+use App\Models\Affiliation;
 use App\Models\GrantingParty;
 use App\Support\ActiveAffiliationContext;
 use App\Support\PageSize;
+use App\Support\SelectOptionSource;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -18,7 +22,11 @@ use Livewire\WithPagination;
 new #[Title('Partes concedentes')] class extends Component
 {
     use \App\Concerns\HandlesSearchFailures;
+    use \App\Concerns\SearchesSelectOptions;
     use WithPagination;
+
+    #[Locked]
+    public int $affiliationId;
 
     #[Url(except: 'all')]
     public string $status = 'all';
@@ -32,7 +40,31 @@ new #[Title('Partes concedentes')] class extends Component
     #[Url(except: '', as: 'city')]
     public string $cityId = '';
 
+    #[Url(except: '', as: 'course')]
+    public string $courseId = '';
+
     public string $citySearch = '';
+
+    /** @return SelectOptionSource<Course> */
+    protected function selectSearchSource(string $source): SelectOptionSource
+    {
+        abort_unless($source === 'courses', 404);
+        Gate::authorize('viewAny', GrantingParty::class);
+        $campusId = $this->activeAffiliation()->campus_id;
+
+        return new SelectOptionSource(
+            Course::query()->where('campus_id', $campusId)->orderBy('name')->orderBy('id'),
+            'campus_id = '.(int) $campusId,
+            fn (Course $course): string => $course->name,
+        );
+    }
+
+    /** @return array<int|string, string> */
+    #[Computed]
+    public function courseOptions(): array
+    {
+        return ['' => 'Todos os cursos'] + $this->selectedSelectOptions('courses', $this->courseId);
+    }
 
     protected function searchRetryProperties(): array
     {
@@ -77,6 +109,8 @@ new #[Title('Partes concedentes')] class extends Component
 
     public function mount(): void
     {
+        $this->affiliationId = $this->activeAffiliation()->id;
+
         if (! in_array($this->status, ['all', 'active', 'inactive'], true)) {
             $this->status = 'all';
         }
@@ -88,6 +122,31 @@ new #[Title('Partes concedentes')] class extends Component
         if ($this->selectedCity === null) {
             $this->cityId = '';
         }
+
+        $this->normalizeCourse();
+    }
+
+    public function hydrate(): void
+    {
+        abort_unless($this->activeAffiliation()->id === $this->affiliationId, 403);
+    }
+
+    private function activeAffiliation(): Affiliation
+    {
+        return app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
+    }
+
+    public function updatedCourseId(): void
+    {
+        $this->normalizeCourse();
+        $this->resetPage();
+    }
+
+    private function normalizeCourse(): void
+    {
+        if ($this->courseId !== '' && $this->selectedSelectOptions('courses', $this->courseId) === []) {
+            $this->courseId = '';
+        }
     }
 
     public function updatedStatus(): void
@@ -97,7 +156,7 @@ new #[Title('Partes concedentes')] class extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('status', 'search', 'state', 'cityId', 'citySearch');
+        $this->reset('status', 'search', 'state', 'cityId', 'citySearch', 'courseId');
         $this->resetPage();
     }
 
@@ -138,13 +197,14 @@ new #[Title('Partes concedentes')] class extends Component
     public function grantingParties(): LengthAwarePaginator
     {
         Gate::authorize('viewAny', GrantingParty::class);
-        $affiliation = app(ActiveAffiliationContext::class)->currentFor(auth()->user(), app('session.store'));
+        $affiliation = $this->activeAffiliation();
         $state = $this->state === 'all' ? null : BrazilianState::tryFrom($this->state);
         $selectedCity = $this->selectedCity;
 
         $search = mb_substr(trim($this->search), 0, 255);
         $query = GrantingParty::query()->where('campus_id', $affiliation->campus_id)
             ->with('address.city')
+            ->when($this->courseId !== '', fn (Builder $query) => $query->withStartedInternshipsForCourse((int) $this->courseId))
             ->when($this->status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
             ->when($state !== null || $selectedCity !== null, function (Builder $query) use ($state, $selectedCity): void {
@@ -160,8 +220,14 @@ new #[Title('Partes concedentes')] class extends Component
             });
 
         if ($search !== '') {
+            $coursePartyIds = $this->courseId === '' ? null : (clone $query)->pluck('id')->all();
+            if ($coursePartyIds === []) {
+                return $query->orderBy('name')->orderBy('id')->paginate(PageSize::PER_PAGE);
+            }
+
             return $this->searchWithRecovery('grantingParties', fn () => GrantingParty::search($search)->where('campus_id', (int) $affiliation->campus_id)
                 ->options(['attributesToSearchOn' => ['name', 'document_number', 'normalized_document_number']])
+                ->when($coursePartyIds !== null, fn ($searchQuery) => $searchQuery->whereIn('id', $coursePartyIds))
                 ->when($this->status !== 'all', fn ($searchQuery) => $searchQuery->where('is_active', (int) ($this->status === 'active')))
                 ->when($state !== null, fn ($searchQuery) => $searchQuery->where('state', $state->value))
                 ->when($selectedCity !== null, fn ($searchQuery) => $searchQuery->where('city_id', (int) $selectedCity->id))
@@ -192,9 +258,12 @@ new #[Title('Partes concedentes')] class extends Component
             <flux:badge>Campus somente para leitura</flux:badge>
         @endcan
     </div>
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_14rem_12rem_9rem] xl:items-end">
-        <div class="min-w-0">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:items-end">
+        <div class="min-w-0 sm:col-span-2 xl:col-span-2">
             <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome ou CPF/CNPJ completo" icon="magnifying-glass" maxlength="255" type="search" />
+        </div>
+        <div class="min-w-0">
+            <x-select search-source="courses" wire:model.live="courseId" label="Curso com estágio iniciado" :value="$courseId" :options="$this->courseOptions" searchable />
         </div>
         <div class="min-w-0">
             <x-select wire:model.live="state" label="UF" :value="$state" :options="['all' => 'Todas as UFs'] + collect(BrazilianState::options())->map(fn ($label, $value) => $label.' ('.$value.')')->all()" searchable />
@@ -215,16 +284,12 @@ new #[Title('Partes concedentes')] class extends Component
         <div class="min-w-0">
             <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todos', 'active' => 'Ativos', 'inactive' => 'Desativados']" />
         </div>
-        <div class="min-w-0">
-            @if ($search !== '' || $status !== 'all' || $state !== 'all' || $cityId !== '')
-                <flux:button class="w-full" variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
-            @else
-                <div aria-hidden="true" class="h-10"></div>
-            @endif
-        </div>
     </div>
+    @if ($search !== '' || $status !== 'all' || $state !== 'all' || $cityId !== '' || $courseId !== '')
+        <flux:button variant="outline" wire:click="clearFilters">Limpar filtros</flux:button>
+    @endif
     @php($grantingParties = $this->grantingParties)
-    <x-loading-overlay target="retrySearch,search,state,cityId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+    <x-loading-overlay target="retrySearch,search,state,cityId,courseId,status,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($this->searchFailed('grantingParties'))
             <x-search-unavailable retry="retrySearch('grantingParties')" />
         @elseif ($grantingParties->isNotEmpty())
@@ -252,9 +317,9 @@ new #[Title('Partes concedentes')] class extends Component
                 @if ($grantingParties->total() > 0)
                     <flux:heading size="lg">Nenhuma parte concedente nesta página</flux:heading>
                     <flux:button class="mt-5" variant="ghost" wire:click="resetPage">Ir para a primeira página</flux:button>
-                @elseif ($status !== 'all' || $search !== '' || $state !== 'all' || $cityId !== '')
+                @elseif ($status !== 'all' || $search !== '' || $state !== 'all' || $cityId !== '' || $courseId !== '')
                     <flux:heading size="lg">Nenhuma parte concedente encontrada</flux:heading>
-                    <flux:text class="mt-2">Ajuste a busca, a localização ou a situação para encontrar uma parte concedente.</flux:text>
+                    <flux:text class="mt-2">Ajuste a busca ou os filtros para encontrar uma parte concedente.</flux:text>
                     <flux:button class="mt-5" variant="ghost" wire:click="clearFilters">Limpar filtros</flux:button>
                 @else
                     <flux:heading size="lg">Nenhuma parte concedente cadastrada</flux:heading>

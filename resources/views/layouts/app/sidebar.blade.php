@@ -29,6 +29,10 @@
                     <flux:sidebar.item icon="briefcase" :href="route('student-internships.index')" :current="request()->routeIs('student-internships.*', 'internships.show')" wire:navigate>Meus estágios</flux:sidebar.item>
                 @endcan
 
+                @can('viewStudentLocations', \App\Models\GrantingParty::class)
+                    <flux:sidebar.item icon="map-pin" :href="route('internship-locations.index')" :current="request()->routeIs('internship-locations.*')" wire:navigate>Locais de estágio</flux:sidebar.item>
+                @endcan
+
                 @can('viewReviewList', \App\Models\InternshipRequest::class)
                     <flux:sidebar.item icon="clipboard-document-check" :href="route('internship-review.index')" :current="request()->routeIs('internship-review.*')" wire:navigate>Solicitações de estágio</flux:sidebar.item>
                 @endcan

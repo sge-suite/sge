@@ -7,14 +7,31 @@ use App\Models\Affiliation;
 use App\Models\GrantingParty;
 use App\Models\User;
 use App\Support\ActiveAffiliationContext;
+use App\Support\StudentInternshipContext;
 
 class GrantingPartyPolicy
 {
-    public function __construct(private ActiveAffiliationContext $context) {}
+    public function __construct(
+        private ActiveAffiliationContext $context,
+        private StudentInternshipContext $studentContext,
+    ) {}
 
     public function viewAny(User $user): bool
     {
         return $this->internshipOffice($user) !== null;
+    }
+
+    public function viewStudentLocations(User $user): bool
+    {
+        return $this->studentContext->student($user) !== null;
+    }
+
+    public function viewStudentLocation(User $user, GrantingParty $grantingParty): bool
+    {
+        $student = $this->studentContext->student($user);
+
+        return $student !== null && $student->campus_id === $grantingParty->campus_id
+            && $grantingParty->deactivated_at === null;
     }
 
     public function view(User $user, GrantingParty $grantingParty): bool

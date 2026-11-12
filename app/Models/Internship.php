@@ -69,7 +69,7 @@ class Internship extends Model
     use LogsActivity;
     use Searchable;
 
-    /** @return array{id: int, student_name: string, registration_number: string, protocol_numbers: list<string>, campus_id: int, course_id: int, advisor_affiliation_id: int, advisor_user_id: int, advisor_campus_id: int, student_affiliation_id: int, status: string, updated_at: int, has_pending_cancellation: int} */
+    /** @return array{id: int, student_name: string, registration_number: string, protocol_numbers: list<string>, campus_id: int, course_id: int, granting_party_id: int, advisor_affiliation_id: int, advisor_user_id: int, advisor_campus_id: int, student_affiliation_id: int, status: string, updated_at: int, has_pending_cancellation: int} */
     public function toSearchableArray(): array
     {
         $this->loadMissing(['course', 'advisorAffiliation', 'generatedDocuments']);
@@ -84,6 +84,7 @@ class Internship extends Model
                 fn (mixed $protocol): bool => is_string($protocol) && $protocol !== '')),
             'campus_id' => (int) $this->course->campus_id,
             'course_id' => (int) $this->course_id,
+            'granting_party_id' => (int) $this->granting_party_id,
             'advisor_affiliation_id' => (int) $this->advisor_affiliation_id,
             'advisor_user_id' => (int) $this->advisorAffiliation?->user_id,
             'advisor_campus_id' => (int) $this->advisorAffiliation?->campus_id,
@@ -176,6 +177,17 @@ class Internship extends Model
         }
 
         return $query;
+    }
+
+    /**
+     * @param  Builder<Internship>  $query
+     * @return Builder<Internship>
+     */
+    public function scopeStarted(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            InternshipStatus::InProgress, InternshipStatus::Paused, InternshipStatus::Completed,
+        ]);
     }
 
     /**

@@ -208,7 +208,7 @@ return [
             ],
             Internship::class => [
                 'searchableAttributes' => ['student_name', 'registration_number', 'id', 'protocol_numbers'],
-                'filterableAttributes' => ['id', 'campus_id', 'course_id', 'status', 'advisor_affiliation_id', 'advisor_user_id', 'advisor_campus_id', 'student_affiliation_id', 'has_pending_cancellation'],
+                'filterableAttributes' => ['id', 'campus_id', 'course_id', 'granting_party_id', 'status', 'advisor_affiliation_id', 'advisor_user_id', 'advisor_campus_id', 'student_affiliation_id', 'has_pending_cancellation'],
                 'sortableAttributes' => ['updated_at', 'id'],
                 'typoTolerance' => ['disableOnAttributes' => ['registration_number', 'id', 'protocol_numbers']],
             ],

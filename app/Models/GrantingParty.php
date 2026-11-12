@@ -151,6 +151,23 @@ class GrantingParty extends Model
         return $this->hasMany(Internship::class);
     }
 
+    /**
+     * @param  Builder<GrantingParty>  $query
+     * @return Builder<GrantingParty>
+     */
+    public function scopeWithStartedInternshipsForCourse(Builder $query, int $courseId): Builder
+    {
+        return $query->whereHas('internships', fn (Builder $internships) => $internships->started()->where('course_id', $courseId));
+    }
+
+    /** @return list<string> */
+    public function coursesWithStartedInternships(): array
+    {
+        return Course::query()->where('campus_id', $this->campus_id)
+            ->whereHas('internships', fn (Builder $internships) => $internships->started()->whereBelongsTo($this))
+            ->distinct()->orderBy('name')->pluck('name')->all();
+    }
+
     /** @return HasMany<InternshipRequest, $this> */
     public function internshipRequests(): HasMany
     {
