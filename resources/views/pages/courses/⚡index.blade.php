@@ -113,8 +113,8 @@ new #[Title('Cursos')] class extends Component
         @if ($this->searchFailed('courses'))
             <x-search-unavailable retry="retrySearch('courses')" />
         @elseif ($courses->isNotEmpty())
-            <flux:table :paginate="$courses" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
-                <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+            <flux:table :paginate="$courses">
+                <flux:table.columns>
                     <flux:table.column>Curso</flux:table.column>
                     <flux:table.column class="hidden md:table-cell">Coordenador principal</flux:table.column>
                     <flux:table.column class="hidden lg:table-cell">Coordenador secundário</flux:table.column>

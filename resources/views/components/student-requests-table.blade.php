@@ -6,7 +6,6 @@
         <flux:table.column class="hidden md:table-cell">Concedente</flux:table.column>
         <flux:table.column>Situação</flux:table.column>
         <flux:table.column class="hidden lg:table-cell">Atualizada em</flux:table.column>
-        @if ($showActions)<flux:table.column>Próxima ação</flux:table.column>@endif
     </flux:table.columns>
     <flux:table.rows>
         @foreach ($requests as $request)
@@ -24,16 +23,11 @@
                     <flux:text size="sm">{{ $request->internship_type_snapshot['name'] ?? $request->internshipType?->name ?? 'Tipo ainda não escolhido' }}</flux:text>
                     <flux:text size="sm" class="md:hidden">Concedente: {{ $party }}</flux:text>
                     <flux:text size="sm" class="lg:hidden">Atualizada: {{ formatDateTime($request->updated_at) }}</flux:text>
-                    @if ($editable)<flux:text size="sm" class="md:hidden">{{ $status === 'pending_correction' ? 'Abra para revisar as pendências.' : 'Abra para continuar o preenchimento.' }}</flux:text>@endif
+                    @if ($editable)<flux:text size="sm">{{ $status === 'pending_correction' ? 'Abra para revisar as pendências.' : 'Abra para continuar o preenchimento.' }}</flux:text>@endif
                 </flux:table.cell>
                 <flux:table.cell class="hidden whitespace-normal md:table-cell">{{ $party }}</flux:table.cell>
                 <flux:table.cell><flux:badge size="sm" :color="$color">{{ $request->status->label() }}</flux:badge></flux:table.cell>
                 <flux:table.cell class="hidden lg:table-cell">{{ formatDateTime($request->updated_at) }}</flux:table.cell>
-                @if ($showActions)
-                    <flux:table.cell>
-                        <flux:button size="sm" :variant="$editable ? 'primary' : 'outline'" :href="route('internship-requests.show', $request)" wire:navigate :aria-label="($editable ? ($status === 'pending_correction' ? 'Corrigir solicitação nº ' : 'Continuar preenchimento da solicitação nº ') : 'Consultar solicitação nº ').$request->id">{{ $editable ? ($status === 'pending_correction' ? 'Corrigir solicitação' : 'Continuar preenchimento') : 'Consultar solicitação' }}</flux:button>
-                    </flux:table.cell>
-                @endif
             </flux:table.row>
         @endforeach
     </flux:table.rows>

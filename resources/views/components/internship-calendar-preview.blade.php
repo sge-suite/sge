@@ -20,7 +20,7 @@
                     <flux:callout.text>O término salvo é {{ formatShort($result['saved_projected_end_date']) }}. Para atualizá-lo, abra a edição do estágio, confira a prévia do calendário e salve as alterações.</flux:callout.text>
                 </flux:callout>
             @endif
-            <div class="max-h-[55dvh] overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-700" tabindex="0" aria-label="Dias e horas previstos para o estágio">
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700" aria-label="Dias e horas previstos para o estágio">
                 <flux:table>
                     <flux:table.columns>
                         <flux:table.column>Data</flux:table.column>

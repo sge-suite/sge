@@ -28,7 +28,6 @@
                         <flux:table.column>Avaliação / Discente</flux:table.column>
                         <flux:table.column class="hidden md:table-cell">Curso / Concedente</flux:table.column>
                         <flux:table.column class="hidden lg:table-cell">Última atualização</flux:table.column>
-                        <flux:table.column><span class="sr-only">Ação</span></flux:table.column>
                     </flux:table.columns>
                     <flux:table.rows>
                         @foreach ($overview['groups'][$status]['evaluations'] as $evaluation)
@@ -48,13 +47,6 @@
                                     <flux:text size="sm">{{ $evaluation->internship->granting_party_snapshot['name'] ?? 'Não informada' }}</flux:text>
                                 </flux:table.cell>
                                 <flux:table.cell class="hidden lg:table-cell">{{ formatDateTime($evaluation->updated_at) }}</flux:table.cell>
-                                <flux:table.cell align="end">
-                                    @can('update', $evaluation)
-                                        <flux:button variant="outline" size="sm" :href="route('supervisor-evaluations.show', $evaluation)" wire:navigate>Continuar avaliação</flux:button>
-                                    @else
-                                        <flux:button variant="outline" size="sm" :href="route('supervisor-evaluations.show', $evaluation)" wire:navigate>Consultar</flux:button>
-                                    @endcan
-                                </flux:table.cell>
                             </flux:table.row>
                         @endforeach
                     </flux:table.rows>

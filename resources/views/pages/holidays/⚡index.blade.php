@@ -103,6 +103,19 @@ new #[Title('Feriados')] class extends Component
 
     public function updated(string $property): void
     {
+        if ($property === 'scope') {
+            if ($this->scope === HolidayScope::National->value) {
+                $this->state = '';
+                $this->cityId = '';
+                $this->citySearch = '';
+            } elseif ($this->scope === HolidayScope::State->value) {
+                $this->cityId = '';
+                $this->citySearch = '';
+            }
+            if (in_array($this->scope, [HolidayScope::National->value, HolidayScope::State->value], true) && $this->origin === 'recurrence') {
+                $this->origin = '';
+            }
+        }
         if ($property === 'state') {
             $this->cityId = '';
             $this->citySearch = '';
@@ -259,25 +272,29 @@ new #[Title('Feriados')] class extends Component
         <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('status')), { variant: 'success' }))"></div>
     @endif
     @foreach (['holiday', 'name'] as $error)<flux:error :name="$error" />@endforeach
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[7rem_10rem_14rem_minmax(14rem,1fr)_16rem] items-end">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 items-end">
         <flux:input type="number" min="1900" max="2199" wire:model.live.debounce.400ms="year" :label="$trash ? 'Ano (opcional)' : 'Ano'" placeholder="Todos os anos" />
         <x-select wire:model.live="scope" label="Escopo" :value="$scope" :options="['' => 'Todos', ...HolidayScope::options()]" />
-        <x-select wire:model.live="state" label="UF" :value="$state" :options="['' => 'Todas as UFs'] + collect(BrazilianState::options())->map(fn ($label, $value) => $label.' ('.$value.')')->all()" searchable />
-        <div class="min-w-0">
-            <x-select wire:model.live="cityId" label="Cidade" icon="map-pin" placeholder="Todas as cidades"
-                :value="$cityId" :selected-label="$this->selectedCity ? $this->selectedCity->name.' / '.$this->selectedCity->state->value : ''"
-                :options="($cityId !== '' ? ['' => 'Todas as cidades'] : []) + $this->cities->mapWithKeys(fn ($city) => [$city->id => $city->name.' / '.$city->state->value])->all()"
-                :search-unavailable="$this->searchFailed('cities')" search-retry="retrySearch('cities')" search-target="citySearch,retrySearch"
-                :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
-                searchable wire:key="holiday-city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId">
-                <x-slot:search>
-                    <flux:input name="" wire:model.live.debounce.500ms="citySearch" wire:ignore.self placeholder="Buscar cidade…" aria-label="Buscar cidade" icon="magnifying-glass" size="sm" maxlength="255"
-                        role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="$refs.list.id" x-bind:aria-activedescendant="activeId()" />
-                    <span wire:loading wire:target="citySearch" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando cidades…</span>
-                </x-slot:search>
-            </x-select>
-        </div>
-        <x-select wire:model.live="origin" label="Origem" :value="$origin" :options="['' => 'Todas', 'manual' => 'Manual', 'brasil_api' => 'BrasilAPI', 'recurrence' => 'Recorrência']" />
+        @if ($scope !== HolidayScope::National->value)
+            <x-select wire:model.live="state" label="UF" :value="$state" :options="['' => 'Todas as UFs'] + collect(BrazilianState::options())->map(fn ($label, $value) => $label.' ('.$value.')')->all()" searchable />
+        @endif
+        @if (! in_array($scope, [HolidayScope::National->value, HolidayScope::State->value], true))
+            <div class="min-w-0">
+                <x-select wire:model.live="cityId" label="Cidade" icon="map-pin" placeholder="Todas as cidades"
+                    :value="$cityId" :selected-label="$this->selectedCity ? $this->selectedCity->name.' / '.$this->selectedCity->state->value : ''"
+                    :options="($cityId !== '' ? ['' => 'Todas as cidades'] : []) + $this->cities->mapWithKeys(fn ($city) => [$city->id => $city->name.' / '.$city->state->value])->all()"
+                    :search-unavailable="$this->searchFailed('cities')" search-retry="retrySearch('cities')" search-target="citySearch,retrySearch"
+                    :empty="mb_strlen(trim($citySearch)) < 2 ? 'Digite pelo menos 2 caracteres para buscar.' : 'Nenhuma cidade encontrada.'"
+                    searchable wire:key="holiday-city-select-{{ $state }}" wire:loading.attr="disabled" wire:target="state,cityId">
+                    <x-slot:search>
+                        <flux:input name="" wire:model.live.debounce.500ms="citySearch" wire:ignore.self placeholder="Buscar cidade…" aria-label="Buscar cidade" icon="magnifying-glass" size="sm" maxlength="255"
+                            role="combobox" aria-autocomplete="list" x-bind:aria-expanded="open" x-bind:aria-controls="$refs.list.id" x-bind:aria-activedescendant="activeId()" />
+                        <span wire:loading wire:target="citySearch" class="block px-2 py-1 text-xs text-zinc-500" role="status">Buscando cidades…</span>
+                    </x-slot:search>
+                </x-select>
+            </div>
+        @endif
+        <x-select wire:model.live="origin" label="Origem" :value="$origin" :options="['' => 'Todas', 'manual' => 'Manual', 'brasil_api' => 'BrasilAPI'] + (! in_array($scope, [HolidayScope::National->value, HolidayScope::State->value], true) ? ['recurrence' => 'Recorrência'] : [])" />
     </div>
     <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-end">
         <flux:input wire:model.live.debounce.300ms="search" label="Buscar por nome" icon="magnifying-glass" maxlength="255" type="search" />

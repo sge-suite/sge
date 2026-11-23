@@ -27,13 +27,12 @@
                 <flux:table.columns>
                     <flux:table.column>Estágio / Discente</flux:table.column>
                     <flux:table.column>Notas faltantes</flux:table.column>
-                    <flux:table.column><span class="sr-only">Ação</span></flux:table.column>
                 </flux:table.columns>
                 <flux:table.rows>
                     @foreach ($overview['pendingGrades'] as $internship)
-                        <flux:table.row :key="'pending-grades-'.$internship->id">
+                        <flux:table.row :key="'pending-grades-'.$internship->id" class="group cursor-pointer transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700" x-on:click="if (! $event.target.closest('a, button')) $el.querySelector('[data-pending-grade-link]').click()">
                             <flux:table.cell class="whitespace-normal">
-                                <span class="font-medium">Nº {{ $internship->id }} · {{ $internship->student_snapshot['name'] ?? 'Discente' }}</span>
+                                <a data-pending-grade-link href="{{ route('internships.show', $internship).'#grades-heading' }}" wire:navigate class="font-medium text-zinc-900 underline-offset-4 group-hover:underline dark:text-white">Nº {{ $internship->id }} · {{ $internship->student_snapshot['name'] ?? 'Discente' }}</a>
                                 <flux:text size="sm">{{ $internship->internship_type_snapshot['name'] ?? 'Tipo não informado' }}</flux:text>
                                 <flux:text size="sm">Término previsto: {{ formatShort($internship->projected_end_date) }}</flux:text>
                             </flux:table.cell>
@@ -41,7 +40,6 @@
                                 @if ($internship->report_grade === null && ($internship->internship_type_snapshot['rules']['report_weight'] ?? 0) > 0)<flux:text size="sm">Relatório</flux:text>@endif
                                 @if ($internship->presentation_grade === null && ($internship->internship_type_snapshot['rules']['presentation_weight'] ?? 0) > 0)<flux:text size="sm">Apresentação</flux:text>@endif
                             </flux:table.cell>
-                            <flux:table.cell><flux:button size="sm" variant="primary" :href="route('internships.show', $internship).'#grades-heading'" wire:navigate :aria-label="'Lançar notas do estágio nº '.$internship->id">Lançar notas</flux:button></flux:table.cell>
                         </flux:table.row>
                     @endforeach
                 </flux:table.rows>

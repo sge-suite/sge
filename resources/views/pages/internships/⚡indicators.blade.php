@@ -494,8 +494,8 @@ new #[Title('Indicadores')] class extends Component
                                 <flux:text>Nenhum registro encontrado neste recorte.</flux:text>
                             </div>
                         @else
-                            <flux:table :paginate="$records" container:class="[&>ui-table-scroll-area]:max-h-[68vh]">
-                                <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+                            <flux:table :paginate="$records">
+                                <flux:table.columns>
                                     @foreach ($this->headings as $heading)
                                         <flux:table.column>{{ $heading }}</flux:table.column>
                                     @endforeach

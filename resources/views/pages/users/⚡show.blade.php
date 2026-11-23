@@ -247,7 +247,7 @@ new #[Title('Detalhes do usuário')] class extends Component
                 @if ($operation !== 'reactivate')
                     <flux:input required type="password" name="current_password" label="Sua senha atual" autocomplete="current-password" error:name="current_password" />
                 @endif
-                <flux:checkbox name="confirmed" value="1" label="Confirmo esta alteração" />
+                <input type="hidden" name="confirmed" value="1" />
                 <flux:error name="confirmed" />
                 <flux:error name="type" />
                 <flux:error name="affiliation" />

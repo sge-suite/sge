@@ -167,8 +167,8 @@ new #[Title('Analisar solicitações de estágio')] class extends Component
         @if ($this->searchFailed('requests'))
             <x-search-unavailable retry="retrySearch('requests')" />
         @elseif ($requests->isNotEmpty())
-            <flux:table :paginate="$requests" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
-                <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+            <flux:table :paginate="$requests">
+                <flux:table.columns>
                     <flux:table.column>Solicitação / Discente</flux:table.column>
                     <flux:table.column class="hidden md:table-cell">Curso / Tipo de estágio</flux:table.column>
                     <flux:table.column>Situação</flux:table.column>

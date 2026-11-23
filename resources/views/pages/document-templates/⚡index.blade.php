@@ -120,8 +120,8 @@ new #[Title('Templates DOCX')] class extends Component
         @if ($this->searchFailed('templates'))
             <x-search-unavailable retry="retrySearch('templates')" />
         @elseif ($templates->isNotEmpty())
-            <flux:table :paginate="$templates" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
-                <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+            <flux:table :paginate="$templates">
+                <flux:table.columns>
                     <flux:table.column>Template</flux:table.column>
                     <flux:table.column class="hidden md:table-cell">Tipo documental</flux:table.column>
                     <flux:table.column>Versão vigente</flux:table.column>

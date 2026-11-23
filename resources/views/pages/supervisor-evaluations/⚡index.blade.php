@@ -100,8 +100,8 @@ new class extends Component
     @php($evaluations = $this->evaluations)
     <x-loading-overlay target="workload,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando avaliações…" :dim-while-loading="true">
         @if ($evaluations->isNotEmpty())
-            <flux:table :paginate="$evaluations" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
-                <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+            <flux:table :paginate="$evaluations">
+                <flux:table.columns>
                     <flux:table.column>Avaliação / Discente</flux:table.column><flux:table.column class="hidden md:table-cell">Curso / Concedente</flux:table.column><flux:table.column>Situação</flux:table.column><flux:table.column class="hidden lg:table-cell">Último envio</flux:table.column>
                 </flux:table.columns>
                 <flux:table.rows>

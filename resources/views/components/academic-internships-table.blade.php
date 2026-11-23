@@ -2,8 +2,8 @@
 
 @php($showGrades = in_array(app(\App\Support\StudentInternshipContext::class)->selected(auth()->user())->type, [\App\Enums\AffiliationType::Coordinator, \App\Enums\AffiliationType::Advisor], true) || $internships->contains(fn ($internship) => auth()->user()->can('viewAdvisorGrades', $internship)))
 
-<flux:table :paginate="$paginated ? $internships : null" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
-    <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+<flux:table :paginate="$paginated ? $internships : null">
+    <flux:table.columns>
         <flux:table.column>Estágio / Discente</flux:table.column>
         <flux:table.column class="hidden md:table-cell">Curso / Orientador</flux:table.column>
         <flux:table.column>Situação</flux:table.column>

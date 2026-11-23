@@ -145,8 +145,8 @@ new #[Title('Tipos de estágio')] class extends Component
         @if ($this->searchFailed('internshipTypes'))
             <x-search-unavailable retry="retrySearch('internshipTypes')" />
         @elseif ($internshipTypes->isNotEmpty())
-            <flux:table :paginate="$internshipTypes" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
-                <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+            <flux:table :paginate="$internshipTypes">
+                <flux:table.columns>
                     <flux:table.column>Tipo de estágio</flux:table.column>
                     <flux:table.column class="hidden md:table-cell">Curso</flux:table.column>
                     <flux:table.column class="hidden lg:table-cell">Carga horária</flux:table.column>

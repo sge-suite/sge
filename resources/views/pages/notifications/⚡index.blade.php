@@ -110,8 +110,8 @@ new #[Title('Notificações')] class extends Component
             <flux:text size="sm" role="status" aria-live="polite">{{ $this->unreadCount }} {{ $this->unreadCount === 1 ? 'notificação não lida' : 'notificações não lidas' }} no vínculo selecionado.</flux:text>
 
             @if ($notifications->isNotEmpty())
-                <flux:table :paginate="$notifications" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
-                    <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
+                <flux:table :paginate="$notifications">
+                    <flux:table.columns>
                         <flux:table.column>Notificação</flux:table.column>
                         <flux:table.column class="hidden sm:table-cell">Recebida em</flux:table.column>
                         <flux:table.column>Leitura</flux:table.column>
