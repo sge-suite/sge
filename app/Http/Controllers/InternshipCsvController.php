@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AffiliationType;
 use App\Enums\PartyDocumentType;
 use App\Models\Internship;
 use App\Support\CsvDownload;
@@ -24,8 +25,10 @@ class InternshipCsvController extends Controller
         $validator = $listing->validator($request->query());
         abort_if($validator->fails(), 422, $validator->errors()->first());
 
+        $validated = $validator->validated();
+
         try {
-            $query = $search->run(fn () => $listing->query($affiliation, $validator->validated(), coordinatedOnly: true))
+            $query = $search->run(fn () => $listing->query($affiliation, $validated))
                 ->select(['id', 'course_id', 'advisor_affiliation_id', 'student_snapshot', 'granting_party_snapshot',
                     'supervisor_snapshot', 'internship_type_snapshot', 'planned_start_date', 'projected_end_date',
                     'status', 'supervisor_grade', 'report_grade', 'presentation_grade', 'consolidated_grade'])
@@ -36,7 +39,8 @@ class InternshipCsvController extends Controller
 
         $rows = $query->lazy(500)->map(function (Internship $internship) use ($affiliation): array {
             $advisor = $internship->advisorAffiliation;
-            $canViewAdvisorGrades = $advisor?->user_id === $affiliation->user_id && $advisor->campus_id === $affiliation->campus_id;
+            $canViewAdvisorGrades = $affiliation->type === AffiliationType::InternshipOffice
+                || ($advisor?->user_id === $affiliation->user_id && $advisor->campus_id === $affiliation->campus_id);
 
             return $this->row($internship, $canViewAdvisorGrades);
         });

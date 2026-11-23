@@ -32,8 +32,7 @@ new #[Title('Estágios')] class extends Component
     protected function selectSearchSource(string $source): SelectOptionSource
     {
         $owner = app(StudentInternshipContext::class)->selected(Auth::user());
-        $visible = Internship::query()->visibleToAffiliation($owner)
-            ->when($this->coordinatedOnly(), fn (Builder $query) => $query->inCoordinatedCourses($owner));
+        $visible = Internship::query()->visibleToAffiliation($owner);
 
         return match ($source) {
             'courses' => new SelectOptionSource(Course::query()->where('campus_id', $owner->campus_id)
@@ -68,7 +67,6 @@ new #[Title('Estágios')] class extends Component
     #[Url(except: '', as: 'projected_end_from')] public string $projectedEndFrom = '';
     #[Url(except: '', as: 'projected_end_to')] public string $projectedEndTo = '';
     #[Url(except: 'updated')] public string $sort = 'updated';
-    #[Url(except: false, as: 'include_advisees')] public bool $includeAdvisees = false;
 
     protected function searchRetryProperties(): array
     {
@@ -93,14 +91,9 @@ new #[Title('Estágios')] class extends Component
     public function updated(string $property): void
     {
         if (in_array($property, ['search', 'status', 'courseId', 'advisorId', 'grantingPartyId', 'pendingCancellations',
-            'projectedEndFrom', 'projectedEndTo', 'sort', 'includeAdvisees'], true)) {
+            'projectedEndFrom', 'projectedEndTo', 'sort'], true)) {
             $this->resetPage();
         }
-    }
-
-    private function coordinatedOnly(): bool
-    {
-        return ! $this->includeAdvisees && Gate::allows('exportCsv', Internship::class);
     }
 
     #[Computed]
@@ -133,7 +126,7 @@ new #[Title('Estágios')] class extends Component
     #[Computed]
     public function hasFilters(): bool
     {
-        return $this->filters() !== [] || $this->includeAdvisees;
+        return $this->filters() !== [];
     }
 
     #[Computed]
@@ -145,7 +138,7 @@ new #[Title('Estágios')] class extends Component
     #[Computed]
     public function csvUrl(): ?string
     {
-        if (! $this->coordinatedOnly() || $this->filterErrors->isNotEmpty() || $this->searchFailed('internships')) {
+        if (! Gate::allows('exportCsv', Internship::class) || $this->filterErrors->isNotEmpty() || $this->searchFailed('internships')) {
             return null;
         }
 
@@ -155,7 +148,7 @@ new #[Title('Estágios')] class extends Component
     public function clearFilters(): void
     {
         $this->reset('search', 'status', 'courseId', 'advisorId', 'grantingPartyId', 'pendingCancellations',
-            'projectedEndFrom', 'projectedEndTo', 'sort', 'includeAdvisees');
+            'projectedEndFrom', 'projectedEndTo', 'sort');
         $this->resetPage();
     }
 
@@ -198,7 +191,7 @@ new #[Title('Estágios')] class extends Component
         }
 
         return $this->searchWithRecovery('internships', fn () => app(InternshipListing::class)
-            ->query($owner, $this->filters(), $this->coordinatedOnly())
+            ->query($owner, $this->filters())
             ->with(['course', 'advisorAffiliation.user'])->paginate(PageSize::PER_PAGE),
             fn () => $this->unavailableSearchPage());
     }
@@ -214,7 +207,9 @@ new #[Title('Estágios')] class extends Component
         <flux:input wire:model.live.debounce.300ms="search" :label="$affiliationType === AffiliationType::InternshipOffice ? 'Buscar por discente, matrícula, protocolo do documento ou número' : 'Buscar por discente, matrícula ou número'" icon="magnifying-glass" maxlength="255" type="search" />
         <div class="min-w-0"><x-select search-source="courses" wire:model.live="courseId" label="Curso" :value="$courseId" :options="$this->courseOptions" searchable /></div>
         <div class="min-w-0"><x-select wire:model.live="status" label="Situação" :value="$status" :options="$this->statusOptions" /></div>
-        <div class="min-w-0"><x-select search-source="advisors" wire:model.live="advisorId" label="Orientador" :value="$advisorId" :options="$this->advisorOptions" searchable /></div>
+        @if ($affiliationType !== AffiliationType::Advisor)
+            <div class="min-w-0"><x-select search-source="advisors" wire:model.live="advisorId" label="Orientador" :value="$advisorId" :options="$this->advisorOptions" searchable /></div>
+        @endif
         <div class="min-w-0"><x-select search-source="grantingParties" wire:model.live="grantingPartyId" label="Parte concedente" :value="$grantingPartyId" :options="$this->grantingPartyOptions" searchable /></div>
         <div class="min-w-0"><x-select wire:model.live="sort" label="Ordenar por" :value="$sort" :options="InternshipListing::ORDERS" /></div>
         <flux:field>
@@ -236,20 +231,23 @@ new #[Title('Estágios')] class extends Component
         @endif
     </div>
     @php($internships = $this->internships)
-    @if (in_array($affiliationType, [AffiliationType::InternshipOffice, AffiliationType::Coordinator], true))
+    @if (in_array($affiliationType, [AffiliationType::InternshipOffice, AffiliationType::Coordinator, AffiliationType::Advisor], true))
         <div class="flex flex-wrap items-center justify-between gap-3">
-            @if ($affiliationType === AffiliationType::InternshipOffice)
-                <flux:checkbox wire:model.live="pendingCancellations" label="Somente com pedido de cancelamento pendente" />
-            @endif
+            <div>
+                @if ($affiliationType === AffiliationType::InternshipOffice)
+                    <flux:checkbox wire:model.live="pendingCancellations" label="Somente com pedido de cancelamento pendente" />
+                @endif
+            </div>
             @can('exportCsv', Internship::class)
-                <flux:checkbox wire:model.live="includeAdvisees" label="Incluir meus orientandos de outros cursos" />
                 @if ($this->csvUrl !== null)
-                    <flux:button :href="$this->csvUrl" icon="arrow-down-tray" wire:loading.remove wire:target="search,courseId,advisorId,grantingPartyId,status,projectedEndFrom,projectedEndTo,sort,includeAdvisees,clearFilters">Baixar CSV dos cursos coordenados</flux:button>
+                    <flux:button :href="$this->csvUrl" variant="outline" icon="arrow-down-tray" wire:loading.remove wire:target="search,courseId,advisorId,grantingPartyId,status,projectedEndFrom,projectedEndTo,sort,clearFilters">
+                        Exportar CSV
+                    </flux:button>
                 @endif
             @endcan
         </div>
     @endif
-    <x-loading-overlay target="retrySearch,search,courseId,advisorId,grantingPartyId,status,pendingCancellations,projectedEndFrom,projectedEndTo,sort,includeAdvisees,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
+    <x-loading-overlay target="retrySearch,search,courseId,advisorId,grantingPartyId,status,pendingCancellations,projectedEndFrom,projectedEndTo,sort,clearFilters,gotoPage,nextPage,previousPage,resetPage" label="Atualizando lista…" :dim-while-loading="true">
         @if ($this->searchFailed('internships'))
             <x-search-unavailable retry="retrySearch('internships')" />
         @elseif ($this->filterErrors->hasAny(['projected_end_from', 'projected_end_to']))

@@ -31,7 +31,11 @@ class InternshipPolicy
     {
         $affiliation = $this->context->selected($user);
 
-        return $affiliation?->campus !== null && $affiliation->type === AffiliationType::Coordinator;
+        return $affiliation?->campus !== null && in_array($affiliation->type, [
+            AffiliationType::InternshipOffice,
+            AffiliationType::Coordinator,
+            AffiliationType::Advisor,
+        ], true);
     }
 
     public function viewIndicators(User $user): bool

@@ -48,13 +48,10 @@ class InternshipListing
      * @param  array<string, mixed>  $filters
      * @return Builder<Internship>
      */
-    public function query(Affiliation $affiliation, array $filters, bool $coordinatedOnly = false): Builder
+    public function query(Affiliation $affiliation, array $filters): Builder
     {
         $query = Internship::query()->visibleToAffiliation($affiliation);
         $office = $affiliation->type === AffiliationType::InternshipOffice;
-        if ($coordinatedOnly && $affiliation->type === AffiliationType::Coordinator) {
-            $query->inCoordinatedCourses($affiliation);
-        }
 
         $status = $filters['status'] ?? 'all';
         $searchFilters = array_filter([
