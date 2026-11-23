@@ -165,9 +165,7 @@ class Internship extends Model
             $query->where('advisor_affiliation_id', $affiliation->id);
         } elseif ($affiliation->type === AffiliationType::Coordinator) {
             $query->where(fn (Builder $visible) => $visible
-                ->whereHas('course', fn (Builder $course) => $course
-                    ->where(fn (Builder $coordinated) => $coordinated->where('primary_coordinator_affiliation_id', $affiliation->id)
-                        ->orWhere('secondary_coordinator_affiliation_id', $affiliation->id)))
+                ->inCoordinatedCourses($affiliation)
                 ->orWhereHas('advisorAffiliation', fn (Builder $advisor) => $advisor
                     ->where('user_id', $affiliation->user_id)->where('campus_id', $affiliation->campus_id)));
         } elseif ($affiliation->type === AffiliationType::Student) {
@@ -177,6 +175,17 @@ class Internship extends Model
         }
 
         return $query;
+    }
+
+    /**
+     * @param  Builder<Internship>  $query
+     * @return Builder<Internship>
+     */
+    public function scopeInCoordinatedCourses(Builder $query, Affiliation $affiliation): Builder
+    {
+        return $query->whereHas('course', fn (Builder $course) => $course->where('campus_id', $affiliation->campus_id)
+            ->where(fn (Builder $coordinated) => $coordinated->where('primary_coordinator_affiliation_id', $affiliation->id)
+                ->orWhere('secondary_coordinator_affiliation_id', $affiliation->id)));
     }
 
     /**

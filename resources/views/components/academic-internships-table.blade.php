@@ -7,7 +7,7 @@
         <flux:table.column>Estágio / Discente</flux:table.column>
         <flux:table.column class="hidden md:table-cell">Curso / Orientador</flux:table.column>
         <flux:table.column>Situação</flux:table.column>
-        <flux:table.column class="hidden lg:table-cell">Início / Término previsto</flux:table.column>
+        <flux:table.column class="hidden lg:table-cell">Início previsto / Término previsto</flux:table.column>
         @if ($showGrades)<flux:table.column class="hidden xl:table-cell">Notas</flux:table.column>@endif
     </flux:table.columns>
     <flux:table.rows>
@@ -22,7 +22,7 @@
                         <flux:text size="sm" class="wrap-anywhere">Curso: {{ $internship->course?->name ?? 'Não informado' }}</flux:text>
                         <flux:text size="sm" class="wrap-anywhere">Orientação: {{ $internship->advisorAffiliation?->user?->name ?? 'Não informada' }}</flux:text>
                     </div>
-                    <flux:text size="sm" class="mt-2 lg:hidden">Início: {{ formatShort($internship->planned_start_date) }} · Término previsto: {{ formatShort($internship->projected_end_date) }}</flux:text>
+                    <flux:text size="sm" class="mt-2 lg:hidden">Início previsto: {{ formatShort($internship->planned_start_date) }} · Término previsto: {{ formatShort($internship->projected_end_date) }}</flux:text>
                     @if ($showGrades)
                         <details class="mt-3 xl:hidden">
                             <summary class="cursor-pointer text-sm font-medium text-brand">Ver notas deste estágio</summary>
