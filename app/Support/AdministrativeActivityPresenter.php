@@ -327,7 +327,7 @@ class AdministrativeActivityPresenter
                 'reviewed_at' => 'Revisada em', 'review_notes' => 'Justificativa da revisão',
                 'cancelled_at' => 'Cancelada em', 'cancellation_reason' => 'Motivo do cancelamento',
             ],
-            (new InternshipCancellationRequest)->getMorphClass() => ['internship_id' => 'Estágio', 'reason' => 'Motivo do pedido', 'status' => 'Situação do pedido', 'reviewed_at' => 'Decidido em', 'decision_reason' => 'Justificativa da decisão', 'effective_date' => 'Data efetiva do cancelamento'],
+            (new InternshipCancellationRequest)->getMorphClass() => ['internship_id' => 'Estágio', 'reason' => 'Motivo do pedido', 'report_reason' => 'Motivo agrupado nos indicadores', 'status' => 'Situação do pedido', 'reviewed_at' => 'Decidido em', 'decision_reason' => 'Justificativa da decisão', 'effective_date' => 'Data efetiva do cancelamento'],
             (new GeneratedDocument)->getMorphClass() => ['internship_id' => 'Estágio', 'template_version_id' => 'Versão do template',
                 'origin' => 'Origem', 'type' => 'Tipo documental', 'status' => 'Situação do documento', 'template_sha256' => 'SHA-256 do template',
                 'signature_availability_location' => 'Local para assinatura', 'protocol_number' => 'Número de protocolo', 'generated_at' => 'Gerado em', 'cancelled_at' => 'Cancelado em', 'cancellation_reason' => 'Motivo do cancelamento'],

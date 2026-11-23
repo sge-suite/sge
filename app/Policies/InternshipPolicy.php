@@ -27,6 +27,29 @@ class InternshipPolicy
             AffiliationType::Coordinator, AffiliationType::Advisor, AffiliationType::TeachingDirection], true);
     }
 
+    public function exportCsv(User $user): bool
+    {
+        $affiliation = $this->context->selected($user);
+
+        return $affiliation?->campus !== null && $affiliation->type === AffiliationType::Coordinator;
+    }
+
+    public function viewIndicators(User $user): bool
+    {
+        $affiliation = $this->context->selected($user);
+
+        return $affiliation?->campus !== null
+            && in_array($affiliation->type, [AffiliationType::InternshipOffice, AffiliationType::Coordinator], true);
+    }
+
+    public function unifyCancellationReasons(User $user): bool
+    {
+        $affiliation = $this->context->selected($user);
+
+        return $affiliation?->campus !== null && $affiliation->campus->deactivated_at === null
+            && $affiliation->type === AffiliationType::InternshipOffice;
+    }
+
     public function view(User $user, Internship $internship): bool
     {
         $affiliation = $this->context->selected($user);

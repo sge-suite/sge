@@ -10,6 +10,8 @@ use App\Http\Controllers\GrantingPartyController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\HolidayImportController;
 use App\Http\Controllers\HolidayRecurrenceController;
+use App\Http\Controllers\InternshipCsvController;
+use App\Http\Controllers\InternshipIndicatorCsvController;
 use App\Http\Controllers\InternshipRequestController;
 use App\Http\Controllers\InternshipTypeController;
 use App\Http\Controllers\UserController;
@@ -56,6 +58,12 @@ Route::middleware(['auth'])->group(function () {
         });
         Route::livewire('internships', 'pages::internships.index')
             ->middleware('can:viewAny,'.Internship::class)->name('internships.index');
+        Route::get('internships/export.csv', InternshipCsvController::class)
+            ->middleware('can:exportCsv,'.Internship::class)->name('internships.export');
+        Route::livewire('internship-indicators', 'pages::internships.indicators')
+            ->middleware('can:viewIndicators,'.Internship::class)->name('internship-indicators.index');
+        Route::get('internship-indicators/export.csv', InternshipIndicatorCsvController::class)
+            ->middleware('can:viewIndicators,'.Internship::class)->name('internship-indicators.export');
         Route::livewire('my-internships', 'pages::internships.student-index')
             ->middleware('can:viewOwnAny,'.Internship::class)->name('student-internships.index');
         Route::livewire('internship-locations', 'pages::internship-locations.index')

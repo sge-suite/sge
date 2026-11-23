@@ -20,7 +20,7 @@ class ApplyInternshipWorkSchedule
      * O chamador mantém o estágio bloqueado e autoriza a alteração contratual.
      *
      * @param  array<string, mixed>  $data
-     * @return array{starts_on: string, weekly_hours: array<string, int>, previous_schedule_id: ?int, projected_end_date: string}
+     * @return array{starts_on: string, weekly_hours: array<string, int>, previous_schedule_id: ?int, previous_projected_end_date: string, projected_end_date: string}
      */
     public function proposal(Internship $internship, array $data): array
     {
@@ -44,7 +44,8 @@ class ApplyInternshipWorkSchedule
             throw ValidationException::withMessages(['weekly_hours' => 'Informe uma distribuição de horas diferente da jornada anterior.']);
         }
         $proposal = ['starts_on' => $values['starts_on'], 'weekly_hours' => $hours,
-            'previous_schedule_id' => $previous?->id, 'projected_end_date' => ''];
+            'previous_schedule_id' => $previous?->id, 'previous_projected_end_date' => $internship->projected_end_date->toDateString(),
+            'projected_end_date' => ''];
         $candidate = clone $internship;
         $result = $this->project->details($candidate, includeCalendar: false, workSchedules: $this->schedules($internship, $proposal));
         if ($result['completion_date']->toDateString() < $values['starts_on']) {
@@ -55,7 +56,7 @@ class ApplyInternshipWorkSchedule
         return $proposal;
     }
 
-    /** @param array{starts_on: string, weekly_hours: array<string, int>, previous_schedule_id: ?int, projected_end_date: string} $proposal
+    /** @param array{starts_on: string, weekly_hours: array<string, int>, previous_schedule_id: ?int, previous_projected_end_date?: string, projected_end_date: string} $proposal
      * @return list<array{starts_on: string, ends_on: ?string, weekly_hours: array<string, int>}>
      */
     public function schedules(Internship $internship, array $proposal): array

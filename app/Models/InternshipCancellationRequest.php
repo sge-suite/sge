@@ -20,7 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
 /**
  * @property InternshipCancellationRequestStatus $status
  */
-#[Fillable(['internship_id', 'reason', 'status', 'reviewed_at', 'decision_reason', 'effective_date'])]
+#[Fillable(['internship_id', 'reason', 'report_reason', 'status', 'reviewed_at', 'decision_reason', 'effective_date'])]
 class InternshipCancellationRequest extends Model
 {
     /** @use HasFactory<InternshipCancellationRequestFactory> */
@@ -62,7 +62,7 @@ class InternshipCancellationRequest extends Model
         });
 
         static::saving(function (self $request): void {
-            foreach (['reason', 'decision_reason'] as $field) {
+            foreach (['reason', 'report_reason', 'decision_reason'] as $field) {
                 if (is_string($request->{$field})) {
                     $request->{$field} = trim($request->{$field}) ?: null;
                 }
@@ -73,6 +73,7 @@ class InternshipCancellationRequest extends Model
             $validator = Validator::make($request->getAttributes(), [
                 'internship_id' => ['required', 'integer', Rule::exists(Internship::class, 'id')],
                 'reason' => ['required', 'string', 'max:5000'],
+                'report_reason' => ['nullable', 'string', 'max:255'],
                 'status' => ['required', Rule::enum(InternshipCancellationRequestStatus::class)],
                 'reviewed_at' => [$approved || $rejected ? 'required' : 'nullable', 'date'],
                 'decision_reason' => [$rejected ? 'required' : 'nullable', 'string', 'max:5000'],
@@ -85,7 +86,8 @@ class InternshipCancellationRequest extends Model
                         $validator->errors()->add('reason', 'O pedido original não pode ser reescrito.');
                     }
                     $original = $request->getRawOriginal('status');
-                    if (in_array($original, ['approved', 'rejected', 'withdrawn'], true) && $request->isDirty()) {
+                    $decisionChanged = array_diff(array_keys($request->getDirty()), ['report_reason', 'updated_at']) !== [];
+                    if (in_array($original, ['approved', 'rejected', 'withdrawn'], true) && $decisionChanged) {
                         $validator->errors()->add('status', 'Um pedido encerrado não pode ser alterado.');
                     }
                     if ($request->isDirty('status')) {

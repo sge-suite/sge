@@ -45,6 +45,10 @@
                     <flux:sidebar.item icon="clipboard-document-check" :href="route('supervisor-evaluations.index')" :current="request()->routeIs('supervisor-evaluations.*')" wire:navigate>Avaliações do supervisor</flux:sidebar.item>
                 @endcan
 
+                @can('viewIndicators', \App\Models\Internship::class)
+                    <flux:sidebar.item icon="chart-bar" :href="route('internship-indicators.index')" :current="request()->routeIs('internship-indicators.*')" wire:navigate>Indicadores</flux:sidebar.item>
+                @endcan
+
                 @if (auth()->user()->can('viewAdministration', \App\Models\Campus::class)
                     || auth()->user()->can('viewOwn', \App\Models\Campus::class)
                     || auth()->user()->can('viewAny', \App\Models\User::class)
