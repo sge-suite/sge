@@ -11,6 +11,7 @@ use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\GeneratedDocument;
 use App\Models\GrantingPartyRegistrationRequest;
+use App\Models\HolidayRegistrationRequest;
 use App\Models\Internship;
 use App\Models\InternshipRequest;
 use App\Models\SupervisorRegistrationRequest;
@@ -28,6 +29,7 @@ class GetAdministrativeDashboardMetrics
      *     internshipsCount: int,
      *     pendingInternshipRequestsCount: int,
      *     pendingRegistrationRequestsCount: int,
+     *     pendingHolidayRequestsCount: int,
      *     maxPendingRequestsCount: int,
      *     affiliationTypes: array<int, array{label: string, value: int, active: int}>,
      *     maxAffiliationTypeCount: int,
@@ -117,6 +119,10 @@ class GetAdministrativeDashboardMetrics
             ->whereIn('status', [InternshipRequestStatus::Submitted->value, InternshipRequestStatus::UnderReview->value])
             ->count();
 
+        $pendingHolidayRequestsCount = HolidayRegistrationRequest::query()
+            ->where('status', RegistrationRequestStatus::Submitted)
+            ->count();
+
         return [
             'usersCount' => User::query()->count(),
             'affiliationsCount' => array_sum(array_column($affiliationTypes, 'value')),
@@ -126,9 +132,11 @@ class GetAdministrativeDashboardMetrics
             'internshipsCount' => (int) $internshipCountsByStatus->sum(),
             'pendingInternshipRequestsCount' => $pendingInternshipRequestsCount,
             'pendingRegistrationRequestsCount' => $pendingRegistrationRequestsCount,
+            'pendingHolidayRequestsCount' => $pendingHolidayRequestsCount,
             'maxPendingRequestsCount' => $this->maximumValue([
                 ['value' => $pendingInternshipRequestsCount],
                 ['value' => $pendingRegistrationRequestsCount],
+                ['value' => $pendingHolidayRequestsCount],
             ]),
             'affiliationTypes' => $affiliationTypes,
             'maxAffiliationTypeCount' => $this->maximumValue($affiliationTypes),

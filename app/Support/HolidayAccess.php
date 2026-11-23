@@ -43,6 +43,15 @@ class HolidayAccess
             || ($affiliation?->type === AffiliationType::InternshipOffice && $affiliation->campus_id !== null && $affiliation->campus()->exists());
     }
 
+    public function canRequest(User $user): bool
+    {
+        $affiliation = $this->context->currentFor($user, app('session.store'));
+
+        return $affiliation?->type === AffiliationType::InternshipOffice
+            && $affiliation->campus_id !== null
+            && $affiliation->campus()->whereNull('deactivated_at')->exists();
+    }
+
     /** @return Builder<City> */
     public function cities(User $user): Builder
     {

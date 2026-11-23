@@ -82,6 +82,7 @@
                         @endcan
                         @can('viewAny', \App\Models\Holiday::class)
                             <flux:sidebar.item icon="tent-tree" :href="route('holidays.index')" :current="request()->routeIs('holidays.*', 'holiday-recurrences.*', 'holiday-imports.*')" wire:navigate>Feriados</flux:sidebar.item>
+                            <flux:sidebar.item icon="calendar-days" :href="route('holiday-requests.index')" :current="request()->routeIs('holiday-requests.*')" wire:navigate>Solicitações de feriado</flux:sidebar.item>
                         @endcan
                     </flux:sidebar.group>
                 @endif

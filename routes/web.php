@@ -94,6 +94,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::middleware('can:viewAny,'.Holiday::class)->group(function (): void {
             Route::livewire('holidays', 'pages::holidays.index')->name('holidays.index');
+            Route::livewire('holiday-requests', 'pages::holiday-requests.index')->name('holiday-requests.index');
             Route::livewire('holidays/trash', 'pages::holidays.index')->defaults('trash', true)->name('holidays.trash');
             Route::livewire('holidays/create', 'pages::holidays.form')->middleware('can:create,'.Holiday::class)->name('holidays.create');
             Route::livewire('holidays/{holiday}/edit', 'pages::holidays.form')->middleware('can:update,holiday')->name('holidays.edit');

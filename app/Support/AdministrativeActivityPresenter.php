@@ -30,6 +30,7 @@ use App\Models\GrantingParty;
 use App\Models\GrantingPartyRegistrationRequest;
 use App\Models\Holiday;
 use App\Models\HolidayRecurrence;
+use App\Models\HolidayRegistrationRequest;
 use App\Models\Internship;
 use App\Models\InternshipCalendarOverride;
 use App\Models\InternshipCancellationRequest;
@@ -286,6 +287,7 @@ class AdministrativeActivityPresenter
             (new EmancipationEvidence)->getMorphClass() => 'Análise de emancipação',
             (new Holiday)->getMorphClass() => 'Feriado',
             (new HolidayRecurrence)->getMorphClass() => 'Recorrência municipal',
+            (new HolidayRegistrationRequest)->getMorphClass() => 'Solicitação de feriado municipal',
             (new Campus)->getMorphClass() => 'Campus',
             (new Course)->getMorphClass() => 'Curso',
             (new InternshipType)->getMorphClass() => 'Tipo de estágio',
@@ -393,6 +395,7 @@ class AdministrativeActivityPresenter
             ],
             (new Holiday)->getMorphClass() => ['date' => 'Data', 'name' => 'Nome', 'scope' => 'Escopo', 'state_code' => 'UF', 'city_id' => 'Cidade', 'origin' => 'Origem', 'is_manually_adjusted' => 'Ajuste manual', 'holiday_recurrence_id' => 'Recorrência', 'occurrence_year' => 'Ano da ocorrência'],
             (new HolidayRecurrence)->getMorphClass() => ['name' => 'Nome', 'city_id' => 'Cidade', 'month' => 'Mês', 'day' => 'Dia', 'starts_year' => 'Ano inicial', 'ends_year' => 'Ano final', 'notes' => 'Referência / observação'],
+            (new HolidayRegistrationRequest)->getMorphClass() => ['campus_id' => 'Campus', 'requested_by_affiliation_id' => 'Solicitado por', 'city_id' => 'Cidade', 'kind' => 'Tipo de cadastro', 'name' => 'Nome', 'date' => 'Data', 'month' => 'Mês', 'day' => 'Dia', 'notes' => 'Observações', 'status' => 'Situação', 'holiday_id' => 'Feriado criado', 'holiday_recurrence_id' => 'Recorrência criada', 'reviewed_by_affiliation_id' => 'Analisado por', 'reviewed_at' => 'Analisado em', 'decision_notes' => 'Motivo da recusa'],
             (new Campus)->getMorphClass() => [
                 'name' => 'Nome', 'cnpj' => 'CNPJ', 'phone' => 'Telefone', 'address_id' => 'Endereço',
                 'internship_office_email' => 'E-mail institucional do Setor de Estágio',
@@ -630,7 +633,7 @@ class AdministrativeActivityPresenter
                 (new Internship)->getMorphClass() => InternshipStatus::tryFrom((string) $value),
                 (new InternshipRequest)->getMorphClass() => InternshipRequestStatus::tryFrom((string) $value),
                 (new InternshipRequestCorrection)->getMorphClass() => InternshipRequestCorrectionStatus::tryFrom((string) $value),
-                (new SupervisorRegistrationRequest)->getMorphClass(), (new GrantingPartyRegistrationRequest)->getMorphClass() => RegistrationRequestStatus::tryFrom((string) $value),
+                (new SupervisorRegistrationRequest)->getMorphClass(), (new GrantingPartyRegistrationRequest)->getMorphClass(), (new HolidayRegistrationRequest)->getMorphClass() => RegistrationRequestStatus::tryFrom((string) $value),
                 (new EmancipationEvidence)->getMorphClass() => EmancipationEvidenceStatus::tryFrom((string) $value),
                 default => null,
             };

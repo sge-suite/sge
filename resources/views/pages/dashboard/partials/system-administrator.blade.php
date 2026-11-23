@@ -6,10 +6,11 @@
         </x-slot:actions>
     </x-dashboard-header>
 
-    <section aria-label="Totais do sistema" class="grid min-w-0 gap-3 sm:grid-cols-3">
+    <section aria-label="Totais do sistema" class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <x-dashboard-metric label="Usuários cadastrados" :value="$metrics['usersCount']" icon="users" :href="route('users.index')" />
         <x-dashboard-metric label="Vínculos cadastrados" :value="$metrics['affiliationsCount']" icon="link" :description="$metrics['activeAffiliationsCount'].' '.($metrics['activeAffiliationsCount'] === 1 ? 'ativo' : 'ativos')" />
         <x-dashboard-metric label="Campi cadastrados" :value="$metrics['campusesCount']" icon="building-office-2" :description="$metrics['activeCampusesCount'].' '.($metrics['activeCampusesCount'] === 1 ? 'ativo' : 'ativos')" :href="route('campuses.index')" />
+        <x-dashboard-metric label="Solicitações de feriado" :value="$metrics['pendingHolidayRequestsCount']" icon="calendar-days" :description="$metrics['pendingHolidayRequestsCount'] === 0 ? 'Nenhuma pendente' : ($metrics['pendingHolidayRequestsCount'] === 1 ? '1 aguardando análise' : $metrics['pendingHolidayRequestsCount'].' aguardando análise')" :href="route('holiday-requests.index')" />
     </section>
 
     <div class="grid min-w-0 gap-x-10 gap-y-6 xl:grid-cols-2">
@@ -104,6 +105,13 @@
                         <flux:text class="shrink-0 text-sm tabular-nums">{{ $metrics['pendingRegistrationRequestsCount'] }}</flux:text>
                     </div>
                     <flux:progress :value="$metrics['pendingRegistrationRequestsCount']" :max="$metrics['maxPendingRequestsCount']" style="--flux-progress-color: var(--color-brand)" aria-label="Cadastros de concedentes e supervisores" />
+                </div>
+                <div class="min-w-0 space-y-1">
+                    <div class="flex min-w-0 items-baseline justify-between gap-3">
+                        <flux:text class="min-w-0 wrap-break-word text-sm">Solicitações de feriado municipal</flux:text>
+                        <flux:text class="shrink-0 text-sm tabular-nums">{{ $metrics['pendingHolidayRequestsCount'] ?? 0 }}</flux:text>
+                    </div>
+                    <flux:progress :value="$metrics['pendingHolidayRequestsCount'] ?? 0" :max="$metrics['maxPendingRequestsCount']" style="--flux-progress-color: var(--color-brand)" aria-label="Solicitações de feriado municipal" />
                 </div>
             </div>
         </section>

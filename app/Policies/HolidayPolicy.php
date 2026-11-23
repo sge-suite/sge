@@ -25,6 +25,11 @@ class HolidayPolicy
         return $this->access->canManage($user);
     }
 
+    public function requestRegistration(User $user): bool
+    {
+        return $this->access->canRequest($user);
+    }
+
     public function update(User $user, Holiday $holiday): bool
     {
         return $this->access->canManage($user) && ! $holiday->trashed();

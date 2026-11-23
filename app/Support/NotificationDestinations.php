@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Holiday;
 use App\Models\Internship;
 use App\Models\InternshipRequest;
 use App\Models\User;
@@ -33,6 +34,7 @@ class NotificationDestinations
         $requests = $requestIds === [] ? [] : $this->requestPolicy->viewableQuery($actor)->whereKey($requestIds)->pluck('id')->all();
         $canReview = Gate::forUser($actor)->allows('viewReviewList', InternshipRequest::class);
         $canViewInternships = Gate::forUser($actor)->allows('viewAny', Internship::class);
+        $canViewHolidays = Gate::forUser($actor)->allows('viewAny', Holiday::class);
         $destinations = [];
 
         foreach ($notifications as $notification) {
@@ -46,6 +48,8 @@ class NotificationDestinations
                     ? route('internship-requests.show', ['internshipRequest' => $requestId]) : null,
                 'internship-review.index' => $canReview ? route('internship-review.index') : null,
                 'internships.index' => $canViewInternships ? route('internships.index') : null,
+                'holidays.index' => $canViewHolidays ? route('holidays.index') : null,
+                'holiday-requests.index' => $canViewHolidays ? route('holiday-requests.index') : null,
                 'dashboard' => route('dashboard'),
                 default => null,
             };
