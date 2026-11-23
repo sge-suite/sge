@@ -161,6 +161,23 @@ new #[Title('Partes concedentes')] class extends Component
     }
 
     #[Computed]
+    public function csvUrl(): ?string
+    {
+        if ($this->searchFailed('grantingParties')) {
+            return null;
+        }
+
+        return route('granting-parties.export', array_filter([
+            'affiliation' => $this->affiliationId,
+            'search' => mb_substr(trim($this->search), 0, 255),
+            'status' => $this->status === 'all' ? '' : $this->status,
+            'state' => $this->state === 'all' ? '' : $this->state,
+            'city' => $this->cityId,
+            'course' => $this->courseId,
+        ], fn (string|int $value): bool => $value !== ''));
+    }
+
+    #[Computed]
     public function selectedCity(): ?City
     {
         $key = filter_var($this->cityId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -249,14 +266,17 @@ new #[Title('Partes concedentes')] class extends Component
             <flux:heading size="xl" level="1">Partes concedentes</flux:heading>
             <flux:text class="mt-2">Gerencie as partes concedentes do seu campus.</flux:text>
         </div>
-        @can('create', \App\Models\GrantingParty::class)
-            <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+            @if ($this->csvUrl !== null)
+                <flux:button icon="arrow-down-tray" variant="outline" :href="$this->csvUrl" wire:loading.remove wire:target="search,state,cityId,courseId,status,clearFilters">Exportar CSV</flux:button>
+            @endif
+            @can('create', \App\Models\GrantingParty::class)
                 <flux:button icon="arrow-up-tray" variant="outline" :href="route('granting-parties.import')" wire:navigate>Importar CSV</flux:button>
                 <flux:button variant="primary" icon="plus" :href="route('granting-parties.create')" wire:navigate>Cadastrar parte concedente</flux:button>
-            </div>
-        @else
-            <flux:badge>Campus somente para leitura</flux:badge>
-        @endcan
+            @else
+                <flux:badge>Campus somente para leitura</flux:badge>
+            @endcan
+        </div>
     </div>
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:items-end">
         <div class="min-w-0 sm:col-span-2 xl:col-span-2">
@@ -294,7 +314,7 @@ new #[Title('Partes concedentes')] class extends Component
             <x-search-unavailable retry="retrySearch('grantingParties')" />
         @elseif ($grantingParties->isNotEmpty())
             <flux:table :paginate="$grantingParties">
-                <flux:table.columns class="bg-white dark:bg-zinc-800">
+                <flux:table.columns>
                     <flux:table.column>Parte concedente</flux:table.column>
                     <flux:table.column>Documento</flux:table.column>
                     <flux:table.column class="hidden md:table-cell">Cidade / UF</flux:table.column>

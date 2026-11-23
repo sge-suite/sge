@@ -7,6 +7,7 @@ use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DocumentTemplatePreviewController;
 use App\Http\Controllers\GeneratedDocumentDownloadController;
 use App\Http\Controllers\GrantingPartyController;
+use App\Http\Controllers\GrantingPartyCsvController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\HolidayImportController;
 use App\Http\Controllers\HolidayRecurrenceController;
@@ -141,6 +142,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::middleware('can:viewAny,'.GrantingParty::class)->group(function (): void {
             Route::livewire('granting-parties', 'pages::granting-parties.index')->name('granting-parties.index');
+            Route::get('granting-parties/export.csv', GrantingPartyCsvController::class)->name('granting-parties.export');
             Route::livewire('granting-parties/create', 'pages::granting-parties.create')->name('granting-parties.create');
             Route::livewire('granting-parties/import', 'pages::granting-parties.import')->name('granting-parties.import');
             Route::livewire('granting-parties/{grantingParty}/edit', 'pages::granting-parties.edit')->name('granting-parties.edit');
