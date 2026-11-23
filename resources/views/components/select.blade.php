@@ -1,5 +1,5 @@
 @props([
-    'label', 'options' => [], 'name' => '', 'value' => '', 'selectedLabel' => '', 'searchModel' => null,
+    'label', 'options' => [], 'groups' => [], 'name' => '', 'value' => '', 'selectedLabel' => '', 'searchModel' => null,
     'placeholder' => 'Selecione uma opção', 'searchable' => false, 'searchSource' => null,
     'disabled' => false, 'required' => false, 'invalid' => false, 'error' => '', 'openOnMount' => false,
     'empty' => 'Nenhuma opção encontrada.',
@@ -188,12 +188,20 @@
             if (this.searchSource) this.queueRemoteSearch();
             this.$nextTick(() => {
                 const options = this.options();
-                this.activeValue = options.find(option => option.dataset.value === String(this.value))?.dataset.value
-                    ?? '';
+                const selected = options.find(option => option.dataset.value === String(this.value));
+                this.activeValue = selected?.dataset.value ?? '';
                 const focusTarget = focusTrigger
                     ? this.$refs.trigger
                     : (this.$refs.search?.querySelector('input') ?? this.listElement());
-                requestAnimationFrame(() => focusTarget.focus());
+                requestAnimationFrame(() => {
+                    focusTarget.focus({ preventScroll: true });
+                    const list = this.listElement();
+                    if (selected && list) {
+                        const listRect = list.getBoundingClientRect();
+                        const itemRect = selected.getBoundingClientRect();
+                        list.scrollTop += (itemRect.top - listRect.top) - (list.clientHeight - itemRect.height) / 2;
+                    }
+                });
             });
         },
 
@@ -363,6 +371,40 @@
             @endif
             <div id="{{ $selectId }}-list" x-ref="list" data-select-list role="listbox" aria-label="{{ $label }}" tabindex="-1"
                 x-bind:aria-activedescendant="activeId()" class="select-options max-h-60 overflow-y-auto p-1 outline-hidden">
+                @if ($groups !== [])
+                    @foreach ($groups as $groupLabel => $groupOptions)
+                        <div
+                            wire:key="{{ $name ?: $label }}-group-{{ $loop->index }}"
+                            x-show="@js(array_values($groupOptions)).some(label => matches(label))"
+                            class="{{ $loop->first ? '' : 'mt-1.5 border-t border-zinc-200/80 pt-1.5 dark:border-zinc-600/80' }}"
+                        >
+                            <div class="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                {{ $groupLabel }}
+                            </div>
+                            @foreach ($groupOptions as $optionValue => $optionLabel)
+                                <button type="button" role="option" tabindex="-1" id="{{ $selectId }}-option-{{ $loop->parent->index }}-{{ $loop->index }}"
+                                    wire:key="{{ $name ?: $label }}-option-{{ $optionValue }}" data-select-option data-value="{{ $optionValue }}" data-label="{{ $optionLabel }}"
+                                    aria-selected="{{ (string) $value === (string) $optionValue ? 'true' : 'false' }}"
+                                    x-bind:aria-selected="String(value) === @js((string) $optionValue)" x-show="matches(@js($optionLabel), @js((string) $optionValue))"
+                                    x-bind:class="{ 'bg-zinc-200 dark:bg-white/15': activeValue === @js((string) $optionValue) }"
+                                    class="flex w-full min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-start text-sm text-zinc-800 outline-none hover:bg-zinc-200 focus:outline-none focus-visible:outline-none focus-visible:ring-0 dark:text-zinc-100 dark:hover:bg-white/15"
+                                    x-on:focus="activeValue = @js((string) $optionValue)" x-on:mouseenter="activeValue = @js((string) $optionValue)" x-on:click="choose($el)">
+                                    <span class="flex min-w-0 flex-1 items-start gap-2">
+                                        @if (isset($optionIcons[$optionValue]))
+                                            <flux:icon :name="$optionIcons[$optionValue]" variant="mini" class="shrink-0 text-zinc-500 dark:text-zinc-300" />
+                                        @endif
+                                        <span class="min-w-0 whitespace-normal wrap-break-word">{{ $optionLabel }}</span>
+                                    </span>
+                                    <span class="flex size-4 shrink-0 items-center justify-center">
+                                        <span x-show="String(value) === @js((string) $optionValue)">
+                                            <flux:icon.check variant="micro" />
+                                        </span>
+                                    </span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endforeach
+                @else
                 @foreach ($options as $optionValue => $optionLabel)
                     @continue($searchSource && ctype_digit((string) $optionValue))
                     <button type="button" role="option" tabindex="-1" id="{{ $selectId }}-option-{{ $loop->index }}"
@@ -385,6 +427,7 @@
                         </span>
                     </button>
                 @endforeach
+                @endif
                 @if ($searchSource)
                     <template x-for="option in remoteOptions" :key="option.value">
                         <button type="button" role="option" tabindex="-1" data-select-option
