@@ -24,6 +24,9 @@ new #[Title('E-mails')] class extends Component
     #[Url(except: 'all')]
     public string $status = 'all';
 
+    #[Url(except: '')]
+    public string $recipient = '';
+
     public function boot(): void
     {
         Gate::authorize('viewAny', EmailDeliveryAttempt::class);
@@ -46,10 +49,14 @@ new #[Title('E-mails')] class extends Component
         $this->resetPage();
     }
 
+    public function updatedRecipient(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
-        $this->purpose = 'all';
-        $this->status = 'all';
+        $this->reset('purpose', 'status', 'recipient');
         $this->resetPage();
     }
 
@@ -76,9 +83,13 @@ new #[Title('E-mails')] class extends Component
         $query = app(EmailLogAccess::class)->forCurrentContext(auth()->user(), app('session.store'));
         abort_if($query === null, 403);
 
+        $recipient = mb_substr(trim($this->recipient), 0, 255);
+
         return $query->whereIn('id', EmailDeliveryAttempt::query()->selectRaw('MAX(id)')->groupBy('delivery_key'))
             ->when(EmailMessagePurpose::tryFrom($this->purpose), fn (Builder $query, EmailMessagePurpose $purpose): Builder => $query->where('purpose', $purpose))
             ->when(EmailDeliveryAttemptStatus::tryFrom($this->status), fn (Builder $query, EmailDeliveryAttemptStatus $status): Builder => $query->where('status', $status))
+            ->when($recipient !== '', fn (Builder $query): Builder => $query->whereLike(
+                'recipient_email', '%'.addcslashes($recipient, '\\%_').'%'))
             ->with('emailMessage:id,subject')
             ->orderByDesc('created_at')->orderByDesc('id')->paginate(PageSize::PER_PAGE);
     }
@@ -91,16 +102,19 @@ new #[Title('E-mails')] class extends Component
     </div>
     <div class="flex flex-wrap items-end gap-4">
         <div class="w-full sm:max-w-xs">
+            <flux:input wire:model.live.debounce.300ms="recipient" label="Buscar por endereço de destino" icon="magnifying-glass" maxlength="255" type="search" />
+        </div>
+        <div class="w-full sm:max-w-xs">
             <x-select wire:model.live="purpose" label="Finalidade" :value="$purpose" :options="['all' => 'Todas as finalidades', ...$this->purposeOptions]" />
         </div>
         <div class="w-full sm:max-w-xs">
             <x-select wire:model.live="status" label="Situação" :value="$status" :options="['all' => 'Todas as situações', ...EmailDeliveryAttemptStatus::options()]" />
         </div>
-        @if ($purpose !== 'all' || $status !== 'all')
+        @if ($purpose !== 'all' || $status !== 'all' || $recipient !== '')
             <flux:button wire:click="clearFilters">Limpar filtros</flux:button>
         @endif
     </div>
-    <x-loading-overlay target="purpose,status,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando histórico…">
+    <x-loading-overlay target="recipient,purpose,status,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando histórico…">
         @php($deliveries = $this->deliveries)
         <x-email-logs.delivery-table :deliveries="$deliveries" />
         @if ($deliveries->isEmpty())

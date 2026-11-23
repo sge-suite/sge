@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -19,6 +20,33 @@ new class extends Component
 
     #[Locked]
     public int $affiliationId;
+
+    public const WORKLOAD_OPTIONS = [
+        'all' => 'Todas as respostas',
+        'met' => 'Cumprida',
+        'not_met' => 'Não cumprida',
+        'unanswered' => 'Sem resposta',
+    ];
+
+    #[Url(except: 'all')]
+    public string $workload = 'all';
+
+    public function updatedWorkload(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset('workload');
+        $this->resetPage();
+    }
+
+    #[Computed]
+    public function canFilterWorkload(): bool
+    {
+        return app(StudentInternshipContext::class)->selected(Auth::user())?->type === AffiliationType::InternshipOffice;
+    }
 
     public function mount(StudentInternshipContext $context): void
     {
@@ -39,20 +67,38 @@ new class extends Component
         Gate::authorize('viewAny', SupervisorEvaluation::class);
         $selected = app(StudentInternshipContext::class)->selected(Auth::user());
 
-        return SupervisorEvaluation::query()->with('internship.course')
+        $query = SupervisorEvaluation::query()->with('internship.course')
             ->whereHas('internship', fn ($query) => $query->whereNotNull('evaluation_released_at')
                 ->when($selected->type === AffiliationType::Supervisor,
                     fn ($query) => $query->where('supervisor_affiliation_id', $selected->id),
                     fn ($query) => $query->whereHas('course', fn ($query) => $query->where('campus_id', $selected->campus_id))))
-            ->when($selected->type === AffiliationType::Supervisor, fn ($query) => $query->where('supervisor_affiliation_id', $selected->id))
-            ->latest('id')->paginate(PageSize::PER_PAGE);
+            ->when($selected->type === AffiliationType::Supervisor, fn ($query) => $query->where('supervisor_affiliation_id', $selected->id));
+
+        if ($this->canFilterWorkload) {
+            match ($this->workload) {
+                'met' => $query->where('hours_requirement_met', true),
+                'not_met' => $query->where('hours_requirement_met', false),
+                'unanswered' => $query->whereNull('hours_requirement_met'),
+                default => null,
+            };
+        }
+
+        return $query->latest('id')->paginate(PageSize::PER_PAGE);
     }
 }; ?>
 
 <div class="w-full space-y-8">
     <div><flux:heading size="xl" level="1">Avaliações do supervisor</flux:heading><flux:text class="mt-2">Acompanhe as avaliações solicitadas pelo Setor de Estágio. Selecione uma linha para consultar.</flux:text></div>
+    @if ($this->canFilterWorkload)
+        <div class="flex flex-wrap items-end gap-4">
+            <div class="w-full sm:max-w-xs"><x-select wire:model.live="workload" label="Carga horária informada" :value="$workload" :options="$this::WORKLOAD_OPTIONS" /></div>
+            @if ($workload !== 'all')
+                <flux:button wire:click="clearFilters">Limpar filtros</flux:button>
+            @endif
+        </div>
+    @endif
     @php($evaluations = $this->evaluations)
-    <x-loading-overlay target="gotoPage,nextPage,previousPage" label="Atualizando avaliações…" :dim-while-loading="true">
+    <x-loading-overlay target="workload,clearFilters,gotoPage,nextPage,previousPage" label="Atualizando avaliações…" :dim-while-loading="true">
         @if ($evaluations->isNotEmpty())
             <flux:table :paginate="$evaluations" container:class="[&>ui-table-scroll-area]:max-h-[70vh]">
                 <flux:table.columns sticky class="bg-white dark:bg-zinc-800">
@@ -69,14 +115,22 @@ new class extends Component
                                 <flux:text size="sm" class="lg:hidden">Último envio: {{ formatDateTime($evaluation->submitted_at) }}</flux:text>
                             </flux:table.cell>
                             <flux:table.cell class="hidden whitespace-normal md:table-cell">{{ $evaluation->internship->course->name }}<flux:text size="sm">{{ $evaluation->internship->granting_party_snapshot['name'] ?? 'Concedente não informada' }}</flux:text></flux:table.cell>
-                            <flux:table.cell><flux:badge size="sm" :color="match ($evaluation->status) { EvaluationStatus::Submitted => 'amber', EvaluationStatus::Returned => 'orange', EvaluationStatus::Approved => 'green', EvaluationStatus::Cancelled => 'red', default => 'zinc' }">{{ $evaluation->status->label() }}</flux:badge></flux:table.cell>
+                            <flux:table.cell><flux:badge size="sm" :color="match ($evaluation->status) { EvaluationStatus::Submitted => 'amber', EvaluationStatus::Returned => 'orange', EvaluationStatus::Approved => 'green', EvaluationStatus::Cancelled => 'red', default => 'zinc' }">{{ $evaluation->status->label() }}</flux:badge>
+                                @if ($this->canFilterWorkload)
+                                    <flux:text size="sm" class="mt-2">{{ match ($evaluation->hours_requirement_met) { true => 'Carga cumprida', false => 'Carga não cumprida', null => 'Carga sem resposta' } }}</flux:text>
+                                @endif
+                            </flux:table.cell>
                             <flux:table.cell class="hidden lg:table-cell">{{ formatDateTime($evaluation->submitted_at) }}</flux:table.cell>
                         </flux:table.row>
                     @endforeach
                 </flux:table.rows>
             </flux:table>
         @else
-            <div class="rounded-xl border border-dashed border-zinc-300 px-6 py-14 text-center dark:border-zinc-700"><flux:icon.clipboard-document-list class="mx-auto mb-4 size-8 text-zinc-400" /><flux:heading size="lg">Nenhuma avaliação solicitada</flux:heading><flux:text class="mt-2">As avaliações disponíveis para o vínculo selecionado aparecerão aqui.</flux:text></div>
+            <div class="rounded-xl border border-dashed border-zinc-300 px-6 py-14 text-center dark:border-zinc-700"><flux:icon.clipboard-document-list class="mx-auto mb-4 size-8 text-zinc-400" />@if ($this->canFilterWorkload && $workload !== 'all')
+                <flux:heading size="lg">Nenhuma avaliação encontrada</flux:heading><flux:text class="mt-2">Altere o filtro de carga horária para consultar outras avaliações.</flux:text>
+            @else
+                <flux:heading size="lg">Nenhuma avaliação nesta página</flux:heading><flux:text class="mt-2">As avaliações disponíveis para o vínculo selecionado aparecerão aqui.</flux:text>
+            @endif</div>
         @endif
     </x-loading-overlay>
 </div>
