@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Enums\EmailMessagePurpose;
 use App\Models\EmailDeliveryAttempt;
+use App\Models\EmailMessage;
 use App\Models\User;
 use Illuminate\Mail\Mailable;
 use LogicException;
@@ -52,6 +53,11 @@ class DeliveryMail extends Mailable
     private function notificationContent(): static
     {
         $message = $this->attempt->emailMessage;
+
+        if ($message === null || blank($message->subject)) {
+            throw new LogicException('O conteúdo da notificação não está disponível para envio.');
+        }
+
         $body = $message->content_text ?? strip_tags((string) $message->content_html);
 
         if (filled($message->content_html)) {
@@ -73,9 +79,7 @@ class DeliveryMail extends Mailable
         $message = $this->attempt->emailMessage;
 
         if ($message !== null) {
-            return $this->subject($message->subject)
-                ->html($message->content_html)
-                ->text('emails.delivery-text', ['body' => $message->content_text]);
+            return $this->applyStoredContent($message);
         }
 
         $user = User::query()->where('email', $this->attempt->recipient_email)->firstOrFail();
@@ -107,17 +111,36 @@ class DeliveryMail extends Mailable
                 ]);
         }
 
-        return $this->subject($message->subject)
-            ->html($message->content_html)
-            ->text('emails.delivery-text', ['body' => $message->content_text]);
+        return $this->applyStoredContent($message);
     }
 
     private function accountEmailChangedContent(): static
     {
         $message = $this->attempt->emailMessage;
 
-        return $this->subject($message->subject)
-            ->html($message->content_html)
-            ->text('emails.delivery-text', ['body' => $message->content_text]);
+        if ($message === null) {
+            throw new LogicException('O conteúdo da mensagem não está disponível para envio.');
+        }
+
+        return $this->applyStoredContent($message);
+    }
+
+    private function applyStoredContent(EmailMessage $message): static
+    {
+        if (blank($message->subject) || (blank($message->content_text) && blank($message->content_html))) {
+            throw new LogicException('O conteúdo armazenado da mensagem está incompleto para envio.');
+        }
+
+        $this->subject($message->subject);
+
+        if (filled($message->content_html)) {
+            $this->html($message->content_html);
+        }
+
+        if (filled($message->content_text)) {
+            $this->text('emails.delivery-text', ['body' => $message->content_text]);
+        }
+
+        return $this;
     }
 }

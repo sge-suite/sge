@@ -9,6 +9,7 @@ use App\Support\InternshipEmailDetails;
 use App\Support\InternshipRecipients;
 use Illuminate\Mail\Markdown;
 use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 
 class NotifyInternshipLifecycle
 {
@@ -27,12 +28,16 @@ class NotifyInternshipLifecycle
             if ($category === 'supervisor' && $supervisorEvaluationApproved) {
                 continue;
             }
-            $noticeId = (string) Str::uuid();
             if ($category === 'student' && $supervisorEvaluationApproved) {
-                $this->results->supervisorApproved($internship, $recipient['affiliation'], $noticeId);
+                $evaluationNoticeId = Uuid::uuid5(
+                    Uuid::NAMESPACE_URL,
+                    'sge:internship:'.$internship->id.':supervisor-approved:'.($internship->current_supervisor_evaluation_id ?? 'none'),
+                )->toString();
+                $this->results->supervisorApproved($internship, $recipient['affiliation'], $evaluationNoticeId);
 
                 continue;
             }
+            $noticeId = (string) Str::uuid();
             $data = ['messageSubject' => $title, 'body' => $explanation,
                 'internshipDetails' => [...$details, 'Situação do estágio' => $internship->status->label()], 'dashboardUrl' => route('dashboard'),
                 'recipientIdentity' => $this->identities->forAffiliation($recipient['affiliation']),

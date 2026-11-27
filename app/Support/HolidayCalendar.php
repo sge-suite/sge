@@ -26,6 +26,11 @@ class HolidayCalendar
         DB::statement("SELECT pg_advisory_xact_lock(hashtext('sge-holiday-data'))");
     }
 
+    public static function lockShared(): void
+    {
+        DB::statement("SELECT pg_advisory_xact_lock_shared(hashtext('sge-holiday-data'))");
+    }
+
     /** @return Builder<Holiday> */
     public function query(City $city, string $startsOn, string $endsOn): Builder
     {

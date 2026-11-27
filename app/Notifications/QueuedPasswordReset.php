@@ -15,6 +15,13 @@ class QueuedPasswordReset extends ResetPassword implements ShouldBeEncrypted, Sh
 {
     use Queueable;
 
+    public int $tries = 3;
+
+    public int $timeout = 60;
+
+    /** @var list<int> */
+    public array $backoff = [5, 30, 120];
+
     /** @var array{name: string, role: string, context: list<string>}|null */
     public ?array $recipientIdentity = null;
 

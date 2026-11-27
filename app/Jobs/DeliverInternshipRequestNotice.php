@@ -93,7 +93,10 @@ class DeliverInternshipRequestNotice implements ShouldQueue
     public function failed(?\Throwable $exception): void
     {
         Log::error('Não foi possível preparar o aviso de decisão da solicitação.', [
-            'internship_request_id' => $this->requestId, 'notice_id' => $this->noticeId,
+            'internship_request_id' => $this->requestId,
+            'notice_id' => $this->noticeId,
+            'exception_class' => $exception !== null ? $exception::class : null,
+            'error' => $exception?->getMessage(),
         ]);
     }
 }

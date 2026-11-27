@@ -30,7 +30,7 @@ class ProjectInternshipRequestEndDate
             throw ValidationException::withMessages(['projected_end_date' => 'Complete o tipo, o endereço da concedente, a jornada e a data inicial para calcular o término.']);
         }
         $this->validateStartDate($request, $city);
-        HolidayCalendar::lock();
+        HolidayCalendar::lockShared();
         $start = CarbonImmutable::parse($request->planned_start_date->toDateString(), config('app.timezone'));
         $horizon = $start->addYears(10);
         $blocked = $this->calendar->blockedDates($city, $start->toDateString(), $horizon->toDateString());
@@ -67,7 +67,7 @@ class ProjectInternshipRequestEndDate
         $city ??= $this->workplaceCity($request);
         $blocked = [];
         if ($city !== null) {
-            HolidayCalendar::lock();
+            HolidayCalendar::lockShared();
             foreach ($this->calendar->occurrences($city, $date, $date) as $holiday) {
                 $blocked[$date] = isset($blocked[$date]) ? $blocked[$date].'; '.$holiday->name : 'Feriado: '.$holiday->name;
             }

@@ -73,6 +73,7 @@ class UnifyCancellationReasons
                 ->whereIn('id', $requestIds)
                 ->where('status', InternshipCancellationRequestStatus::Approved)
                 ->whereHas('internship', fn ($query) => $query->where('status', InternshipStatus::Cancelled))
+                ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
 
@@ -88,6 +89,6 @@ class UnifyCancellationReasons
 
                 return $updated;
             });
-        });
+        }, attempts: 3);
     }
 }

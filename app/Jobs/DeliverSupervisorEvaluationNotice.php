@@ -78,7 +78,10 @@ class DeliverSupervisorEvaluationNotice implements ShouldQueue
     public function failed(?\Throwable $exception): void
     {
         Log::error('Não foi possível preparar o aviso da avaliação do supervisor.', [
-            'supervisor_evaluation_id' => $this->evaluationId, 'notice_id' => $this->noticeId,
+            'supervisor_evaluation_id' => $this->evaluationId,
+            'notice_id' => $this->noticeId,
+            'exception_class' => $exception !== null ? $exception::class : null,
+            'error' => $exception?->getMessage(),
         ]);
     }
 }

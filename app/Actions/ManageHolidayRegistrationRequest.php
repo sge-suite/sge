@@ -13,6 +13,7 @@ use App\Models\HolidayRegistrationRequest;
 use App\Models\User;
 use App\Support\ActiveAffiliationContext;
 use App\Support\HolidayAccess;
+use App\Support\HolidayCalendar;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
@@ -73,6 +74,8 @@ class ManageHolidayRegistrationRequest
                 && $office->campus->deactivated_at === null,
                 403,
             );
+
+            HolidayCalendar::lock();
 
             $name = trim((string) $validated['name']);
             $cityId = (int) $validated['city_id'];
@@ -145,36 +148,36 @@ class ManageHolidayRegistrationRequest
     {
         Gate::forUser($actor)->authorize('create', Holiday::class);
 
-        $request = HolidayRegistrationRequest::query()->with(['city', 'requestedByAffiliation'])->findOrFail($target->id);
-        if ($request->status !== RegistrationRequestStatus::Submitted) {
-            throw ValidationException::withMessages(['holiday' => 'Esta solicitação já foi analisada.']);
-        }
-
-        if ($request->kind === 'holiday') {
-            $holiday = $this->manageHoliday->handle($actor, null, 'create', [
-                'name' => $request->name,
-                'date' => $request->date?->toDateString(),
-                'scope' => HolidayScope::Municipal->value,
-                'state_code' => $request->city->state->value,
-                'city_id' => $request->city_id,
-            ]);
-            $recurrence = null;
-        } else {
-            $recurrence = $this->manageRecurrence->handle($actor, null, [
-                'name' => $request->name,
-                'city_id' => $request->city_id,
-                'month' => $request->month,
-                'day' => $request->day,
-                'starts_year' => null,
-                'ends_year' => null,
-                'notes' => $request->notes,
-            ], 'save');
-            $holiday = null;
-        }
-
-        return $this->access->asAdministrator($actor, function () use ($actor, $request, $holiday, $recurrence): HolidayRegistrationRequest {
+        return $this->access->asAdministrator($actor, function () use ($actor, $target): HolidayRegistrationRequest {
             $admin = $this->context->currentFor($actor, app('session.store'));
-            $locked = HolidayRegistrationRequest::query()->with(['city', 'requestedByAffiliation'])->lockForUpdate()->findOrFail($request->id);
+            $locked = HolidayRegistrationRequest::query()->with(['city', 'requestedByAffiliation'])->lockForUpdate()->findOrFail($target->id);
+
+            if ($locked->status !== RegistrationRequestStatus::Submitted) {
+                throw ValidationException::withMessages(['holiday' => 'Esta solicitação já foi analisada.']);
+            }
+
+            if ($locked->kind === 'holiday') {
+                $holiday = $this->manageHoliday->handle($actor, null, 'create', [
+                    'name' => $locked->name,
+                    'date' => $locked->date?->toDateString(),
+                    'scope' => HolidayScope::Municipal->value,
+                    'state_code' => $locked->city->state->value,
+                    'city_id' => $locked->city_id,
+                ]);
+                $recurrence = null;
+            } else {
+                $recurrence = $this->manageRecurrence->handle($actor, null, [
+                    'name' => $locked->name,
+                    'city_id' => $locked->city_id,
+                    'month' => $locked->month,
+                    'day' => $locked->day,
+                    'starts_year' => null,
+                    'ends_year' => null,
+                    'notes' => $locked->notes,
+                ], 'save');
+                $holiday = null;
+            }
+
             $locked->update([
                 'status' => RegistrationRequestStatus::Approved,
                 'reviewed_by_affiliation_id' => $admin?->id,

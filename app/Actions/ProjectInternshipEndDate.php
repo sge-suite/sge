@@ -44,7 +44,7 @@ class ProjectInternshipEndDate
             throw ValidationException::withMessages(['projected_end_date' => 'O endereço histórico do local de estágio precisa de um município válido.']);
         }
 
-        HolidayCalendar::lock();
+        HolidayCalendar::lockShared();
         $start = CarbonImmutable::parse($internship->planned_start_date->toDateString(), config('app.timezone'));
         $horizon = $start->addYears(10)->toDateString();
         $blocked = [];

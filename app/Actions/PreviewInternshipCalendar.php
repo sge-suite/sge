@@ -28,7 +28,7 @@ class PreviewInternshipCalendar
         Gate::forUser($actor)->authorize($data === null ? 'view' : 'update', $target);
 
         return DB::transaction(function () use ($actor, $target, $data, $includeCalendar): array {
-            $internship = Internship::query()->lockForUpdate()->findOrFail($target->id);
+            $internship = Internship::query()->findOrFail($target->id);
             Gate::forUser($actor)->authorize($data === null ? 'view' : 'update', $internship);
             $candidate = clone $internship;
             $overrides = null;
@@ -54,7 +54,7 @@ class PreviewInternshipCalendar
                 }
                 if ((int) $values['internship_type_id'] !== $internship->internship_type_id) {
                     $type = InternshipType::query()->where('course_id', $internship->course_id)->whereNull('deactivated_at')
-                        ->whereKey((int) $values['internship_type_id'])->lockForUpdate()->first();
+                        ->whereKey((int) $values['internship_type_id'])->first();
                     if ($type === null) {
                         throw ValidationException::withMessages(['internship_type_id' => 'Selecione um tipo disponível do curso do discente.']);
                     }
