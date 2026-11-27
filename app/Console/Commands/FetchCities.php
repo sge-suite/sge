@@ -213,8 +213,9 @@ class FetchCities extends Command
             }
         }
 
-        usort($cities, static function (array $first, array $second) use ($states): int {
-            $stateOrder = array_flip($states);
+        $stateOrder = array_flip($states);
+
+        usort($cities, static function (array $first, array $second) use ($stateOrder): int {
             $stateComparison = $stateOrder[$first['state']] <=> $stateOrder[$second['state']];
 
             return $stateComparison !== 0

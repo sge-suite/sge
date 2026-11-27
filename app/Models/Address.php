@@ -8,11 +8,13 @@ use App\Helpers\DigitsHelper;
 use App\Support\AddressActivityContext;
 use Database\Factories\AddressFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
@@ -135,6 +137,22 @@ class Address extends Model
             $attributes['zip_code'] = BrazilianAddressHelper::cepForValidation($attributes['zip_code'] ?? null);
             Validator::make($attributes, $address->addressRules())->validate();
             $address->zip_code = DigitsHelper::only($attributes['zip_code']);
+        });
+
+        static::saved(function (self $address): void {
+            if (! $address->wasChanged(['city_id', 'street', 'number'])) {
+                return;
+            }
+
+            $addressId = $address->id;
+            DB::afterCommit(function () use ($addressId): void {
+                Campus::query()->where('address_id', $addressId)->chunkById(200, function (Collection $chunk): void {
+                    (new Campus)->queueMakeSearchable($chunk);
+                });
+                GrantingParty::query()->where('address_id', $addressId)->chunkById(200, function (Collection $chunk): void {
+                    (new GrantingParty)->queueMakeSearchable($chunk);
+                });
+            });
         });
     }
 }

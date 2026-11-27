@@ -10,6 +10,7 @@ use App\Helpers\BrazilianDocumentHelper;
 use App\Helpers\DigitsHelper;
 use App\Models\City;
 use App\Models\GrantingParty;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -103,12 +104,60 @@ class GrantingPartyImportValidator
      */
     public function duplicates(array $payload, int $campusId, array $excludedIds = []): array
     {
+        return $this->formatDuplicates(
+            GrantingParty::query()->forCampus($campusId)->where('document_type', $payload['document_type'])
+                ->where('document_number', $payload['document_number'])->whereNotIn('id', $excludedIds)->with('address.city')->orderBy('id')->get(),
+        );
+    }
+
+    /**
+     * @param  list<array{document_type: string, document_number: string}>  $pairs
+     * @return array<string, list<array{id: int, name: string, address: string, inactive: bool}>>
+     */
+    public function duplicatesBatch(array $pairs, int $campusId): array
+    {
+        $numbers = array_values(array_unique(array_column($pairs, 'document_number')));
+        $grouped = [];
+        foreach ($pairs as $pair) {
+            $grouped[$pair['document_type'].':'.$pair['document_number']] = [];
+        }
+        if ($numbers === []) {
+            return $grouped;
+        }
+
+        $parties = GrantingParty::query()
+            ->forCampus($campusId)
+            ->whereIn('document_number', $numbers)
+            ->with('address.city')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($parties as $party) {
+            $key = $party->document_type->value.':'.$party->document_number;
+            if (array_key_exists($key, $grouped)) {
+                $grouped[$key][] = [
+                    'id' => $party->id,
+                    'name' => $party->name,
+                    'address' => $party->address === null ? '' : $party->address->street.', '.$party->address->number.' · '.$party->address->city->name.'/'.$party->address->city->state->value,
+                    'inactive' => $party->deactivated_at !== null,
+                ];
+            }
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * @param  Collection<int, GrantingParty>  $parties
+     * @return list<array{id: int, name: string, address: string, inactive: bool}>
+     */
+    private function formatDuplicates(Collection $parties): array
+    {
         $matches = [];
-        foreach (GrantingParty::query()->forCampus($campusId)->where('document_type', $payload['document_type'])
-            ->where('document_number', $payload['document_number'])->whereNotIn('id', $excludedIds)->with('address.city')->orderBy('id')->get() as $party) {
+        foreach ($parties as $party) {
             $matches[] = [
                 'id' => $party->id, 'name' => $party->name,
-                'address' => $party->address->street.', '.$party->address->number.' · '.$party->address->city->name.'/'.$party->address->city->state->value,
+                'address' => $party->address === null ? '' : $party->address->street.', '.$party->address->number.' · '.$party->address->city->name.'/'.$party->address->city->state->value,
                 'inactive' => $party->deactivated_at !== null,
             ];
         }

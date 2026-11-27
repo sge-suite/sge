@@ -6,6 +6,7 @@ use App\Enums\AffiliationType;
 use Database\Factories\CourseFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -170,11 +171,11 @@ class Course extends Model
             if ($course->wasChanged('campus_id')) {
                 $courseId = $course->id;
                 DB::afterCommit(function () use ($courseId): void {
-                    InternshipType::query()->where('course_id', $courseId)->eachById(function (InternshipType $type): void {
-                        $type->searchable();
+                    InternshipType::query()->where('course_id', $courseId)->chunkById(200, function (Collection $chunk): void {
+                        (new InternshipType)->queueMakeSearchable($chunk);
                     });
-                    Internship::query()->where('course_id', $courseId)->eachById(function (Internship $internship): void {
-                        $internship->searchable();
+                    Internship::query()->where('course_id', $courseId)->chunkById(200, function (Collection $chunk): void {
+                        (new Internship)->queueMakeSearchable($chunk);
                     });
                 });
             }

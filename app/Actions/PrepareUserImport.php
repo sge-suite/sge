@@ -21,6 +21,7 @@ class PrepareUserImport
     {
         Gate::forUser($actor)->authorize('import', User::class);
         $selected = $this->context->currentFor($actor, app('session.store'));
+        abort_if($selected === null, 403);
         $selected->load('campus');
         $parsed = $this->csv->parse($contents, $separator);
         $import = [
@@ -54,6 +55,7 @@ class PrepareUserImport
             $key = strlen($cpf) === 11 ? 'cpf:'.$cpf : 'linha:'.$position;
             $buckets[$key][] = $row;
         }
+        $this->validator->warmCache($buckets, $import['campus_id']);
         $import['groups'] = [];
         foreach ($buckets as $rows) {
             $result = $this->validator->validate($rows, $import['campus_id']);

@@ -18,14 +18,16 @@ class GenerateMunicipalHolidays
         if ($target !== null) {
             $query->whereKey($target->id);
         }
-        foreach ($query->get() as $recurrence) {
+        foreach ($query->orderBy('id')->lazyById() as $recurrence) {
             DB::transaction(function () use ($recurrence, $years, $editing): void {
                 HolidayCalendar::lock();
                 $recurrence = HolidayRecurrence::query()->with('city')->lockForUpdate()->findOrFail($recurrence->id);
                 $currentYear = now(config('app.timezone'))->year;
                 $generatedYears = $recurrence->holidays()->withTrashed()->where('occurrence_year', '>', $currentYear)->pluck('occurrence_year')->all();
-                foreach (array_unique([...$years, ...$generatedYears]) as $year) {
-                    $holiday = $recurrence->holidays()->withTrashed()->where('occurrence_year', $year)->first();
+                $allYears = array_values(array_unique([...$years, ...$generatedYears]));
+                $existingByYear = $recurrence->holidays()->withTrashed()->whereIn('occurrence_year', $allYears)->get()->keyBy('occurrence_year');
+                foreach ($allYears as $year) {
+                    $holiday = $existingByYear->get($year);
                     if ($holiday?->is_manually_adjusted || ($editing && $year <= $currentYear)) {
                         continue;
                     }

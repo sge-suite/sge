@@ -20,18 +20,28 @@ class NotifyInternshipOfficePendingRequests extends Command
     public function handle(): int
     {
         $day = now(config('app.timezone'))->toDateString();
+        /** @var array<int, array{requests: int, cancellations: int}> $countsByCampus */
+        $countsByCampus = [];
+
         Affiliation::query()->active()->whereIn('type', AffiliationType::InternshipOffice->databaseValues())
-            ->whereHas('campus', fn ($query) => $query->whereNull('deactivated_at'))->eachById(function (Affiliation $recipient) use ($day): void {
-                DB::transaction(function () use ($recipient, $day): void {
+            ->whereHas('campus', fn ($query) => $query->whereNull('deactivated_at'))->eachById(function (Affiliation $recipient) use ($day, &$countsByCampus): void {
+                DB::transaction(function () use ($recipient, $day, &$countsByCampus): void {
                     $recipient = Affiliation::query()->active()->lockForUpdate()->find($recipient->id);
                     if ($recipient === null || $recipient->type !== AffiliationType::InternshipOffice
                         || $recipient->campus_id === null || ! $recipient->campus()->whereNull('deactivated_at')->exists()) {
                         return;
                     }
-                    $count = InternshipRequest::query()->whereIn('status', ['submitted', 'under_review'])
-                        ->whereHas('affiliation', fn ($query) => $query->where('campus_id', $recipient->campus_id))->count();
-                    $cancellations = InternshipCancellationRequest::query()->whereIn('status', [InternshipCancellationRequestStatus::Submitted, InternshipCancellationRequestStatus::UnderReview])
-                        ->whereHas('internship.course', fn ($query) => $query->where('campus_id', $recipient->campus_id))->count();
+                    $campusId = $recipient->campus_id;
+                    if (! array_key_exists($campusId, $countsByCampus)) {
+                        $countsByCampus[$campusId] = [
+                            'requests' => InternshipRequest::query()->whereIn('status', ['submitted', 'under_review'])
+                                ->whereHas('affiliation', fn ($query) => $query->where('campus_id', $campusId))->count(),
+                            'cancellations' => InternshipCancellationRequest::query()->whereIn('status', [InternshipCancellationRequestStatus::Submitted, InternshipCancellationRequestStatus::UnderReview])
+                                ->whereHas('internship.course', fn ($query) => $query->where('campus_id', $campusId))->count(),
+                        ];
+                    }
+                    $count = $countsByCampus[$campusId]['requests'];
+                    $cancellations = $countsByCampus[$campusId]['cancellations'];
                     if ($count === 0 && $cancellations === 0) {
                         return;
                     }

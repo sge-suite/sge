@@ -5,8 +5,10 @@ namespace App\Support;
 use App\Concerns\CampusAffiliationValidationRules;
 use App\Enums\AffiliationType;
 use App\Helpers\DigitsHelper;
+use App\Models\Affiliation;
 use App\Models\Course;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use LaravelLegends\PtBrValidator\Rules\Cpf;
@@ -14,6 +16,85 @@ use LaravelLegends\PtBrValidator\Rules\Cpf;
 class UserImportValidator
 {
     use CampusAffiliationValidationRules;
+
+    /** @var array<int, array<string, list<int>>> */
+    private array $campusCourses = [];
+
+    /** @var array<string, User|null>|null */
+    private ?array $prefetchedUsersByCpf = null;
+
+    /** @var array<string, bool>|null */
+    private ?array $prefetchedLoginEmails = null;
+
+    private ?int $prefetchedCampusId = null;
+
+    /** @param array<string, list<array<string, mixed>>> $buckets */
+    public function warmCache(array $buckets, int $campusId): void
+    {
+        $this->prefetchedCampusId = $campusId;
+        unset($this->campusCourses[$campusId]);
+        $this->loadCampusCourses($campusId);
+
+        $cpfs = [];
+        $emails = [];
+        foreach ($buckets as $rows) {
+            $first = $rows[0]['payload'] ?? null;
+            if (! is_array($first)) {
+                continue;
+            }
+            if (is_string($first['cpf'] ?? null) && $first['cpf'] !== '') {
+                $cpfs[] = $first['cpf'];
+            }
+            if (is_string($first['email'] ?? null) && $first['email'] !== '') {
+                $emails[] = mb_strtolower($first['email']);
+            }
+        }
+
+        $cpfs = array_values(array_unique($cpfs));
+        $emails = array_values(array_unique($emails));
+
+        $this->prefetchedUsersByCpf = [];
+        foreach ($cpfs as $cpf) {
+            $this->prefetchedUsersByCpf[$cpf] = null;
+        }
+        if ($cpfs !== []) {
+            $users = User::query()
+                ->whereIn('cpf', $cpfs)
+                ->with(['affiliations' => fn ($query) => $query->where('campus_id', $campusId)->orderBy('id')])
+                ->get();
+            foreach ($users as $user) {
+                $this->prefetchedUsersByCpf[$user->cpf] = $user;
+            }
+        }
+
+        $this->prefetchedLoginEmails = [];
+        foreach ($emails as $email) {
+            $this->prefetchedLoginEmails[$email] = false;
+        }
+        if ($emails !== []) {
+            $placeholders = implode(', ', array_fill(0, count($emails), '?'));
+            $taken = User::query()
+                ->whereRaw('LOWER(email) IN ('.$placeholders.')', $emails)
+                ->pluck('email');
+            foreach ($taken as $email) {
+                $this->prefetchedLoginEmails[mb_strtolower((string) $email)] = true;
+            }
+        }
+    }
+
+    /** @return array<string, list<int>> */
+    private function loadCampusCourses(int $campusId): array
+    {
+        if (! array_key_exists($campusId, $this->campusCourses)) {
+            $grouped = [];
+            foreach (Course::query()->active()->where('campus_id', $campusId)->get(['id', 'name']) as $course) {
+                $grouped[$course->name][] = $course->id;
+            }
+            $this->campusCourses[$campusId] = $grouped;
+        }
+
+        return $this->campusCourses[$campusId];
+    }
 
     /** @param array<string, string> $values
      * @return array<string, mixed>
@@ -45,12 +126,22 @@ class UserImportValidator
     public function validate(array $rows, int $campusId): array
     {
         $first = $rows[0]['payload'];
-        $user = User::query()->where('cpf', $first['cpf'])->first();
+        $usePrefetch = $this->prefetchedCampusId === $campusId
+            && $this->prefetchedUsersByCpf !== null
+            && array_key_exists($first['cpf'], $this->prefetchedUsersByCpf);
+        $user = $usePrefetch
+            ? $this->prefetchedUsersByCpf[$first['cpf']]
+            : User::query()->where('cpf', $first['cpf'])->first();
         $account = $user === null ? null : ['id' => $user->id, 'cpf' => $user->cpf, 'name' => $user->name, 'email' => $user->email];
         $warnings = [];
         $seen = [];
         $requiresApproval = false;
-        $loginTaken = $user === null && User::query()->whereRaw('LOWER(email) = ?', [$first['email']])->exists();
+        $loginTaken = $user === null && ($this->prefetchedLoginEmails !== null && $this->prefetchedCampusId === $campusId && array_key_exists($first['email'], $this->prefetchedLoginEmails)
+            ? $this->prefetchedLoginEmails[$first['email']]
+            : User::query()->whereRaw('LOWER(email) = ?', [$first['email']])->exists());
+        $campusCourses = $this->loadCampusCourses($campusId);
+        /** @var Collection<int, Affiliation>|null $prefetchedAffiliations */
+        $prefetchedAffiliations = $usePrefetch && $user !== null && $user->relationLoaded('affiliations') ? $user->affiliations : null;
         foreach ($rows as &$row) {
             $data = $row['payload'];
             $data['campus_id'] = $campusId;
@@ -72,16 +163,20 @@ class UserImportValidator
             }
             $courseName = $data['course'];
             if ($data['type'] === AffiliationType::Student->value && $courseName !== '') {
-                $courses = Course::query()->active()->where('campus_id', $campusId)->where('name', $courseName)->get(['id']);
-                if ($courses->count() !== 1) {
+                $courseIds = $campusCourses[$courseName] ?? [];
+                if (count($courseIds) !== 1) {
                     $row['errors']['curso'] = ['Informe o nome exato de um único curso ativo deste campus. Nomes inexistentes ou ambíguos não são aceitos.'];
                 } else {
-                    $data['course_id'] = $courses->first()->id;
+                    $data['course_id'] = $courseIds[0];
                 }
             }
             $type = AffiliationType::tryFrom($data['type']);
-            $existing = $user === null || $type === null ? null : $user->affiliations()->active()
-                ->where('campus_id', $campusId)->whereIn('type', $type->databaseValues())->first();
+            $existing = null;
+            if ($user !== null && $type !== null) {
+                $existing = $prefetchedAffiliations !== null
+                    ? $prefetchedAffiliations->first(fn (Affiliation $affiliation): bool => $affiliation->deactivated_at === null && $affiliation->type === $type)
+                    : $user->affiliations()->active()->where('campus_id', $campusId)->whereIn('type', $type->databaseValues())->first();
+            }
             $rules = [
                 ...$this->campusAffiliationRules($campusId, $user),
                 'cpf' => ['required', 'string', new Cpf],
@@ -101,8 +196,14 @@ class UserImportValidator
                     $row['errors']['tipo_vinculo'] = ['Já existe vínculo ativo deste tipo no campus com dados diferentes. Corrija o arquivo ou use a edição autorizada.'];
                 }
             } elseif ($user !== null && $type !== null) {
-                $row['inactive_ids'] = $user->affiliations()->whereNotNull('deactivated_at')
-                    ->where('campus_id', $campusId)->whereIn('type', $type->databaseValues())->orderBy('id')->pluck('id')->all();
+                $row['inactive_ids'] = $prefetchedAffiliations !== null
+                    ? $prefetchedAffiliations
+                        ->filter(fn (Affiliation $affiliation): bool => $affiliation->deactivated_at !== null && $affiliation->type === $type)
+                        ->pluck('id')
+                        ->values()
+                        ->all()
+                    : $user->affiliations()->whereNotNull('deactivated_at')
+                        ->where('campus_id', $campusId)->whereIn('type', $type->databaseValues())->orderBy('id')->pluck('id')->all();
                 $requiresApproval = $requiresApproval || $row['inactive_ids'] !== [];
             }
             $validation = Validator::make($data, $rules, attributes: [

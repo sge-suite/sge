@@ -33,6 +33,7 @@ class PrepareGrantingPartyImport
             'rows' => [], 'duplicates' => [],
         ];
         $documents = [];
+        $documentPairs = [];
         foreach ($parsed['rows'] as $record) {
             $validation = $record['blank'] ? ['payload' => [], 'errors' => []] : $this->validator->validate($record['values']);
             $errors = [...$record['errors'], ...$validation['errors']];
@@ -45,16 +46,20 @@ class PrepareGrantingPartyImport
             if ($row['status'] === 'ready') {
                 $key = $row['payload']['document_type'].':'.$row['payload']['document_number'];
                 $documents[$key] = ($documents[$key] ?? 0) + 1;
-                $import['duplicates'][$key] ??= $this->validator->duplicates($row['payload'], $affiliation->campus_id);
-                $row['duplicate_ids'] = array_column($import['duplicates'][$key], 'id');
+                $documentPairs[$key] = [
+                    'document_type' => $row['payload']['document_type'],
+                    'document_number' => $row['payload']['document_number'],
+                ];
                 $row['document_key'] = $key;
             }
             unset($row['values'], $row['blank']);
             $import['rows'][] = $row;
         }
+        $import['duplicates'] = $this->validator->duplicatesBatch(array_values($documentPairs), $affiliation->campus_id);
         foreach ($import['rows'] as &$row) {
             if ($row['status'] === 'ready') {
-                $key = $row['payload']['document_type'].':'.$row['payload']['document_number'];
+                $key = $row['document_key'];
+                $row['duplicate_ids'] = array_column($import['duplicates'][$key] ?? [], 'id');
                 $row['duplicate_required'] = $documents[$key] > 1 || $row['duplicate_ids'] !== [];
             }
         }

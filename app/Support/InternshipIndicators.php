@@ -490,20 +490,31 @@ class InternshipIndicators
                 : 'report_course.id::text as group_key, report_course.name as group_name');
     }
 
-    private function signatureChecks(): Builder
+    private function signatureChecks(?Builder $documentIds = null): Builder
     {
         return Activity::query()->where('subject_type', (new GeneratedDocument)->getMorphClass())
             ->where('event', 'updated')
+            ->when($documentIds !== null, fn (EloquentBuilder $query) => $query->whereIn('subject_id', $documentIds))
             ->where('attribute_changes->attributes->status', GeneratedDocumentStatus::Signed->value)
             ->whereIn('attribute_changes->old->status', [GeneratedDocumentStatus::Generated->value, GeneratedDocumentStatus::AwaitingSignature->value])
             ->groupBy('subject_id')->selectRaw('subject_id as document_id, MIN(created_at) as checked_at')->toBase();
     }
 
-    private function addendumDeadlines(): Builder
+    /** @param EloquentBuilder<Internship>|null $stages */
+    private function addendumDeadlines(?EloquentBuilder $stages = null): Builder
     {
+        $stageIds = $stages === null ? null : (clone $stages)->select('internships.id')->toBase();
+        $documentIds = $stageIds === null ? null : GeneratedDocument::query()
+            ->where('generated_documents.type', GeneratedDocumentType::Addendum)
+            ->where('generated_documents.status', GeneratedDocumentStatus::Signed)
+            ->whereIn('generated_documents.internship_id', $stageIds)
+            ->select('generated_documents.id')
+            ->toBase();
+
         $externalRegistrations = Activity::query()
             ->where('subject_type', (new GeneratedDocument)->getMorphClass())
             ->where('event', 'external_document_registered')
+            ->when($documentIds !== null, fn (EloquentBuilder $query) => $query->whereIn('subject_id', $documentIds))
             ->selectRaw("subject_id as document_id,
                 MAX(properties->'work_schedule_change'->>'previous_projected_end_date') as ext_prev_end,
                 MAX(properties->'work_schedule_change'->>'starts_on') as ext_starts_on")
@@ -513,6 +524,7 @@ class InternshipIndicators
         $internshipEndChanges = Activity::query()
             ->where('subject_type', (new Internship)->getMorphClass())
             ->where('event', 'updated')
+            ->when($stageIds !== null, fn (EloquentBuilder $query) => $query->whereIn('subject_id', $stageIds))
             ->whereRaw("NULLIF(attribute_changes->'old'->>'projected_end_date', '') IS NOT NULL")
             ->selectRaw("subject_id as internship_id, created_at as changed_at,
                 SUBSTRING(attribute_changes->'old'->>'projected_end_date' FROM 1 FOR 10) as old_end_date")
@@ -534,7 +546,8 @@ class InternshipIndicators
         return GeneratedDocument::query()
             ->where('generated_documents.type', GeneratedDocumentType::Addendum)
             ->where('generated_documents.status', GeneratedDocumentStatus::Signed)
-            ->leftJoinSub($this->signatureChecks(), 'checks', 'checks.document_id', '=', 'generated_documents.id')
+            ->when($stageIds !== null, fn (EloquentBuilder $query) => $query->whereIn('generated_documents.internship_id', $stageIds))
+            ->leftJoinSub($this->signatureChecks($documentIds), 'checks', 'checks.document_id', '=', 'generated_documents.id')
             ->leftJoinSub($externalRegistrations, 'ext_reg', 'ext_reg.document_id', '=', 'generated_documents.id')
             ->join('internships as addendum_stage', 'addendum_stage.id', '=', 'generated_documents.internship_id')
             ->groupBy('generated_documents.internship_id')
@@ -551,7 +564,7 @@ class InternshipIndicators
     /** @param EloquentBuilder<Internship> $stages */
     private function releaseDeadline(EloquentBuilder $stages): void
     {
-        $addenda = $this->addendumDeadlines();
+        $addenda = $this->addendumDeadlines($stages);
 
         $stages->leftJoinSub($addenda, 'addendum_deadlines', 'addendum_deadlines.internship_id', '=', 'internships.id')
             ->selectRaw("report_course.id::text as group_key,
@@ -570,16 +583,19 @@ class InternshipIndicators
     /** @param EloquentBuilder<Internship> $stages */
     private function completionDeadline(EloquentBuilder $stages): void
     {
+        $stages->where('internships.status', InternshipStatus::Completed);
+        $stageIds = (clone $stages)->select('internships.id')->toBase();
+
         $completions = Activity::query()
             ->where('subject_type', (new Internship)->getMorphClass())
             ->where('event', 'updated')
+            ->whereIn('subject_id', $stageIds)
             ->where('attribute_changes->attributes->status', InternshipStatus::Completed->value)
             ->groupBy('subject_id')
             ->selectRaw('subject_id as internship_id, MAX(created_at) as completed_at')
             ->toBase();
 
-        $stages->where('internships.status', InternshipStatus::Completed)
-            ->leftJoinSub($completions, 'completions', 'completions.internship_id', '=', 'internships.id')
+        $stages->leftJoinSub($completions, 'completions', 'completions.internship_id', '=', 'internships.id')
             ->selectRaw("report_course.id::text as group_key,
                 report_course.name as group_name,
                 completions.completed_at,

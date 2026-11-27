@@ -44,7 +44,9 @@ class User extends Authenticatable
 
     public function shouldBeSearchable(): bool
     {
-        return $this->affiliations()->exists();
+        return $this->relationLoaded('affiliations')
+            ? $this->affiliations->isNotEmpty()
+            : $this->affiliations()->exists();
     }
 
     public static function affiliationSearchScope(string $scope, string $role = 'all', string $status = 'all'): string
@@ -114,8 +116,8 @@ class User extends Authenticatable
             if ($user->wasChanged('name')) {
                 $userId = $user->id;
                 DB::afterCommit(function () use ($userId): void {
-                    Affiliation::query()->where('user_id', $userId)->eachById(function (Affiliation $affiliation): void {
-                        $affiliation->searchable();
+                    Affiliation::query()->where('user_id', $userId)->chunkById(200, function (Collection $chunk): void {
+                        (new Affiliation)->queueMakeSearchable($chunk);
                     });
                 });
             }

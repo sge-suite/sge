@@ -64,6 +64,8 @@ final class SelectOptionSource
 
         $records = new Collection;
         $page = 1;
+        $maxPages = 5;
+        $hitPageCap = false;
         do {
             $options = ['page' => $page, 'attributesToRetrieve' => ['id']];
             if ($this->attributes !== null) {
@@ -81,10 +83,14 @@ final class SelectOptionSource
                 }
             }
             $page++;
-        } while ($records->count() < 21 && $ids !== [] && $page <= ($result['totalPages'] ?? 1));
+        } while ($records->count() < 21 && $ids !== [] && $page <= ($result['totalPages'] ?? 1) && $page <= $maxPages);
 
-        $incomplete = false;
-        if ($records->count() < 21 && ($result['totalHits'] ?? 0) > $records->count()) {
+        if ($records->count() < 21 && $ids !== [] && $page > $maxPages && $page <= ($result['totalPages'] ?? 1)) {
+            $hitPageCap = true;
+        }
+
+        $incomplete = $hitPageCap;
+        if (! $incomplete && $records->count() < 21 && ($result['totalHits'] ?? 0) > $records->count()) {
             try {
                 $pagination = app(SearchQuery::class)->run(fn () => app(Client::class)->index($model->searchableAs())->getPagination());
                 $incomplete = $result['totalHits'] >= $pagination['maxTotalHits'];

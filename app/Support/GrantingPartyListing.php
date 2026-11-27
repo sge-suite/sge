@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as LaravelValidator;
+use Laravel\Scout\Builder as SearchBuilder;
 
 class GrantingPartyListing
 {
@@ -64,32 +65,71 @@ class GrantingPartyListing
      */
     public function exportQuery(Affiliation $affiliation, array $filters): Builder
     {
-        $query = $this->baseQuery($affiliation, $filters);
+        $status = $filters['status'] ?? 'all';
+        $stateValue = $filters['state'] ?? 'all';
+        $state = $stateValue === 'all' ? null : BrazilianState::tryFrom((string) $stateValue);
+        $cityId = filter_var($filters['city'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $selectedCity = $cityId === false ? null : City::query()
+            ->when($state !== null, fn (Builder $query) => $query->forState($state))
+            ->find($cityId);
+        $courseId = filter_var($filters['course'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+        $query = GrantingParty::query()->where('campus_id', $affiliation->campus_id)
+            ->with('address.city')
+            ->when($courseId !== false, fn (Builder $query) => $query->withStartedInternshipsForCourse((int) $courseId))
+            ->when($status === 'active', fn (Builder $query) => $query->whereNull('deactivated_at'))
+            ->when($status === 'inactive', fn (Builder $query) => $query->whereNotNull('deactivated_at'))
+            ->when($state !== null || $selectedCity !== null, function (Builder $query) use ($state, $selectedCity): void {
+                $query->whereHas('address.city', function (Builder $query) use ($state, $selectedCity): void {
+                    if ($state !== null) {
+                        $query->where('state', $state->value);
+                    }
+
+                    if ($selectedCity !== null) {
+                        $query->whereKey($selectedCity->getKey());
+                    }
+                });
+            });
+
         $search = mb_substr(trim((string) ($filters['search'] ?? '')), 0, 255);
 
         if ($search !== '') {
-            $status = $filters['status'] ?? 'all';
-            $stateValue = $filters['state'] ?? 'all';
-            $state = $stateValue === 'all' ? null : BrazilianState::tryFrom((string) $stateValue);
-            $cityId = filter_var($filters['city'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            $selectedCity = $cityId === false ? null : City::query()
-                ->when($state !== null, fn (Builder $query) => $query->forState($state))
-                ->find($cityId);
-
-            $ids = GrantingParty::search($search)
+            $searchBuilder = GrantingParty::search($search)
                 ->where('campus_id', (int) $affiliation->campus_id)
                 ->options(['attributesToSearchOn' => ['name', 'document_number', 'normalized_document_number']])
                 ->when($status !== 'all', fn ($searchQuery) => $searchQuery->where('is_active', (int) ($status === 'active')))
                 ->when($state !== null, fn ($searchQuery) => $searchQuery->where('state', $state->value))
-                ->when($selectedCity !== null, fn ($searchQuery) => $searchQuery->where('city_id', (int) $selectedCity->id))
-                ->take(1000)
-                ->keys()
-                ->map(fn ($id): int => (int) $id)
-                ->all();
+                ->when($selectedCity !== null, fn ($searchQuery) => $searchQuery->where('city_id', (int) $selectedCity->id));
+
+            $ids = $this->searchIds($searchBuilder, $query);
 
             $query->whereIntegerInRaw('granting_parties.id', $ids);
         }
 
         return $query->orderBy('name')->orderBy('id');
+    }
+
+    /**
+     * @param  SearchBuilder<GrantingParty>  $search
+     * @param  Builder<GrantingParty>  $query
+     * @return list<int>
+     */
+    private function searchIds(SearchBuilder $search, Builder $query): array
+    {
+        $limit = (int) config('scout.meilisearch.index-settings.'.GrantingParty::class.'.pagination.maxTotalHits', 1000);
+        $search->options([...$search->options, 'attributesToRetrieve' => ['id']])->take($limit);
+        $ids = $search->keys();
+
+        if ($ids->count() < $limit) {
+            return array_values($ids->map(fn ($id): int => (int) $id)->all());
+        }
+
+        $id = $query->qualifyColumn('id');
+
+        $ids = (clone $query)->select($id)->toBase()->lazyById($limit, $id, 'id')->chunk($limit)
+            ->flatMap(fn ($batch) => (clone $search)->whereIn('id', $batch->pluck('id')->all())->keys())
+            ->map(fn ($id): int => (int) $id)->all();
+
+        return array_values($ids);
     }
 }
