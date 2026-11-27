@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -130,5 +133,44 @@ class HolidayRegistrationRequest extends Model
         }
 
         return $this->date !== null ? formatShort($this->date) : '—';
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $request): void {
+            $name = $request->getAttributes()['name'] ?? null;
+            if (is_string($name)) {
+                $request->name = trim($name);
+            }
+
+            $attributes = $request->getAttributes();
+            $kind = (string) ($attributes['kind'] ?? 'holiday');
+
+            Validator::make($attributes, [
+                'campus_id' => ['required', 'integer', Rule::exists(Campus::class, 'id')],
+                'requested_by_affiliation_id' => ['required', 'integer', Rule::exists(Affiliation::class, 'id')],
+                'reviewed_by_affiliation_id' => ['nullable', 'integer', Rule::exists(Affiliation::class, 'id')],
+                'kind' => ['required', Rule::in(['holiday', 'recurrence'])],
+                'name' => ['required', 'string', 'max:255'],
+                'city_id' => ['required', 'integer', Rule::exists(City::class, 'id')],
+                'date' => [Rule::requiredIf($kind === 'holiday'), 'nullable', 'date'],
+                'month' => [Rule::requiredIf($kind === 'recurrence'), 'nullable', 'integer', 'between:1,12'],
+                'day' => [Rule::requiredIf($kind === 'recurrence'), 'nullable', 'integer', 'between:1,31'],
+                'notes' => ['nullable', 'string', 'max:2000'],
+                'status' => ['required', Rule::enum(RegistrationRequestStatus::class)],
+                'decision_notes' => ['nullable', 'string', 'max:2000'],
+                'reviewed_at' => ['nullable', 'date'],
+            ])->validate();
+
+            if ($kind === 'recurrence' && ! checkdate((int) $request->month, (int) $request->day, 2024)) {
+                throw ValidationException::withMessages(['day' => 'A combinação de dia e mês informada não existe no calendário.']);
+            }
+        });
+
+        static::deleting(function (): void {
+            throw ValidationException::withMessages([
+                'holiday_registration_request' => 'Solicitações de cadastro de feriado não podem ser excluídas fisicamente.',
+            ]);
+        });
     }
 }

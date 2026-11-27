@@ -7,7 +7,6 @@ use App\Concerns\HasOwnedAddresses;
 use App\Concerns\UserPersonalDataValidationRules;
 use Database\Factories\UserPersonalDataFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,7 +32,6 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property-read Address|null $address
  */
 #[Fillable(['user_id', 'rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'address_id'])]
-#[Hidden(['rg', 'rg_issuer', 'rg_issue_date', 'birth_date', 'phone', 'job_role', 'emancipation_verified_at'])]
 class UserPersonalData extends Model
 {
     /** @use HasFactory<UserPersonalDataFactory> */

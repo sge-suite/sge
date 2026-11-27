@@ -29,7 +29,11 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $id
  * @property int $campus_id
  * @property int $address_id
+ * @property PartyDocumentType $document_type
+ * @property string $document_number
+ * @property string $name
  * @property Carbon|null $deactivated_at
+ * @property-read Address|null $address
  */
 #[Fillable([
     'campus_id', 'document_type', 'document_number', 'name', 'address_id',
@@ -157,15 +161,21 @@ class GrantingParty extends Model
      */
     public function scopeWithStartedInternshipsForCourse(Builder $query, int $courseId): Builder
     {
-        return $query->whereHas('internships', fn (Builder $internships) => $internships->started()->where('course_id', $courseId));
+        return $query->whereHas('internships', function (Builder $internships) use ($courseId): void {
+            $internships->whereIn('status', Internship::startedStatuses())->where('course_id', $courseId);
+        });
     }
 
     /** @return list<string> */
     public function coursesWithStartedInternships(): array
     {
-        return Course::query()->where('campus_id', $this->campus_id)
-            ->whereHas('internships', fn (Builder $internships) => $internships->started()->whereBelongsTo($this))
-            ->distinct()->orderBy('name')->pluck('name')->all();
+        return array_values(
+            Course::query()->where('campus_id', $this->campus_id)
+                ->whereHas('internships', function (Builder $internships): void {
+                    $internships->whereIn('status', Internship::startedStatuses())->whereBelongsTo($this);
+                })
+                ->distinct()->orderBy('name')->pluck('name')->map(fn (mixed $name): string => (string) $name)->all(),
+        );
     }
 
     /** @return HasMany<InternshipRequest, $this> */

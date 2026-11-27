@@ -11,7 +11,6 @@ use App\Enums\EducationLevel;
 use App\Enums\RegistrationRequestStatus;
 use Database\Factories\SupervisorRegistrationRequestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,7 +32,6 @@ use Spatie\Activitylog\Support\LogOptions;
     'training_course', 'education_level', 'experience_time', 'status',
     'supervisor_affiliation_id', 'reviewed_at', 'decision_reason',
 ])]
-#[Hidden(['cpf'])]
 class SupervisorRegistrationRequest extends Model
 {
     /** @use HasFactory<SupervisorRegistrationRequestFactory> */

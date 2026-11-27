@@ -201,6 +201,7 @@ class Affiliation extends Model
             })->exists()
             || TemplateVersion::query()->where('uploaded_by_affiliation_id', $this->id)->exists()
             || EmailDeliveryAttempt::query()->where('requested_by_affiliation_id', $this->id)->exists()
+            || HolidayRegistrationRequest::query()->where('requested_by_affiliation_id', $this->id)->exists()
             || $this->notifications()->exists()
             || Media::query()->where('model_type', $this->getMorphClass())->where('model_id', $this->id)->exists();
     }
@@ -232,15 +233,15 @@ class Affiliation extends Model
                 if ($event === 'saved' && ! $affiliation->wasRecentlyCreated && ! $affiliation->wasChanged(['type', 'user_id', 'campus_id', 'deactivated_at'])) {
                     return;
                 }
-                $userIds = array_unique([$affiliation->user_id, $affiliation->getOriginal('user_id')]);
+                $userIds = array_values(array_unique(array_filter([$affiliation->user_id, $affiliation->getOriginal('user_id')])));
                 if ($event === 'saved' && $affiliation->wasChanged(['campus_id', 'user_id'])) {
                     $affiliationId = $affiliation->id;
                     DB::afterCommit(function () use ($affiliationId): void {
-                        InternshipRequest::query()->where('affiliation_id', $affiliationId)->eachById(function (InternshipRequest $request): void {
-                            $request->searchable();
+                        InternshipRequest::query()->where('affiliation_id', $affiliationId)->chunkById(200, function (Collection $chunk): void {
+                            (new InternshipRequest)->queueMakeSearchable($chunk);
                         });
-                        Internship::query()->where('advisor_affiliation_id', $affiliationId)->eachById(function (Internship $internship): void {
-                            $internship->searchable();
+                        Internship::query()->where('advisor_affiliation_id', $affiliationId)->chunkById(200, function (Collection $chunk): void {
+                            (new Internship)->queueMakeSearchable($chunk);
                         });
                     });
                 }

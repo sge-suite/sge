@@ -29,8 +29,9 @@ trait CampusValidationRules
 
     protected function normalizeBlankCampusValues(): void
     {
-        if (is_string($this->internship_office_email)) {
-            $this->internship_office_email = mb_strtolower(trim($this->internship_office_email));
+        $officeEmail = $this->getAttributes()['internship_office_email'] ?? null;
+        if (is_string($officeEmail)) {
+            $this->internship_office_email = mb_strtolower(trim($officeEmail));
         }
 
         foreach ([

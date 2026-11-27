@@ -95,10 +95,9 @@ class ReviewInternshipRequest
                     $open = $request->corrections()->where('status', InternshipRequestCorrectionStatus::Open)->lockForUpdate()->first();
                     if ($open !== null) {
                         $open->fill(['message' => $correctionMessage, 'general_message' => $generalMessage, 'affected_sections' => $sections, 'section_messages' => $sectionMessages]);
-                        if (! $open->isDirty()) {
-                            return $request;
+                        if ($open->isDirty()) {
+                            $open->save();
                         }
-                        $open->save();
                     } else {
                         $request->corrections()->create(['message' => $correctionMessage, 'general_message' => $generalMessage,
                             'affected_sections' => $sections, 'section_messages' => $sectionMessages]);

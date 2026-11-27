@@ -138,7 +138,10 @@ class Holiday extends Model
     protected static function booted(): void
     {
         static::saving(function (self $holiday): void {
-            $holiday->name = trim($holiday->name);
+            $name = $holiday->getAttributes()['name'] ?? null;
+            if (is_string($name)) {
+                $holiday->name = trim($name);
+            }
             if (! in_array($holiday->origin, ['manual', 'brasil_api', 'recurrence'], true)) {
                 throw new InvalidArgumentException('Origem inválida.');
             }

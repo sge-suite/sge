@@ -13,7 +13,6 @@ use App\Helpers\BrazilianAddressHelper;
 use App\Helpers\DigitsHelper;
 use Database\Factories\GrantingPartyRegistrationRequestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -41,7 +40,6 @@ use Spatie\Activitylog\Support\LogOptions;
     'council_registration_number', 'credentialing_process_number', 'status',
     'granting_party_id', 'reviewed_at', 'decision_reason',
 ])]
-#[Hidden(['document_number'])]
 class GrantingPartyRegistrationRequest extends Model
 {
     /** @use HasFactory<GrantingPartyRegistrationRequestFactory> */

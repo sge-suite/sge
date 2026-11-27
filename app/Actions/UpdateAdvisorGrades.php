@@ -33,7 +33,10 @@ class UpdateAdvisorGrades
             $internship->setRelation('advisorAffiliation', $advisor);
             Gate::forUser($actor)->authorize('updateAdvisorGrades', $internship);
             $weights = $this->calculator->weights($internship->internship_type_snapshot['rules'] ?? []);
-            $normalized = array_map(fn ($value) => $value === null || trim($value) === '' ? null : str_replace(',', '.', trim($value)), $data);
+            $normalized = array_map(
+                fn (mixed $value): mixed => is_string($value) ? (trim($value) === '' ? null : str_replace(',', '.', trim($value))) : $value,
+                $data,
+            );
             $values = Validator::make($normalized, [
                 'report_grade' => ['present', 'nullable', 'numeric', 'decimal:0,1', 'min:0', 'max:'.$weights['report_weight']],
                 'presentation_grade' => ['present', 'nullable', 'numeric', 'decimal:0,1', 'min:0', 'max:'.$weights['presentation_weight']],

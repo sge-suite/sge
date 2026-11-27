@@ -19,8 +19,8 @@ class NotifyInternshipRequestDecision
             $request->id,
             (string) Str::uuid(),
             $request->status->label(),
-            $correction?->affected_sections ?? [],
-            $correction?->section_messages ?? [],
+            $correction === null ? [] : $correction->affected_sections,
+            $correction === null ? [] : $correction->section_messages,
             $correction?->message,
             $correction?->general_message,
         )->afterCommit();

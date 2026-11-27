@@ -18,11 +18,11 @@ class RegistrationNumberBelongsToUser implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (! is_string($value)) {
+        if (! is_string($value) && ! is_int($value)) {
             return;
         }
 
-        $query = Affiliation::query()->where('registration_number', trim($value));
+        $query = Affiliation::query()->where('registration_number', trim((string) $value));
 
         if ($this->userId !== null) {
             $query->where('user_id', '!=', $this->userId);
@@ -33,7 +33,7 @@ class RegistrationNumberBelongsToUser implements ValidationRule
         }
 
         if ($query->exists()) {
-            $fail('Este matrícula já pertence a outra pessoa.');
+            $fail('Esta matrícula já pertence a outra pessoa.');
         }
     }
 }

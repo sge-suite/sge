@@ -67,9 +67,9 @@ class InternshipRequestFactory extends Factory
             'supervisor_affiliation_id' => Affiliation::factory()->supervisor(),
             'advisor_affiliation_id' => fn (array $attributes): int => Affiliation::factory()->create([
                 'type' => AffiliationType::Advisor,
-                'campus_id' => Affiliation::query()->findOrFail($attributes['affiliation_id'])->campus_id,
+                'campus_id' => Affiliation::query()->whereKey($attributes['affiliation_id'])->firstOrFail()->campus_id,
             ])->id,
-            'student_year_semester' => fn (array $attributes): string => InternshipType::query()->findOrFail($attributes['internship_type_id'])->allowed_academic_periods[0],
+            'student_year_semester' => fn (array $attributes): string => InternshipType::query()->whereKey($attributes['internship_type_id'])->firstOrFail()->allowed_academic_periods[0],
             'legal_capacity_declaration' => LegalCapacityDeclaration::Minor,
             'legal_guardian_name' => fake()->name(),
             'legal_guardian_cpf' => '529.982.247-25',

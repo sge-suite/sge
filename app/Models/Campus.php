@@ -145,6 +145,7 @@ class Campus extends Model
             || $this->documentTemplates()->exists()
             || $this->grantingParties()->exists()
             || $this->grantingPartyRegistrationRequests()->exists()
+            || HolidayRegistrationRequest::query()->where('campus_id', $this->id)->exists()
             || $this->address->hasReferencesOutsideCampus($this);
     }
 

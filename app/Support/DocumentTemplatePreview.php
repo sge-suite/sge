@@ -306,11 +306,12 @@ class DocumentTemplatePreview
             if (! $node instanceof DOMElement || $node->getAttribute('TargetMode') === 'External') {
                 continue;
             }
-            $segments = explode('/', dirname($part));
-            foreach (explode('/', $node->getAttribute('Target')) as $segment) {
+            $target = $node->getAttribute('Target');
+            $segments = str_starts_with($target, '/') ? [] : explode('/', dirname($part));
+            foreach (explode('/', ltrim($target, '/')) as $segment) {
                 if ($segment === '..') {
                     array_pop($segments);
-                } elseif ($segment !== '.') {
+                } elseif ($segment !== '.' && $segment !== '') {
                     $segments[] = $segment;
                 }
             }

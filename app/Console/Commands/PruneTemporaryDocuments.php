@@ -19,7 +19,8 @@ class PruneTemporaryDocuments extends Command
                 continue;
             }
             try {
-                if (flock($handle, LOCK_EX | LOCK_NB) && filemtime($path) < time() - 3600 && unlink($path)) {
+                $stat = fstat($handle);
+                if (flock($handle, LOCK_EX | LOCK_NB) && $stat !== false && $stat['mtime'] < time() - 3600 && unlink($path)) {
                     $removed++;
                 }
             } finally {

@@ -188,15 +188,23 @@ class Internship extends Model
                 ->orWhere('secondary_coordinator_affiliation_id', $affiliation->id)));
     }
 
+    /** @return list<InternshipStatus> */
+    public static function startedStatuses(): array
+    {
+        return [
+            InternshipStatus::InProgress,
+            InternshipStatus::Paused,
+            InternshipStatus::Completed,
+        ];
+    }
+
     /**
      * @param  Builder<Internship>  $query
      * @return Builder<Internship>
      */
     public function scopeStarted(Builder $query): Builder
     {
-        return $query->whereIn('status', [
-            InternshipStatus::InProgress, InternshipStatus::Paused, InternshipStatus::Completed,
-        ]);
+        return $query->whereIn('status', self::startedStatuses());
     }
 
     /**
@@ -424,7 +432,8 @@ class Internship extends Model
                 $typeExists->where('course_id', $attributes['course_id'] ?? null);
             }
 
-            app(InternshipPlannedPauses::class)->validate($internship->planned_pauses, $internship->planned_start_date->toDateString(), complete: true);
+            $plannedStart = $internship->getAttributes()['planned_start_date'] ?? null;
+            app(InternshipPlannedPauses::class)->validate($internship->planned_pauses, $plannedStart !== null ? $internship->planned_start_date->toDateString() : null, complete: true);
             $data = [
                 ...$attributes,
                 'student_snapshot' => $internship->student_snapshot,

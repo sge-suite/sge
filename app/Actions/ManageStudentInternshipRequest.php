@@ -340,7 +340,7 @@ class ManageStudentInternshipRequest
             $request->granting_party_snapshot = $party === null ? ($pending?->only(['document_type', 'document_number', 'name', 'representative_name', 'representative_role', 'phone', 'email', 'city_id', 'city', 'uf', 'street', 'number', 'neighborhood', 'zip_code', 'field_of_activity', 'professional_council', 'council_registration_number', 'credentialing_process_number']) ?? []) + ['source_registration_request_id' => $pending?->id] : $this->snapshots->party($party);
             $request->granting_party_snapshot = array_replace($request->granting_party_snapshot, ['reported_changes' => $reportedChanges]);
             $request->workplace_address_id = $party === null
-                ? ($pending->document_type === PartyDocumentType::CPF ? Address::create($pending->only(['city_id', 'street', 'number', 'neighborhood', 'zip_code']))->id : null)
+                ? ($pending?->document_type === PartyDocumentType::CPF ? Address::create($pending->only(['city_id', 'street', 'number', 'neighborhood', 'zip_code']))->id : null)
                 : app(CopyAddress::class)->handle($party->address)->id;
         }
         if ($full || in_array('supervisor', $sections, true)) {

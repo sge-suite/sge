@@ -38,7 +38,15 @@ class AffiliationTypeCast implements CastsAttributes, SerializesCastableAttribut
             return null;
         }
 
-        return $value instanceof AffiliationType ? $value->value : AffiliationType::from($value)->value;
+        if ($value instanceof AffiliationType) {
+            return $value->value;
+        }
+
+        $normalized = $value === AffiliationType::LEGACY_CAMPUS_ADMINISTRATOR
+            ? AffiliationType::InternshipOffice->value
+            : $value;
+
+        return AffiliationType::from($normalized)->value;
     }
 
     /** @param array<string, mixed> $attributes */

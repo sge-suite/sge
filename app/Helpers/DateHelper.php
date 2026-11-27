@@ -14,7 +14,7 @@ final class DateHelper
 {
     public static function format(string|DateTimeInterface|null $date): string
     {
-        if (is_null($date)) {
+        if (blank($date)) {
             return '-';
         }
 
@@ -23,7 +23,7 @@ final class DateHelper
 
     public static function formatShort(string|DateTimeInterface|null $date): string
     {
-        if (is_null($date)) {
+        if (blank($date)) {
             return '-';
         }
 
@@ -32,7 +32,7 @@ final class DateHelper
 
     public static function formatWeekday(string|DateTimeInterface|null $date): string
     {
-        if (is_null($date)) {
+        if (blank($date)) {
             return '-';
         }
 
@@ -41,7 +41,7 @@ final class DateHelper
 
     public static function formatRelative(string|DateTimeInterface|null $date): string
     {
-        if (is_null($date)) {
+        if (blank($date)) {
             return '-';
         }
 
@@ -50,7 +50,7 @@ final class DateHelper
 
     public static function formatDateTime(string|DateTimeInterface|null $date): string
     {
-        if (is_null($date)) {
+        if (blank($date)) {
             return '-';
         }
 
@@ -59,7 +59,7 @@ final class DateHelper
 
     public static function formatMonthYear(string|DateTimeInterface|null $date): string
     {
-        if (is_null($date)) {
+        if (blank($date)) {
             return '-';
         }
 
@@ -68,7 +68,7 @@ final class DateHelper
 
     public static function formatMonthYearFull(string|DateTimeInterface|null $date): string
     {
-        if (is_null($date)) {
+        if (blank($date)) {
             return '-';
         }
 

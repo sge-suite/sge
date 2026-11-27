@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Helpers;
 
 use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Support\Number;
 
 final class CurrencyHelper
 {
     public static function formatDecimal(string $value): string
     {
-        $amount = BigDecimal::of($value)->toScale(2);
+        $amount = BigDecimal::of($value)->toScale(2, RoundingMode::HalfUp);
         $digits = (string) $amount->abs();
         [$integer, $fraction] = explode('.', $digits);
         $grouped = preg_replace('/\B(?=(\d{3})+(?!\d))/', '.', $integer);

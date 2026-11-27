@@ -93,7 +93,10 @@ class HolidayRecurrence extends Model
     protected static function booted(): void
     {
         static::saving(function (self $recurrence): void {
-            $recurrence->name = trim($recurrence->name);
+            $name = $recurrence->getAttributes()['name'] ?? null;
+            if (is_string($name)) {
+                $recurrence->name = trim($name);
+            }
             Validator::make($recurrence->getAttributes(), self::rules())->validate();
             if (! checkdate($recurrence->month, $recurrence->day, 2000)) {
                 throw ValidationException::withMessages(['day' => 'Dia inválido para o mês escolhido.']);

@@ -52,7 +52,7 @@ class SupervisorQualification extends Model
     public function label(): string
     {
         return $this->type === SupervisorQualificationType::Academic
-            ? $this->education_level->label().' · '.$this->training_course
+            ? ($this->education_level?->label() ?? 'Formação').' · '.$this->training_course
             : $this->experience_area.' · '.$this->experience_time;
     }
 
