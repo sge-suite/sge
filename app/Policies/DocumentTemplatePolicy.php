@@ -56,7 +56,7 @@ class DocumentTemplatePolicy
         if ($office?->type !== AffiliationType::InternshipOffice || $office->campus_id === null) {
             return null;
         }
-        $office->load('campus');
+        $office->loadMissing('campus');
 
         return $office->campus === null ? null : $office;
     }

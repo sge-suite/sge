@@ -94,6 +94,8 @@ class InternshipPolicy
             return $this->view($user, $internship);
         }
 
+        $internship->loadMissing('advisorAffiliation');
+
         return $this->view($user, $internship)
             && in_array($affiliation->type, [AffiliationType::Advisor, AffiliationType::Coordinator], true)
             && $internship->advisorAffiliation?->user_id === $user->id
@@ -153,6 +155,8 @@ class InternshipPolicy
 
     public function release(User $user, Internship $internship): bool
     {
+        $internship->loadMissing('course');
+
         return $this->update($user, $internship) && $internship->course->deactivated_at === null
             && $internship->released_at === null
             && in_array($internship->status, [InternshipStatus::PendingFormalization, InternshipStatus::AwaitingSignatures], true);
@@ -166,12 +170,16 @@ class InternshipPolicy
 
     public function complete(User $user, Internship $internship): bool
     {
+        $internship->loadMissing('course');
+
         return $this->update($user, $internship) && $internship->course->deactivated_at === null
             && in_array($internship->status, [InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused], true);
     }
 
     public function cancel(User $user, Internship $internship): bool
     {
+        $internship->loadMissing('course');
+
         return $this->update($user, $internship) && $internship->course->deactivated_at === null;
     }
 
@@ -211,12 +219,16 @@ class InternshipPolicy
 
     public function applyWorkSchedule(User $user, Internship $internship): bool
     {
+        $internship->loadMissing('course');
+
         return $this->update($user, $internship) && $internship->course->deactivated_at === null
             && in_array($internship->status, [InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused], true);
     }
 
     public function registerExternalDocument(User $user, Internship $internship): bool
     {
+        $internship->loadMissing('course');
+
         return $this->update($user, $internship) && $internship->course->deactivated_at === null
             && $internship->status !== InternshipStatus::PendingCorrection;
     }
@@ -231,6 +243,7 @@ class InternshipPolicy
         if (! $this->view($user, $internship)) {
             return false;
         }
+        $internship->loadMissing('course');
         $affiliation = $this->context->selected($user);
         if ($affiliation->campus->deactivated_at !== null || $internship->course->deactivated_at !== null
             || in_array($internship->status, [InternshipStatus::PendingCorrection, InternshipStatus::Cancelled], true)) {

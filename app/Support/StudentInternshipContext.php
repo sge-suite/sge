@@ -20,7 +20,7 @@ class StudentInternshipContext
         }
 
         $affiliation = $this->context->currentFor($actor, app('session.store'));
-        $affiliation?->load(['campus', 'course']);
+        $affiliation?->loadMissing(['campus', 'course']);
 
         return $affiliation;
     }

@@ -59,7 +59,7 @@ class CoursePolicy
             return null;
         }
 
-        $affiliation->load('campus');
+        $affiliation->loadMissing('campus');
 
         return $affiliation->campus === null ? null : $affiliation;
     }

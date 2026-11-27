@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Models\Course;
 use App\Models\InternshipType;
 use App\Models\User;
 
@@ -17,9 +16,13 @@ class InternshipTypePolicy
 
     public function view(User $user, InternshipType $internshipType): bool
     {
-        $course = Course::find($internshipType->course_id);
+        if (! $internshipType->exists) {
+            return false;
+        }
 
-        return $course !== null && $this->coursePolicy->view($user, $course);
+        $internshipType->loadMissing('course');
+
+        return $this->coursePolicy->view($user, $internshipType->course);
     }
 
     public function create(User $user): bool

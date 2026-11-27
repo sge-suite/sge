@@ -12,7 +12,8 @@ class EmancipationEvidencePolicy
 {
     public function view(User $user, EmancipationEvidence $evidence): bool
     {
-        $request = $evidence->internshipRequest()->first();
+        $evidence->loadMissing('internshipRequest');
+        $request = $evidence->internshipRequest;
 
         return $request !== null && ($user->can('view', $request) || $user->can('review', $request));
     }
@@ -29,6 +30,9 @@ class EmancipationEvidencePolicy
 
     public function review(User $user, EmancipationEvidence $evidence): bool
     {
-        return $user->can('review', $evidence->internshipRequest()->firstOrFail());
+        $evidence->loadMissing('internshipRequest');
+        $request = $evidence->internshipRequest;
+
+        return $request !== null && $user->can('review', $request);
     }
 }

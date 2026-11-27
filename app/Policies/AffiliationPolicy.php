@@ -24,9 +24,11 @@ class AffiliationPolicy
 
     public function update(User $user, Affiliation $affiliation): bool
     {
+        $current = $this->context->currentFor($user, app('session.store'));
         $canEditOnCampus = $user->can('createOnCampus', User::class)
             && $affiliation->type !== AffiliationType::SystemAdministrator
-            && $affiliation->campus_id === $this->context->currentFor($user, app('session.store'))?->campus_id;
+            && $current?->campus_id !== null
+            && $affiliation->campus_id === $current->campus_id;
 
         return ($this->view($user, $affiliation) || $canEditOnCampus)
             && ($affiliation->campus_id === null || $affiliation->campus()->whereNull('deactivated_at')->exists());

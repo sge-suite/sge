@@ -50,6 +50,7 @@ class SupervisorEvaluationPolicy
     public function release(User $user, Internship $internship): bool
     {
         $selected = $this->context->selected($user);
+        $internship->loadMissing('supervisorAffiliation');
 
         return $selected?->type === AffiliationType::InternshipOffice
             && $internship->course()->where('campus_id', $selected->campus_id)->exists()
@@ -62,6 +63,8 @@ class SupervisorEvaluationPolicy
 
     public function update(User $user, SupervisorEvaluation $evaluation): bool
     {
+        $evaluation->loadMissing('internship.course.campus');
+
         return $this->view($user, $evaluation)
             && $this->context->selected($user)->type === AffiliationType::Supervisor
             && $this->writable($evaluation->internship)
@@ -70,6 +73,8 @@ class SupervisorEvaluationPolicy
 
     public function review(User $user, SupervisorEvaluation $evaluation): bool
     {
+        $evaluation->loadMissing('internship.course.campus');
+
         return $this->view($user, $evaluation)
             && $this->context->selected($user)->type === AffiliationType::InternshipOffice
             && $this->writable($evaluation->internship)
@@ -78,6 +83,8 @@ class SupervisorEvaluationPolicy
 
     public function cancel(User $user, SupervisorEvaluation $evaluation): bool
     {
+        $evaluation->loadMissing('internship.course.campus');
+
         return $this->view($user, $evaluation)
             && $this->context->selected($user)->type === AffiliationType::Supervisor
             && $this->writable($evaluation->internship)
@@ -86,6 +93,8 @@ class SupervisorEvaluationPolicy
 
     private function writable(Internship $internship): bool
     {
+        $internship->loadMissing('course.campus');
+
         return in_array($internship->status, [InternshipStatus::Released, InternshipStatus::InProgress, InternshipStatus::Paused], true)
             && $internship->course->deactivated_at === null
             && $internship->course->campus->deactivated_at === null;
