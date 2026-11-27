@@ -262,3 +262,22 @@ ui-radio {
 .dark [data-flux-label][required]::after {
     color: var(--color-red-400);
 }
+
+:where(a, button, summary, [role='button'], [tabindex]:not([tabindex='-1'])):not([data-flux-control]):not(.select-trigger):focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+[data-flux-table] tbody tr:has(a:focus-visible) {
+    background-color: var(--color-zinc-100);
+}
+
+.dark [data-flux-table] tbody tr:has(a:focus-visible) {
+    background-color: var(--color-zinc-700);
+}
+
+[data-flux-table] tbody tr a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}

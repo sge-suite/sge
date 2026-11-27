@@ -4,11 +4,29 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
+        @php
+            $isInternshipOffice = $activeNavigationAffiliation?->type === \App\Enums\AffiliationType::InternshipOffice;
+        @endphp
         <flux:sidebar sticky collapsible="mobile" class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse class="lg:hidden" />
             </flux:sidebar.header>
+
+            @if ($isInternshipOffice)
+                <button
+                    type="button"
+                    x-data="{ isMac: Boolean(window.__sgeIsMac) }"
+                    x-on:click="$dispatch('sge:open-command-palette')"
+                    class="hidden w-full items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-500 shadow-2xs transition-colors hover:border-zinc-300 hover:text-zinc-700 lg:flex dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200"
+                >
+                    <span class="flex items-center gap-2">
+                        <flux:icon.magnifying-glass variant="micro" />
+                        <span>Busca rápida…</span>
+                    </span>
+                    <kbd class="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-300" x-text="isMac ? '⌘ K' : 'Ctrl K'">Ctrl K</kbd>
+                </button>
+            @endif
 
             <flux:sidebar.nav>
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
@@ -168,6 +186,12 @@
         </flux:header>
 
         {{ $slot }}
+
+        @if ($isInternshipOffice)
+            <livewire:sector.command-palette :key="'sector-command-palette-'.$activeNavigationAffiliation->id" />
+        @endif
+
+        <x-keyboard-shortcuts-modal :show-command-palette="$isInternshipOffice" />
 
         @if (session('affiliation_switched'))
             <div hidden x-data x-init="$nextTick(() => $flux.toast(@js(session('affiliation_switched')), { variant: 'success' }))"></div>

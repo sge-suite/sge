@@ -187,32 +187,39 @@
                         @endphp
                         <li
                             wire:key="donut-row-{{ $metric }}-{{ $slice['key'] }}"
-                            wire:click="openGroupRecords(@js($slice['key']))"
                             x-on:mouseenter="hovered = @js($slice['key'])"
                             x-on:mouseleave="hovered = null"
                             x-bind:class="hovered === @js($slice['key']) ? 'bg-zinc-50 dark:bg-zinc-700/40' : ''"
-                            class="group flex cursor-pointer items-center justify-between gap-4 px-4 py-3 transition-colors"
+                            class="flex items-center gap-3 px-4 transition-colors"
                         >
-                            <div class="flex min-w-0 items-center gap-3">
-                                @if ($selectableGroups)
-                                    <div class="shrink-0" x-on:click.stop>
-                                        @if ($canSelect)
-                                            <flux:checkbox wire:model.live="selectedGroups" :value="$slice['key']" aria-label="Selecionar motivo {{ $slice['label'] }}" />
-                                        @else
-                                            <span class="inline-block size-4" aria-hidden="true"></span>
-                                        @endif
-                                    </div>
-                                @endif
-                                <span class="size-3 shrink-0 rounded-full" style="background-color: {{ $slice['color'] }}"></span>
-                                <span class="wrap-anywhere text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $slice['label'] }}</span>
-                            </div>
-                            <div class="flex shrink-0 items-center gap-2">
-                                <flux:text size="sm" class="tabular-nums">
-                                    <strong class="text-zinc-900 dark:text-zinc-100">{{ $slice['count'] }}</strong>
-                                    <span class="text-zinc-500">({{ $slice['pct'] }}%)</span>
-                                </flux:text>
-                                <flux:icon.chevron-right variant="micro" class="text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-                            </div>
+                            @if ($selectableGroups)
+                                <div class="shrink-0 py-3">
+                                    @if ($canSelect)
+                                        <flux:checkbox wire:model.live="selectedGroups" :value="$slice['key']" aria-label="Selecionar motivo {{ $slice['label'] }}" />
+                                    @else
+                                        <span class="inline-block size-4" aria-hidden="true"></span>
+                                    @endif
+                                </div>
+                            @endif
+                            <button
+                                type="button"
+                                wire:click="openGroupRecords(@js($slice['key']))"
+                                x-on:focus="hovered = @js($slice['key'])"
+                                x-on:blur="hovered = null"
+                                class="group flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-4 py-3 text-left"
+                            >
+                                <div class="flex min-w-0 items-center gap-3">
+                                    <span class="size-3 shrink-0 rounded-full" style="background-color: {{ $slice['color'] }}"></span>
+                                    <span class="wrap-anywhere text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $slice['label'] }}</span>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-2">
+                                    <flux:text size="sm" class="tabular-nums">
+                                        <strong class="text-zinc-900 dark:text-zinc-100">{{ $slice['count'] }}</strong>
+                                        <span class="text-zinc-500">({{ $slice['pct'] }}%)</span>
+                                    </flux:text>
+                                    <flux:icon.chevron-right variant="micro" class="text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
+                                </div>
+                            </button>
                         </li>
                     @endforeach
                 </ul>
@@ -445,6 +452,8 @@
                                     wire:click="openGroupRecords(@js($col['key']))"
                                     x-on:mouseenter="hovered = @js($col['key'])"
                                     x-on:mouseleave="hovered = null"
+                                    x-on:focus="hovered = @js($col['key'])"
+                                    x-on:blur="hovered = null"
                                     aria-label="{{ $col['label'] }}: {{ $col['count'] }} ({{ $col['pct'] }}%)"
                                     class="group flex h-48 flex-col items-center justify-end gap-2 rounded-lg p-2 text-center transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:hover:bg-zinc-700/60 {{ $isSelected ? 'bg-zinc-100 ring-1 ring-brand dark:bg-zinc-700/60' : '' }}"
                                 >
@@ -612,34 +621,36 @@
                             $latePct = round(100 * (int) $item->late / $total, 1);
                             $unknownPct = max(0, round(100 - $onTimePct - $latePct, 1));
                         @endphp
-                        <li
-                            wire:key="stacked-{{ $metric }}-{{ $item->group_key }}"
-                            wire:click="openGroupRecords(@js($item->group_key))"
-                            class="group grid cursor-pointer gap-3 px-4 py-3.5 transition-colors hover:bg-zinc-50 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,1.4fr)_auto] sm:items-center dark:hover:bg-zinc-700/40"
-                        >
-                            <div class="min-w-0">
-                                <span class="wrap-anywhere text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $label }}</span>
-                                <flux:text size="sm">{{ $item->total }} {{ (int) $item->total === 1 ? 'estágio' : 'estágios' }}</flux:text>
-                            </div>
-                            <div class="space-y-1.5">
-                                <div class="flex h-3 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700" role="img" aria-label="{{ $label }}: {{ $item->on_time }} no prazo, {{ $item->late }} fora do prazo, {{ $item->unknown }} sem dados">
-                                    @if ((int) $item->on_time > 0)
-                                        <div class="h-full bg-emerald-500 transition-all" style="width: {{ $onTimePct }}%" title="No prazo: {{ $item->on_time }} ({{ number_format($onTimePct, 1, ',', '.') }}%)"></div>
-                                    @endif
-                                    @if ((int) $item->late > 0)
-                                        <div class="h-full bg-amber-500 transition-all" style="width: {{ $latePct }}%" title="Fora do prazo: {{ $item->late }} ({{ number_format($latePct, 1, ',', '.') }}%)"></div>
-                                    @endif
-                                    @if ((int) $item->unknown > 0)
-                                        <div class="h-full bg-zinc-400 transition-all dark:bg-zinc-500" style="width: {{ $unknownPct }}%" title="Sem dados: {{ $item->unknown }} ({{ number_format($unknownPct, 1, ',', '.') }}%)"></div>
-                                    @endif
+                        <li wire:key="stacked-{{ $metric }}-{{ $item->group_key }}">
+                            <button
+                                type="button"
+                                wire:click="openGroupRecords(@js($item->group_key))"
+                                class="group grid w-full cursor-pointer gap-3 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,1.4fr)_auto] sm:items-center dark:hover:bg-zinc-700/40"
+                            >
+                                <div class="min-w-0">
+                                    <span class="wrap-anywhere text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $label }}</span>
+                                    <flux:text size="sm">{{ $item->total }} {{ (int) $item->total === 1 ? 'estágio' : 'estágios' }}</flux:text>
                                 </div>
-                                <flux:text size="sm" class="tabular-nums">
-                                    {{ $item->on_time }} no prazo ({{ number_format($onTimePct, 1, ',', '.') }}%) · {{ $item->late }} fora · {{ $item->unknown }} sem dados
-                                </flux:text>
-                            </div>
-                            <div class="hidden justify-end sm:flex">
-                                <flux:icon.chevron-right variant="micro" class="text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-                            </div>
+                                <div class="space-y-1.5">
+                                    <div class="flex h-3 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700" role="img" aria-label="{{ $label }}: {{ $item->on_time }} no prazo, {{ $item->late }} fora do prazo, {{ $item->unknown }} sem dados">
+                                        @if ((int) $item->on_time > 0)
+                                            <div class="h-full bg-emerald-500 transition-all" style="width: {{ $onTimePct }}%" title="No prazo: {{ $item->on_time }} ({{ number_format($onTimePct, 1, ',', '.') }}%)"></div>
+                                        @endif
+                                        @if ((int) $item->late > 0)
+                                            <div class="h-full bg-amber-500 transition-all" style="width: {{ $latePct }}%" title="Fora do prazo: {{ $item->late }} ({{ number_format($latePct, 1, ',', '.') }}%)"></div>
+                                        @endif
+                                        @if ((int) $item->unknown > 0)
+                                            <div class="h-full bg-zinc-400 transition-all dark:bg-zinc-500" style="width: {{ $unknownPct }}%" title="Sem dados: {{ $item->unknown }} ({{ number_format($unknownPct, 1, ',', '.') }}%)"></div>
+                                        @endif
+                                    </div>
+                                    <flux:text size="sm" class="tabular-nums">
+                                        {{ $item->on_time }} no prazo ({{ number_format($onTimePct, 1, ',', '.') }}%) · {{ $item->late }} fora · {{ $item->unknown }} sem dados
+                                    </flux:text>
+                                </div>
+                                <div class="hidden justify-end sm:flex">
+                                    <flux:icon.chevron-right variant="micro" class="text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
+                                </div>
+                            </button>
                         </li>
                     @endforeach
                 </ul>
@@ -661,38 +672,40 @@
                                 ? ($value === null ? '#a1a1aa' : ((float) $value >= 8 ? '#10b981' : ((float) $value >= 6 ? '#0ea5e9' : '#f59e0b')))
                                 : null;
                         @endphp
-                        <li
-                            wire:key="bar-{{ $metric }}-{{ $item->group_key }}"
-                            wire:click="openGroupRecords(@js($item->group_key))"
-                            class="group grid cursor-pointer gap-3 px-4 py-3.5 transition-colors hover:bg-zinc-50 sm:grid-cols-[minmax(0,1.1fr)_minmax(14rem,1.4fr)_auto] sm:items-center dark:hover:bg-zinc-700/40"
-                        >
-                            <div class="min-w-0">
-                                <span class="wrap-anywhere text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $label }}</span>
-                            </div>
-                            <div class="space-y-1.5">
-                                @if ($value !== null)
-                                    <div aria-hidden="true" class="h-3 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
-                                        <div
-                                            class="h-full rounded-full transition-all {{ $barColor === null ? 'bg-brand' : '' }}"
-                                            style="width: {{ max((float) $value > 0 ? 3 : 0, $pct) }}%{{ $barColor !== null ? '; background-color: '.$barColor : '' }}"
-                                        ></div>
-                                    </div>
-                                @endif
-                                <flux:text size="sm" class="tabular-nums">
-                                    @if ($metric === 'grade_averages')
-                                        {{ $value === null ? 'Sem média' : number_format((float) $value, 2, ',', '.').' de 10' }} · {{ $item->measured }} com nota · {{ $item->total - $item->measured }} sem nota
-                                    @elseif (in_array($metric, ['courses', 'supervisors'], true))
-                                        {{ $value }} {{ (int) $value === 1 ? 'estudante único' : 'estudantes únicos' }} · {{ $item->total }} {{ (int) $item->total === 1 ? 'estágio' : 'estágios' }}
-                                    @elseif ($metric === 'course_parties')
-                                        {{ $value }} {{ (int) $value === 1 ? 'concedente' : 'concedentes' }} · {{ $item->total }} {{ (int) $item->total === 1 ? 'estágio' : 'estágios' }}
-                                    @else
-                                        {{ $value }} {{ (int) $value === 1 ? 'estágio' : 'estágios' }}
+                        <li wire:key="bar-{{ $metric }}-{{ $item->group_key }}">
+                            <button
+                                type="button"
+                                wire:click="openGroupRecords(@js($item->group_key))"
+                                class="group grid w-full cursor-pointer gap-3 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50 sm:grid-cols-[minmax(0,1.1fr)_minmax(14rem,1.4fr)_auto] sm:items-center dark:hover:bg-zinc-700/40"
+                            >
+                                <div class="min-w-0">
+                                    <span class="wrap-anywhere text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $label }}</span>
+                                </div>
+                                <div class="space-y-1.5">
+                                    @if ($value !== null)
+                                        <div aria-hidden="true" class="h-3 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
+                                            <div
+                                                class="h-full rounded-full transition-all {{ $barColor === null ? 'bg-brand' : '' }}"
+                                                style="width: {{ max((float) $value > 0 ? 3 : 0, $pct) }}%{{ $barColor !== null ? '; background-color: '.$barColor : '' }}"
+                                            ></div>
+                                        </div>
                                     @endif
-                                </flux:text>
-                            </div>
-                            <div class="hidden justify-end sm:flex">
-                                <flux:icon.chevron-right variant="micro" class="text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-                            </div>
+                                    <flux:text size="sm" class="tabular-nums">
+                                        @if ($metric === 'grade_averages')
+                                            {{ $value === null ? 'Sem média' : number_format((float) $value, 2, ',', '.').' de 10' }} · {{ $item->measured }} com nota · {{ $item->total - $item->measured }} sem nota
+                                        @elseif (in_array($metric, ['courses', 'supervisors'], true))
+                                            {{ $value }} {{ (int) $value === 1 ? 'estudante único' : 'estudantes únicos' }} · {{ $item->total }} {{ (int) $item->total === 1 ? 'estágio' : 'estágios' }}
+                                        @elseif ($metric === 'course_parties')
+                                            {{ $value }} {{ (int) $value === 1 ? 'concedente' : 'concedentes' }} · {{ $item->total }} {{ (int) $item->total === 1 ? 'estágio' : 'estágios' }}
+                                        @else
+                                            {{ $value }} {{ (int) $value === 1 ? 'estágio' : 'estágios' }}
+                                        @endif
+                                    </flux:text>
+                                </div>
+                                <div class="hidden justify-end sm:flex">
+                                    <flux:icon.chevron-right variant="micro" class="text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
+                                </div>
+                            </button>
                         </li>
                     @endforeach
                 </ul>

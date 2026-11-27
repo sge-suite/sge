@@ -218,7 +218,15 @@
             const nextIndex = index === -1
                 ? (direction > 0 ? 0 : options.length - 1)
                 : Math.max(0, Math.min(index + direction, options.length - 1));
-            const next = options[nextIndex];
+            this.moveTo(nextIndex);
+        },
+
+        moveTo(index) {
+            if (!this.open) return this.show();
+            const options = this.options();
+            if (!options.length) return;
+            const clamped = Math.max(0, Math.min(index, options.length - 1));
+            const next = options[clamped];
             this.activeValue = next.dataset.value;
             next.scrollIntoView({ block: 'nearest' });
             next.focus();
@@ -275,6 +283,9 @@
         x-on:keydown="
             if ($event.key === 'ArrowDown') { $event.preventDefault(); move(1); }
             else if ($event.key === 'ArrowUp') { $event.preventDefault(); move(-1); }
+            else if ($event.key === 'Home' && open && $event.target.tagName !== 'INPUT') { $event.preventDefault(); moveTo(0); }
+            else if ($event.key === 'End' && open && $event.target.tagName !== 'INPUT') { $event.preventDefault(); moveTo(options().length - 1); }
+            else if ($event.key === ' ' && !open && $event.target === $refs.trigger) { $event.preventDefault(); show(); }
         "
         x-on:keydown.enter="if (open) { $event.preventDefault(); $event.stopPropagation(); chooseActive(); }"
         x-on:keydown.tab="tab($event)"
