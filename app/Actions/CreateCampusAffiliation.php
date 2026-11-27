@@ -51,8 +51,8 @@ class CreateCampusAffiliation
             $user = $target === null
                 ? User::query()->where('cpf', $data['cpf'])->lockForUpdate()->first()
                 : User::query()->lockForUpdate()->findOrFail($target->id);
-            if (filled($data['course_id'] ?? null)) {
-                Course::query()->whereKey($data['course_id'])->lockForUpdate()->first();
+            if (filter_var($data['course_id'] ?? null, FILTER_VALIDATE_INT) !== false) {
+                Course::query()->whereKey((int) $data['course_id'])->lockForUpdate()->first();
             }
             abort_unless($this->context->currentFor($actor, app('session.store'))?->id === $selectedId, 403);
             Gate::forUser($actor)->authorize('createOnCampus', User::class);

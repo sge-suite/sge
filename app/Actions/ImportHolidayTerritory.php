@@ -11,10 +11,12 @@ use App\Models\HolidayImportRun;
 use App\Models\HolidaySource;
 use App\Support\BrasilApiHolidayLookup;
 use App\Support\HolidayCalendar;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Support\CauserResolver;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class ImportHolidayTerritory
@@ -24,6 +26,10 @@ class ImportHolidayTerritory
     public function handle(int $year, ?BrazilianState $state = null, bool $refresh = false): HolidayImportRun
     {
         abort_unless($year >= 1900 && $year <= 2199, 422, 'Ano fora do intervalo 1900–2199.');
+        $actor = $this->causers->resolve();
+        if ($actor instanceof Affiliation) {
+            abort_unless(Affiliation::query()->active()->where('type', AffiliationType::SystemAdministrator)->find($actor->id) !== null, 403);
+        }
         $territory = $state === null ? 'national' : $state->value;
 
         return Cache::lock('holidays:'.$year.':'.$territory, 90)->block(2, function () use ($year, $state, $refresh, $territory): HolidayImportRun {
@@ -114,6 +120,10 @@ class ImportHolidayTerritory
                     return $run;
                 });
             } catch (Throwable $exception) {
+                if ($exception instanceof HttpExceptionInterface || $exception instanceof AuthorizationException) {
+                    throw $exception;
+                }
+
                 $run->refresh()->fill(['status' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 1000)])->save();
 
                 return $run;

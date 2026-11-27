@@ -27,7 +27,7 @@ class InternshipRequestController extends Controller
     {
         Gate::authorize('view', $evidence);
         $media = $evidence->getFirstMedia('emancipation_evidence');
-        abort_if($media === null, 404);
+        abort_if($media === null || $media->disk !== 'local' || ! is_file($media->getPath()), 404);
 
         return response()->file($media->getPath(), ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff', 'Content-Security-Policy' => "default-src 'none'; sandbox"]);
     }

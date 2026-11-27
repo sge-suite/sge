@@ -7,6 +7,7 @@ use App\Models\Campus;
 use App\Models\Course;
 use App\Models\User;
 use App\Support\ActiveAffiliationContext;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
@@ -21,6 +22,7 @@ class ManageCourse
     public function handle(User $actor, ?Course $target, string $operation, array $data = []): Course
     {
         abort_unless(in_array($operation, ['create', 'update', 'deactivate', 'reactivate', 'delete'], true), 404);
+        abort_unless(($operation === 'create') === ($target === null), 404);
         Gate::forUser($actor)->authorize($operation, $target ?? Course::class);
 
         return DB::transaction(function () use ($actor, $target, $operation, $data): Course {
@@ -35,7 +37,11 @@ class ManageCourse
             $coordinatorIds = collect([
                 $data['primary_coordinator_affiliation_id'] ?? null,
                 $data['secondary_coordinator_affiliation_id'] ?? null,
-            ])->filter()->unique()->sort()->values();
+            ])->filter(fn (mixed $id): bool => filter_var($id, FILTER_VALIDATE_INT) !== false)
+                ->map(fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->sort()
+                ->values();
             if ($coordinatorIds->isNotEmpty()) {
                 Affiliation::query()->whereKey($coordinatorIds)->orderBy('id')->lockForUpdate()->get();
             }
@@ -60,7 +66,12 @@ class ManageCourse
                 }
 
                 if (in_array($operation, ['create', 'update'], true)) {
-                    $course->fill($data);
+                    $course->fill(Arr::only($data, [
+                        'name',
+                        'coordination_email',
+                        'primary_coordinator_affiliation_id',
+                        'secondary_coordinator_affiliation_id',
+                    ]));
                 } else {
                     $course->deactivated_at = $operation === 'deactivate' ? now() : null;
                 }

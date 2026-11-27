@@ -200,10 +200,14 @@ Route::middleware(['auth'])->group(function () {
             Route::patch('users/{user}/affiliations/{affiliation}/reactivate', [AdministrativeAffiliationController::class, 'reactivate'])->name('users.affiliations.reactivate');
         });
 
-        Route::post('campuses', [CampusController::class, 'store'])->name('campuses.store');
-        Route::put('campuses/{campus}', [CampusController::class, 'update'])->name('campuses.update');
-        Route::patch('campuses/{campus}/deactivate', [CampusController::class, 'deactivate'])->name('campuses.deactivate');
-        Route::patch('campuses/{campus}/reactivate', [CampusController::class, 'reactivate'])->name('campuses.reactivate');
+        Route::post('campuses', [CampusController::class, 'store'])
+            ->middleware('can:create,'.Campus::class)->name('campuses.store');
+        Route::put('campuses/{campus}', [CampusController::class, 'update'])
+            ->middleware('can:update,campus')->name('campuses.update');
+        Route::patch('campuses/{campus}/deactivate', [CampusController::class, 'deactivate'])
+            ->middleware('can:deactivate,campus')->name('campuses.deactivate');
+        Route::patch('campuses/{campus}/reactivate', [CampusController::class, 'reactivate'])
+            ->middleware('can:reactivate,campus')->name('campuses.reactivate');
     });
 
 });

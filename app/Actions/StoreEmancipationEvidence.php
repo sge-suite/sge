@@ -12,11 +12,11 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Support\CauserResolver;
+use Spatie\MediaLibrary\MediaCollections\Filesystem;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
@@ -51,7 +51,7 @@ class StoreEmancipationEvidence
             });
         } catch (Throwable $exception) {
             if ($media instanceof Media) {
-                Storage::disk('local')->deleteDirectory((string) $media->id);
+                app(Filesystem::class)->removeAllFiles($media);
             }
             if ($exception instanceof ValidationException
                 || $exception instanceof AuthorizationException

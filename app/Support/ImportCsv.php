@@ -238,7 +238,7 @@ abstract class ImportCsv
 
     public function needsEscape(string $value): bool
     {
-        return preg_match('/^(?:[ \t\r\n]*[=+@-]|[\t\r\n])/u', $value) === 1;
+        return preg_match('/^(?:[\t\r\n]|[\p{Z}\p{Cc}\p{Cf}]*[=+\-@＝＋－＠])/u', $value) === 1;
     }
 
     /** @param array{headers: list<string>, rows: list<array<string, mixed>>, separator: string} $import */
