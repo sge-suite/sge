@@ -639,7 +639,7 @@ new #[Title('Solicitação de estágio')] class extends Component
             return false;
         } catch (\Illuminate\Database\QueryException $exception) {
             \Illuminate\Support\Facades\Log::error('Falha ao salvar solicitação de estágio.', ['internship_request_id' => $this->requestId, 'error_code' => $exception->getCode()]);
-            $this->addError('request', $exception->getCode() === '42703' ? 'O banco de dados está desatualizado. Aplique a estrutura das migrations para salvar o pedido de cadastro. Seu preenchimento continua nesta tela.' : 'Não foi possível salvar agora. Seu preenchimento continua nesta tela. Tente novamente.');
+            $this->addError('request', ! app()->isProduction() && $exception->getCode() === '42703' ? 'O banco de dados está desatualizado. Aplique a estrutura das migrations para salvar o pedido de cadastro. Seu preenchimento continua nesta tela.' : 'Não foi possível salvar agora. Seu preenchimento continua nesta tela. Tente novamente.');
             return false;
         }
     }
