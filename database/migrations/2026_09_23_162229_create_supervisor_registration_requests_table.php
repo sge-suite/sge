@@ -27,6 +27,10 @@ return new class extends Migration
             $table->timestamp('reviewed_at')->nullable();
             $table->text('decision_reason')->nullable();
             $table->timestamps();
+
+            $table->index('status');
+            $table->index('cpf');
+            $table->index('supervisor_affiliation_id', 'supervisor_reg_requests_supervisor_aff_idx');
         });
     }
 

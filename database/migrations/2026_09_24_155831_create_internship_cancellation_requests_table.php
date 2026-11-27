@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -23,6 +24,8 @@ return new class extends Migration
 
             $table->index(['internship_id', 'status']);
         });
+
+        DB::statement("CREATE UNIQUE INDEX internship_cancellation_requests_one_pending_unique ON internship_cancellation_requests (internship_id) WHERE status IN ('submitted', 'under_review')");
     }
 
     /**

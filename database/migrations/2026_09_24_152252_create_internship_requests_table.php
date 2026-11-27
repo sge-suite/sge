@@ -51,6 +51,13 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['affiliation_id', 'status']);
+            $table->index('course_id');
+            $table->index('advisor_affiliation_id');
+            $table->index('supervisor_affiliation_id');
+            $table->index('granting_party_id');
+            $table->index('student_address_id');
+            $table->index('workplace_address_id');
+            $table->index('status');
         });
     }
 

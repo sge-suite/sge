@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('internship_types', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('course_id')->constrained()->restrictOnDelete();
+            $table->foreignId('course_id')->index()->constrained()->restrictOnDelete();
             $table->string('name');
             $table->jsonb('allowed_academic_periods');
             $table->unsignedInteger('required_hours');

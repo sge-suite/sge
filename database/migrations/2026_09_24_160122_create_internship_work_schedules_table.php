@@ -17,7 +17,7 @@ return new class extends Migration
             $table->date('starts_on');
             $table->date('ends_on')->nullable();
             $table->jsonb('weekly_hours');
-            $table->foreignId('generated_document_id')->constrained()->restrictOnDelete();
+            $table->foreignId('generated_document_id')->unique()->constrained()->restrictOnDelete();
             $table->timestamps();
 
             $table->index(['internship_id', 'starts_on', 'ends_on']);

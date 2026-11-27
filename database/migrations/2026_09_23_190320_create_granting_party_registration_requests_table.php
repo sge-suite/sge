@@ -38,6 +38,9 @@ return new class extends Migration
             $table->timestamp('reviewed_at')->nullable();
             $table->text('decision_reason')->nullable();
             $table->timestamps();
+
+            $table->index(['campus_id', 'status'], 'granting_party_reg_requests_campus_status_idx');
+            $table->index('granting_party_id', 'granting_party_reg_requests_party_idx');
         });
     }
 

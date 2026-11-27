@@ -48,6 +48,16 @@ return new class extends Migration
             $table->decimal('consolidated_grade', 5, 1)->nullable();
             $table->string('status')->default('pending_formalization');
             $table->timestamps();
+
+            $table->index('course_id');
+            $table->index('student_affiliation_id');
+            $table->index('advisor_affiliation_id');
+            $table->index('supervisor_affiliation_id');
+            $table->index('granting_party_id');
+            $table->index('internship_type_id');
+            $table->index('status');
+            $table->index('student_address_id');
+            $table->index('workplace_address_id');
         });
     }
 

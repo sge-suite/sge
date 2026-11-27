@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -25,6 +26,8 @@ return new class extends Migration
 
             $table->index(['internship_request_id', 'status']);
         });
+
+        DB::statement("CREATE UNIQUE INDEX internship_request_corrections_one_open_unique ON internship_request_corrections (internship_request_id) WHERE status = 'open'");
     }
 
     /**

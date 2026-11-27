@@ -18,6 +18,8 @@ return new class extends Migration
             $table->json('attribute_changes')->nullable();
             $table->json('properties')->nullable();
             $table->timestamps();
+
+            $table->index(['subject_type', 'event', 'subject_id'], 'activity_log_subject_event_id_idx');
         });
     }
 };

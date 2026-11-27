@@ -70,8 +70,8 @@ return new class extends Migration
         Schema::create('holiday_sources', function (Blueprint $table): void {
             $table->id();
             $table->char('source_key', 64)->unique();
-            $table->foreignId('holiday_import_run_id')->constrained()->restrictOnDelete();
-            $table->foreignId('holiday_id')->nullable()->constrained()->restrictOnDelete();
+            $table->foreignId('holiday_import_run_id')->index()->constrained()->restrictOnDelete();
+            $table->foreignId('holiday_id')->nullable()->index()->constrained()->restrictOnDelete();
             $table->string('status')->default('pending')->index();
             $table->jsonb('payload');
             $table->jsonb('candidate_ids')->nullable();

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('affiliations', function (Blueprint $table) {
-            $table->foreignId('course_id')->nullable()->constrained()->restrictOnDelete();
+            $table->foreignId('course_id')->nullable()->index()->constrained()->restrictOnDelete();
         });
     }
 
@@ -23,6 +23,7 @@ return new class extends Migration
     {
         Schema::table('affiliations', function (Blueprint $table) {
             $table->dropForeign(['course_id']);
+            $table->dropIndex(['course_id']);
             $table->dropColumn('course_id');
         });
     }

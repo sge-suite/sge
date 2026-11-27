@@ -20,6 +20,10 @@ return new class extends Migration
             $table->foreignId('secondary_coordinator_affiliation_id')->nullable()->constrained('affiliations')->restrictOnDelete();
             $table->timestamp('deactivated_at')->nullable();
             $table->timestamps();
+
+            $table->index('campus_id');
+            $table->index('primary_coordinator_affiliation_id', 'courses_primary_coord_idx');
+            $table->index('secondary_coordinator_affiliation_id', 'courses_secondary_coord_idx');
         });
     }
 
