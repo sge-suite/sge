@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Enums\AffiliationType;
 use App\Models\Affiliation;
 use App\Models\Campus;
 use App\Models\User;
@@ -67,6 +68,9 @@ class AppServiceProvider extends ServiceProvider
         });
         Gate::policy(Activity::class, ActivityPolicy::class);
         Gate::policy(Campus::class, CampusPolicy::class);
+        Gate::define('manage-backups', function (User $user): bool {
+            return app(ActiveAffiliationContext::class)->currentFor($user, app('session.store'))?->type === AffiliationType::SystemAdministrator;
+        });
         DatabaseNotification::observe(AuditInfrastructureModel::class);
         Media::observe(AuditInfrastructureModel::class);
         Media::observe(ProtectTemplateMedia::class);

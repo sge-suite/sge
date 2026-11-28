@@ -51,7 +51,8 @@ class AdministrativeActivityScope
                                     $this->hasDeletedAdministrativeAccountEvidence($query);
                                 });
                         });
-                });
+                })
+                ->orWhere('log_name', 'backups');
         });
     }
 

@@ -73,7 +73,8 @@
                     || auth()->user()->can('viewAny', \App\Models\Course::class)
                     || auth()->user()->can('viewAny', \App\Models\InternshipType::class)
                     || auth()->user()->can('viewAny', \App\Models\GrantingParty::class)
-                    || auth()->user()->can('viewAny', \App\Models\Holiday::class))
+                    || auth()->user()->can('viewAny', \App\Models\Holiday::class)
+                    || auth()->user()->can('manage-backups'))
                     <flux:sidebar.group heading="Configurações">
                         @can('viewAdministration', \App\Models\Campus::class)
                             <flux:sidebar.item icon="building-office-2" :href="route('campuses.index')" :current="request()->routeIs('campuses.*')" wire:navigate>
@@ -101,6 +102,9 @@
                         @can('viewAny', \App\Models\Holiday::class)
                             <flux:sidebar.item icon="tent-tree" :href="route('holidays.index')" :current="request()->routeIs('holidays.*', 'holiday-recurrences.*', 'holiday-imports.*')" wire:navigate>Feriados</flux:sidebar.item>
                             <flux:sidebar.item icon="calendar-days" :href="route('holiday-requests.index')" :current="request()->routeIs('holiday-requests.*')" wire:navigate>Solicitações de feriado</flux:sidebar.item>
+                        @endcan
+                        @can('manage-backups')
+                            <flux:sidebar.item icon="archive-box" :href="route('backups.index')" :current="request()->routeIs('backups.*')" wire:navigate>Backups</flux:sidebar.item>
                         @endcan
                     </flux:sidebar.group>
                 @endif

@@ -237,7 +237,7 @@
     @elseif ($this->isAdult === false && ($values['legal_capacity_declaration'] ?? '') === 'emancipated_minor')
         <flux:text>Envie o comprovante pelo SGE. Somente você e o Setor autorizado poderão acessá-lo. O envio aguarda análise e não comprova aprovação.</flux:text>
         @can('upload', [\App\Models\EmancipationEvidence::class, $request])
-            <x-file-upload wire:model="evidence" :files="$evidence" label="Comprovante de emancipação" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" description="PDF, JPG ou PNG, até 10 MB. O comprovante será anexado ao salvar esta etapa." :required="$request->emancipationEvidences->isEmpty() || in_array($request->emancipationEvidences->first()?->status, [\App\Enums\EmancipationEvidenceStatus::Returned, \App\Enums\EmancipationEvidenceStatus::Cancelled], true)" preview />
+            <x-file-upload wire:model="evidence" :files="$evidence" label="Comprovante de emancipação" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" :description="'PDF, JPG ou PNG, até '.\App\Actions\StoreEmancipationEvidence::maxSizeMb().' MB. O comprovante será anexado ao salvar esta etapa.'" :required="$request->emancipationEvidences->isEmpty() || in_array($request->emancipationEvidences->first()?->status, [\App\Enums\EmancipationEvidenceStatus::Returned, \App\Enums\EmancipationEvidenceStatus::Cancelled], true)" preview />
             <flux:text size="sm">Um novo comprovante preserva os envios anteriores. Confira o status de cada arquivo abaixo.</flux:text>
         @endcan
         @foreach ($request->emancipationEvidences as $item)

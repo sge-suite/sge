@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdministrativeAffiliationController;
 use App\Http\Controllers\AffiliationSelectionController;
+use App\Http\Controllers\BackupDownloadController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DocumentTemplatePreviewController;
@@ -174,6 +175,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:viewAny,'.Activity::class)->name('audit.index');
         Route::livewire('audit/{activity}', 'pages::audit.show')
             ->middleware('can:view,activity')->name('audit.show');
+
+        Route::middleware(['can:manage-backups', 'password.confirm'])->group(function (): void {
+            Route::livewire('backups', 'pages::backups.index')->name('backups.index');
+            Route::get('backups/{filename}/download', BackupDownloadController::class)
+                ->where('filename', '[A-Za-z0-9._-]+\.zip')
+                ->middleware('throttle:10,1')
+                ->name('backups.download');
+        });
 
         Route::middleware('can:viewAdministration,'.Campus::class)->group(function (): void {
             Route::livewire('campuses', 'pages::campuses.index')->name('campuses.index');

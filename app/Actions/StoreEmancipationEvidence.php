@@ -25,10 +25,15 @@ class StoreEmancipationEvidence
 {
     public function __construct(private StudentInternshipContext $context, private CauserResolver $causerResolver) {}
 
+    public static function maxSizeMb(): int
+    {
+        return max(1, (int) config('media-library.emancipation_evidence_max_mb', 10));
+    }
+
     /** @return array<string, list<string>> */
     public static function validationRules(): array
     {
-        return ['evidence' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'mimetypes:application/pdf,image/jpeg,image/png', 'max:10240']];
+        return ['evidence' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'mimetypes:application/pdf,image/jpeg,image/png', 'max:'.(self::maxSizeMb() * 1024)]];
     }
 
     public function handle(User $actor, int $expectedAffiliationId, InternshipRequest $target, UploadedFile $file): EmancipationEvidence

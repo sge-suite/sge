@@ -10,6 +10,15 @@ use Spatie\Backup\Notifications\Notifications\UnhealthyBackupWasFoundNotificatio
 use Spatie\Backup\Tasks\Cleanup\Strategies\DefaultStrategy;
 use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays;
 use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes;
+use Spatie\DbDumper\Compressors\GzipCompressor;
+
+$backupDisks = array_values(array_filter(array_map('trim', explode(',', (string) env('BACKUP_DISKS', 'backups')))));
+if ($backupDisks === []) {
+    $backupDisks = ['backups'];
+}
+
+$backupName = (string) env('BACKUP_NAME', env('APP_NAME', 'sge'));
+$maxStorageMb = max(1, (int) env('BACKUP_MAX_STORAGE_MB', 5000));
 
 return [
 
@@ -18,7 +27,7 @@ return [
          * The name of this application. You can use this name to monitor
          * the backups.
          */
-        'name' => env('APP_NAME', 'laravel-backup'),
+        'name' => $backupName,
 
         'source' => [
             'files' => [
@@ -39,7 +48,11 @@ return [
                     base_path('.git'),
                     base_path('vendor'),
                     base_path('node_modules'),
+                    storage_path('app/backups'),
                     storage_path('app/backup-temp'),
+                    storage_path('app/private/'.$backupName),
+                    storage_path('app/private/generated-documents-tmp'),
+                    storage_path('app/private/livewire-tmp'),
                     storage_path('framework'),
                     storage_path('logs'),
                 ],
@@ -59,7 +72,7 @@ return [
                  * Set to `null` to include complete absolute path
                  * Example: base_path()
                  */
-                'relative_path' => null,
+                'relative_path' => base_path(),
             ],
 
             /*
@@ -108,7 +121,7 @@ return [
          *
          * If you do not want any compressor at all, set it to null.
          */
-        'database_dump_compressor' => null,
+        'database_dump_compressor' => GzipCompressor::class,
 
         /*
          * If specified, the database dumped file name will contain a timestamp (e.g.: 'Y-m-d-H-i-s').
@@ -166,9 +179,7 @@ return [
             /*
              * The disk names on which the backups will be stored.
              */
-            'disks' => [
-                'local',
-            ],
+            'disks' => $backupDisks,
 
             /*
              * Determines whether to allow backups to continue when some targets fail instead of failing completely.
@@ -206,13 +217,13 @@ return [
         /*
          * The number of attempts, in case the backup command encounters an exception
          */
-        'tries' => 1,
+        'tries' => 2,
 
         /*
          * The number of seconds to wait before attempting a new backup if the previous try failed
          * Set to `0` for none
          */
-        'retry_delay' => 0,
+        'retry_delay' => 10,
     ],
 
     /*
@@ -227,9 +238,9 @@ return [
             BackupHasFailedNotification::class => ['mail'],
             UnhealthyBackupWasFoundNotification::class => ['mail'],
             CleanupHasFailedNotification::class => ['mail'],
-            BackupWasSuccessfulNotification::class => ['mail'],
-            HealthyBackupWasFoundNotification::class => ['mail'],
-            CleanupWasSuccessfulNotification::class => ['mail'],
+            BackupWasSuccessfulNotification::class => [],
+            HealthyBackupWasFoundNotification::class => [],
+            CleanupWasSuccessfulNotification::class => [],
         ],
 
         /*
@@ -299,11 +310,11 @@ return [
      */
     'monitor_backups' => [
         [
-            'name' => env('APP_NAME', 'laravel-backup'),
-            'disks' => ['local'],
+            'name' => $backupName,
+            'disks' => $backupDisks,
             'health_checks' => [
                 MaximumAgeInDays::class => 1,
-                MaximumStorageInMegabytes::class => 5000,
+                MaximumStorageInMegabytes::class => $maxStorageMb,
             ],
         ],
 
@@ -368,19 +379,19 @@ return [
              * this amount of megabytes has been reached.
              * Set null for unlimited size.
              */
-            'delete_oldest_backups_when_using_more_megabytes_than' => 5000,
+            'delete_oldest_backups_when_using_more_megabytes_than' => $maxStorageMb,
         ],
 
         /*
          * The number of attempts, in case the cleanup command encounters an exception
          */
-        'tries' => 1,
+        'tries' => 2,
 
         /*
          * The number of seconds to wait before attempting a new cleanup if the previous try failed
          * Set to `0` for none
          */
-        'retry_delay' => 0,
+        'retry_delay' => 10,
     ],
 
 ];

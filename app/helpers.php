@@ -10,6 +10,7 @@ use App\Helpers\DateHelper;
 use App\Helpers\DigitsHelper;
 use App\Helpers\NumberToWordsHelper;
 use Brick\Math\BigDecimal;
+use Illuminate\Support\Number;
 
 if (! function_exists('formatDate')) {
     function formatDate(string|DateTimeInterface|null $date): string
@@ -113,5 +114,16 @@ if (! function_exists('formatCep')) {
     function formatCep(?string $value): string
     {
         return BrazilianAddressHelper::formatCep($value);
+    }
+}
+
+if (! function_exists('formatFileSize')) {
+    function formatFileSize(int|float|null $bytes, int $precision = 1): string
+    {
+        if ($bytes === null) {
+            return '-';
+        }
+
+        return Number::fileSize($bytes, precision: $precision);
     }
 }
